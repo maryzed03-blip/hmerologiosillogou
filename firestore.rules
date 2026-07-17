@@ -1,0 +1,23 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /bookings/{dateId} {
+      allow read: if request.auth != null;
+
+      allow create: if request.auth != null
+        && request.resource.data.owner_uid == request.auth.uid
+        && request.resource.data.booking_date == dateId
+        && request.resource.data.therapist_name is string
+        && request.resource.data.therapist_name.size() >= 2;
+
+      allow update: if request.auth != null
+        && resource.data.owner_uid == request.auth.uid
+        && request.resource.data.owner_uid == resource.data.owner_uid
+        && request.resource.data.booking_date == resource.data.booking_date;
+
+      allow delete: if request.auth != null
+        && resource.data.owner_uid == request.auth.uid;
+    }
+  }
+}
