@@ -24,6 +24,7 @@ type Booking = {
   description: string | null;
   owner_uid: string;
   status: BookingStatus;
+  is_public: boolean;
 };
 
 type MonthItem = {
@@ -46,6 +47,7 @@ const STATIC_BOOKINGS: Booking[] = [
     description: "Πραγματοποιημένη δράση συλλόγου. Η ημερομηνία παραμένει ως ιστορική αναφορά.",
     owner_uid: "static-completed-event",
     status: "completed",
+    is_public: true,
   },
 ];
 
@@ -92,6 +94,7 @@ function bookingFromSnapshot(snapshot: QueryDocumentSnapshot<DocumentData>): Boo
     description: typeof data.description === "string" ? data.description : null,
     owner_uid: String(data.owner_uid ?? ""),
     status: data.status === "completed" ? "completed" : "booked",
+    is_public: data.is_public === true,
   };
 }
 
@@ -141,6 +144,7 @@ async function notifyAdmin(action: NotificationAction, booking: Booking) {
         action_time: booking.action_time,
         topic: booking.topic,
         description: booking.description,
+        is_public: booking.is_public,
       }),
     });
 
@@ -156,7 +160,91 @@ async function notifyAdmin(action: NotificationAction, booking: Booking) {
   }
 }
 
-export default function App() {
+
+const MANAGE_ACCESS_KEY = "association-manage-unlocked";
+const MANAGE_CODE = "1111";
+
+function ManageAccess() {
+  const [unlocked, setUnlocked] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.sessionStorage.getItem(MANAGE_ACCESS_KEY) === "yes";
+  });
+  const [code, setCode] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  function handleUnlock(event: FormEvent) {
+    event.preventDefault();
+    if (code.trim() !== MANAGE_CODE) {
+      setError("Ο κωδικός δεν είναι σωστός.");
+      setCode("");
+      return;
+    }
+
+    window.sessionStorage.setItem(MANAGE_ACCESS_KEY, "yes");
+    setUnlocked(true);
+    setError(null);
+  }
+
+  if (unlocked) {
+    return (
+      <>
+        <ManageApp />
+        <button
+          type="button"
+          onClick={() => {
+            window.sessionStorage.removeItem(MANAGE_ACCESS_KEY);
+            setUnlocked(false);
+          }}
+          className="fixed bottom-4 right-4 z-40 rounded-full border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-600 shadow-lg hover:bg-slate-50"
+        >
+          Έξοδος από τη διαχείριση
+        </button>
+      </>
+    );
+  }
+
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-slate-100 px-4 py-10 text-slate-900">
+      <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-xl sm:p-8">
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Περιοχή μελών</p>
+        <h1 className="mt-2 text-2xl font-semibold">Διαχείριση ημερολογίου</h1>
+        <p className="mt-2 text-sm leading-6 text-slate-600">
+          Πληκτρολογήστε τον κωδικό για να ανοίξετε το ημερολόγιο διαθεσιμότητας.
+        </p>
+
+        <form onSubmit={handleUnlock} className="mt-6 space-y-4">
+          <div>
+            <label htmlFor="manage-code" className="mb-1.5 block text-sm font-medium">Κωδικός</label>
+            <input
+              id="manage-code"
+              type="password"
+              inputMode="numeric"
+              autoComplete="current-password"
+              value={code}
+              onChange={(event) => setCode(event.target.value)}
+              autoFocus
+              required
+              className="w-full rounded-xl border border-slate-300 px-4 py-3 text-center text-xl tracking-[0.4em] focus:border-emerald-500 focus:outline-none"
+              placeholder="••••"
+            />
+          </div>
+
+          {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+
+          <button type="submit" className="w-full rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white hover:bg-emerald-700">
+            Είσοδος
+          </button>
+        </form>
+
+        <a href="/events" className="mt-5 block text-center text-xs font-medium text-slate-500 hover:text-emerald-700">
+          Επιστροφή στο δημόσιο πρόγραμμα
+        </a>
+      </div>
+    </div>
+  );
+}
+
+function ManageApp() {
   const [activeMonth, setActiveMonth] = useState(MONTHS[0].key);
   const [bookings, setBookings] = useState<Booking[]>(STATIC_BOOKINGS);
   const [loading, setLoading] = useState(true);
@@ -248,6 +336,12 @@ export default function App() {
             Επιλέξτε μια ελεύθερη ημερομηνία για να δηλώσετε σεμινάριο ή βιωματικό εργαστήριο.
             Οι πράσινες ημερομηνίες έχουν ήδη δεσμευτεί και οι λιλά έχουν ήδη πραγματοποιηθεί.
           </p>
+          <a
+            href="/events"
+            className="mt-4 inline-flex items-center rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-emerald-400 hover:text-emerald-800"
+          >
+            Προβολή δημόσιου προγράμματος
+          </a>
         </div>
       </header>
 
@@ -416,6 +510,379 @@ export default function App() {
   );
 }
 
+
+function PublicEventsApp() {
+  const [activeMonth, setActiveMonth] = useState(MONTHS[0].key);
+  const [bookings, setBookings] = useState<Booking[]>(STATIC_BOOKINGS);
+  const [loading, setLoading] = useState(true);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
+  const [viewBooking, setViewBooking] = useState<Booking | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    let stopRealtime: (() => void) | undefined;
+
+    ensureAnonymousUser()
+      .then(() => {
+        if (cancelled) return;
+        stopRealtime = onSnapshot(
+          collection(db, "bookings"),
+          (snapshot) => {
+            if (cancelled) return;
+            setBookings(mergeBookings(snapshot.docs.map(bookingFromSnapshot)));
+            setConnectionError(null);
+            setLoading(false);
+          },
+          (error: FirestoreError) => {
+            if (cancelled) return;
+            setBookings(STATIC_BOOKINGS);
+            setConnectionError(firebaseMessage(error, "Δεν ήταν δυνατή η φόρτωση του δημόσιου προγράμματος."));
+            setLoading(false);
+          },
+        );
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        setBookings(STATIC_BOOKINGS);
+        setConnectionError(firebaseMessage(error, "Δεν ήταν δυνατή η σύνδεση με το δημόσιο πρόγραμμα."));
+        setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+      stopRealtime?.();
+    };
+  }, []);
+
+  const publicBookings = useMemo(
+    () => bookings.filter((booking) => booking.is_public).sort((a, b) => a.booking_date.localeCompare(b.booking_date)),
+    [bookings],
+  );
+
+  const publicBookingsByDate = useMemo(() => {
+    const map = new Map<string, Booking>();
+    for (const booking of publicBookings) map.set(booking.booking_date, booking);
+    return map;
+  }, [publicBookings]);
+
+  const month = MONTHS.find((item) => item.key === activeMonth) ?? MONTHS[0];
+  const calendarCells = useMemo(() => {
+    const firstDay = new Date(month.year, month.month, 1);
+    const daysInMonth = new Date(month.year, month.month + 1, 0).getDate();
+    const startOffset = (firstDay.getDay() + 6) % 7;
+    const cells: Array<number | null> = [];
+    for (let i = 0; i < startOffset; i += 1) cells.push(null);
+    for (let day = 1; day <= daysInMonth; day += 1) cells.push(day);
+    while (cells.length % 7 !== 0) cells.push(null);
+    return cells;
+  }, [month]);
+
+  const monthEvents = publicBookings.filter((booking) => booking.booking_date.startsWith(month.key));
+
+  return (
+    <div className="min-h-screen bg-slate-50 text-slate-900">
+      <header className="border-b border-slate-200 bg-white">
+        <div className="mx-auto max-w-6xl px-4 py-7 sm:px-6">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">Δημόσιο πρόγραμμα δράσεων</p>
+          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Σεμινάρια & Βιωματικά Εργαστήρια</h1>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+            Δείτε τις προγραμματισμένες και τις πραγματοποιημένες δράσεις του συλλόγου. Οι κενές ημερομηνίες δεν εμφανίζουν διαθεσιμότητα ή δυνατότητα καταχώρισης.
+          </p>
+          <a
+            href="/manage"
+            className="mt-4 inline-flex items-center rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-600 hover:border-emerald-400 hover:text-emerald-800"
+          >
+            Manage
+          </a>
+        </div>
+      </header>
+
+      <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
+        {connectionError && (
+          <div className="mb-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+            <strong className="font-semibold">Πρόβλημα σύνδεσης:</strong> {connectionError}
+          </div>
+        )}
+
+        <nav aria-label="Επιλογή μήνα" className="mb-6 flex gap-2 overflow-x-auto pb-2">
+          {MONTHS.map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              onClick={() => setActiveMonth(item.key)}
+              className={
+                "shrink-0 rounded-full border px-4 py-2 text-sm font-medium transition " +
+                (activeMonth === item.key
+                  ? "border-sky-600 bg-sky-600 text-white shadow-sm"
+                  : "border-slate-300 bg-white text-slate-700 hover:border-sky-400 hover:text-sky-800")
+              }
+            >
+              {item.label}
+            </button>
+          ))}
+        </nav>
+
+        <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+          <div className="flex items-center justify-between border-b border-slate-200 px-4 py-4 sm:px-5">
+            <h2 className="text-lg font-semibold">{month.label}</h2>
+            <span className="text-xs text-slate-500">{loading ? "Φόρτωση…" : `${monthEvents.length} δράσεις`}</span>
+          </div>
+
+          <div className="overflow-x-auto p-3 sm:p-5">
+            <div className="min-w-[630px]">
+              <div className="mb-2 grid grid-cols-7 gap-1.5 text-center text-xs font-semibold text-slate-500">
+                {WEEKDAYS.map((weekday) => <div key={weekday} className="py-1.5">{weekday}</div>)}
+              </div>
+              <div className="grid grid-cols-7 gap-1.5">
+                {calendarCells.map((day, index) => {
+                  if (day === null) return <div key={`empty-${index}`} className="h-28 rounded-lg bg-slate-50/70" />;
+                  const date = toDateString(month.year, month.month, day);
+                  const booking = publicBookingsByDate.get(date);
+                  const isCompleted = booking?.status === "completed";
+                  return (
+                    <button
+                      key={date}
+                      type="button"
+                      disabled={!booking}
+                      onClick={() => booking && setViewBooking(booking)}
+                      className={
+                        "flex h-28 flex-col items-start rounded-lg border p-2.5 text-left transition " +
+                        (booking
+                          ? isCompleted
+                            ? "border-violet-400 bg-violet-100 hover:bg-violet-200"
+                            : "border-sky-500 bg-sky-100 hover:bg-sky-200"
+                          : "cursor-default border-slate-100 bg-slate-50 text-slate-400")
+                      }
+                    >
+                      <span className={`text-sm font-bold ${booking ? (isCompleted ? "text-violet-950" : "text-sky-950") : "text-slate-400"}`}>{day}</span>
+                      {booking && (
+                        <>
+                          <span className={`mt-1 text-[10px] font-semibold uppercase tracking-wide ${isCompleted ? "text-violet-700" : "text-sky-700"}`}>
+                            {isCompleted ? "Πραγματοποιήθηκε" : "Προσεχώς"}
+                          </span>
+                          <span className={`mt-1 line-clamp-3 text-xs font-semibold leading-4 ${isCompleted ? "text-violet-950" : "text-sky-950"}`}>
+                            {booking.topic || "Δράση συλλόγου"}
+                          </span>
+                          {booking.action_time && <span className="mt-1 text-[11px] text-slate-700">{booking.action_time}</span>}
+                        </>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="mt-8">
+          <div className="mb-4 flex items-end justify-between gap-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-700">Αναλυτικά</p>
+              <h2 className="mt-1 text-xl font-semibold">Δράσεις του μήνα</h2>
+            </div>
+          </div>
+
+          {monthEvents.length === 0 ? (
+            <div className="rounded-xl border border-slate-200 bg-white px-5 py-8 text-center text-sm text-slate-500">
+              Δεν υπάρχουν δημοσιευμένες δράσεις για αυτόν τον μήνα.
+            </div>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2">
+              {monthEvents.map((booking) => (
+                <button
+                  key={booking.id}
+                  type="button"
+                  onClick={() => setViewBooking(booking)}
+                  className={`rounded-xl border bg-white p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${booking.status === "completed" ? "border-violet-200" : "border-sky-200"}`}
+                >
+                  <p className={`text-xs font-semibold uppercase tracking-wide ${booking.status === "completed" ? "text-violet-700" : "text-sky-700"}`}>
+                    {booking.status === "completed" ? "Πραγματοποιήθηκε" : "Προσεχώς"}
+                  </p>
+                  <h3 className="mt-2 text-lg font-semibold leading-6">{booking.topic || "Δράση συλλόγου"}</h3>
+                  <p className="mt-2 text-sm font-medium capitalize text-slate-700">{formatDateGreek(booking.booking_date)}</p>
+                  <p className="mt-1 text-sm text-slate-600">{booking.action_time || "Η ώρα θα ανακοινωθεί"}</p>
+                  {booking.description && <p className="mt-3 line-clamp-3 text-sm leading-6 text-slate-600">{booking.description}</p>}
+                </button>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <FriendOfAssociationSection />
+      </main>
+
+      {viewBooking && <PublicBookingDetails booking={viewBooking} onClose={() => setViewBooking(null)} />}
+    </div>
+  );
+}
+
+
+type FriendFormValues = {
+  fullName: string;
+  email: string;
+  phone: string;
+  profession: string;
+};
+
+function FriendOfAssociationSection() {
+  const [values, setValues] = useState<FriendFormValues>({
+    fullName: "",
+    email: "",
+    phone: "",
+    profession: "",
+  });
+  const [website, setWebsite] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
+
+  function updateValue(field: keyof FriendFormValues, value: string) {
+    setValues((previous) => ({ ...previous, [field]: value }));
+  }
+
+  async function handleSubmit(event: FormEvent) {
+    event.preventDefault();
+    setNotice(null);
+
+    if (values.fullName.trim().length < 2) {
+      setNotice({ ok: false, text: "Συμπληρώστε το ονοματεπώνυμό σας." });
+      return;
+    }
+
+    if (!/^\S+@\S+\.\S+$/.test(values.email.trim())) {
+      setNotice({ ok: false, text: "Συμπληρώστε μια έγκυρη διεύθυνση email." });
+      return;
+    }
+
+    if (values.phone.trim().length < 6 || values.profession.trim().length < 2) {
+      setNotice({ ok: false, text: "Συμπληρώστε τον αριθμό τηλεφώνου και το επάγγελμά σας." });
+      return;
+    }
+
+    setSubmitting(true);
+
+    try {
+      const response = await fetch("/api/send-friend-request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...values, website }),
+      });
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw Object.assign(new Error("REQUEST_FAILED"), {
+          code: typeof payload.code === "string" ? payload.code : `HTTP_${response.status}`,
+        });
+      }
+
+      setValues({ fullName: "", email: "", phone: "", profession: "" });
+      setWebsite("");
+      setNotice({
+        ok: true,
+        text: "Το ενδιαφέρον σας στάλθηκε στον Σύλλογο. Θα επικοινωνήσουμε μαζί σας για την ολοκλήρωση της εγγραφής.",
+      });
+    } catch (error) {
+      const code = (error as { code?: string } | null)?.code;
+      setNotice({
+        ok: false,
+        text: `Δεν ήταν δυνατή η αποστολή της φόρμας${code ? ` (${code})` : ""}. Δοκιμάστε ξανά.`,
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  const fieldClass = "w-full rounded-xl border border-slate-300 bg-white px-3.5 py-3 text-sm focus:border-rose-500 focus:outline-none";
+
+  return (
+    <section className="mt-10 overflow-hidden rounded-2xl border border-rose-200 bg-white shadow-sm">
+      <div className="bg-rose-50 px-5 py-6 sm:px-8 sm:py-8">
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-rose-700">Στήριξε τις δράσεις μας</p>
+        <h2 className="mt-2 text-2xl font-semibold text-slate-900">Γίνε Φίλος του Συλλόγου μας!</h2>
+
+        <div className="mt-4 max-w-4xl space-y-3 text-sm leading-6 text-slate-700 sm:text-base sm:leading-7">
+          <p>Οι περισσότερες δράσεις και τα σεμινάρια που διοργανώνουμε προσφέρονται δωρεάν, με στόχο να είναι ανοιχτά και προσβάσιμα σε όσο το δυνατόν περισσότερους ανθρώπους.</p>
+          <p>Για να μπορούμε όμως να συνεχίζουμε, να οργανώνουμε νέες δράσεις και να δίνουμε μεγαλύτερη εξωστρέφεια στο έργο του Συλλόγου, χρειαζόμαστε τη στήριξη ανθρώπων που πιστεύουν σε αυτή την προσπάθεια.</p>
+          <p>Με μόλις <strong>10 ευρώ τον χρόνο</strong>, μπορείς να γίνεις <strong>Φίλος του Συλλόγου</strong> και να συμβάλεις ουσιαστικά στη συνέχιση και την ανάπτυξη των δράσεών μας.</p>
+          <p>Το ποσό είναι μικρό, αλλά η συμμετοχή και η στήριξη κάθε ανθρώπου έχουν πραγματική αξία για εμάς.</p>
+          <p className="font-semibold text-rose-900">Γίνε κι εσύ μέρος αυτής της προσπάθειας. Γίνε Φίλος του Συλλόγου!</p>
+        </div>
+      </div>
+
+      <div className="px-5 py-6 sm:px-8 sm:py-8">
+        <h3 className="text-lg font-semibold">Εκδήλωση ενδιαφέροντος</h3>
+        <p className="mt-1 text-sm leading-6 text-slate-600">Συμπλήρωσε τα στοιχεία σου και ο Σύλλογος θα επικοινωνήσει μαζί σου για το επόμενο βήμα.</p>
+
+        <form onSubmit={handleSubmit} className="mt-5 grid gap-4 sm:grid-cols-2">
+          <div>
+            <label htmlFor="friend-full-name" className="mb-1.5 block text-sm font-medium">Ονοματεπώνυμο</label>
+            <input id="friend-full-name" value={values.fullName} onChange={(event) => updateValue("fullName", event.target.value)} required maxLength={160} className={fieldClass} />
+          </div>
+          <div>
+            <label htmlFor="friend-email" className="mb-1.5 block text-sm font-medium">Email</label>
+            <input id="friend-email" type="email" value={values.email} onChange={(event) => updateValue("email", event.target.value)} required maxLength={220} className={fieldClass} />
+          </div>
+          <div>
+            <label htmlFor="friend-phone" className="mb-1.5 block text-sm font-medium">Αριθμός τηλεφώνου</label>
+            <input id="friend-phone" type="tel" value={values.phone} onChange={(event) => updateValue("phone", event.target.value)} required maxLength={60} className={fieldClass} />
+          </div>
+          <div>
+            <label htmlFor="friend-profession" className="mb-1.5 block text-sm font-medium">Επάγγελμα</label>
+            <input id="friend-profession" value={values.profession} onChange={(event) => updateValue("profession", event.target.value)} required maxLength={160} className={fieldClass} />
+          </div>
+
+          <div aria-hidden="true" className="absolute -left-[10000px] h-px w-px overflow-hidden">
+            <label htmlFor="friend-website">Website</label>
+            <input id="friend-website" tabIndex={-1} autoComplete="off" value={website} onChange={(event) => setWebsite(event.target.value)} />
+          </div>
+
+          {notice && (
+            <p className={`rounded-lg px-3 py-2.5 text-sm sm:col-span-2 ${notice.ok ? "bg-emerald-50 text-emerald-800" : "bg-red-50 text-red-700"}`}>
+              {notice.text}
+            </p>
+          )}
+
+          <div className="flex flex-col gap-3 sm:col-span-2 sm:flex-row sm:items-center sm:justify-between">
+            <p className="max-w-2xl text-xs leading-5 text-slate-500">Τα στοιχεία χρησιμοποιούνται μόνο για να επικοινωνήσει μαζί σας ο Σύλλογος σχετικά με την εγγραφή σας ως Φίλος.</p>
+            <button type="submit" disabled={submitting} className="rounded-xl bg-rose-700 px-5 py-3 text-sm font-semibold text-white hover:bg-rose-800 disabled:cursor-wait disabled:opacity-60">
+              {submitting ? "Αποστολή…" : "Θέλω να γίνω Φίλος"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </section>
+  );
+}
+
+function PublicBookingDetails({ booking, onClose }: { booking: Booking; onClose: () => void }) {
+  const isCompleted = booking.status === "completed";
+  return (
+    <Modal onClose={onClose}>
+      <p className={`text-xs font-semibold uppercase tracking-wide ${isCompleted ? "text-violet-700" : "text-sky-700"}`}>
+        {isCompleted ? "Πραγματοποιημένη δράση" : "Προσεχής δράση"}
+      </p>
+      <h3 className="mt-2 text-xl font-semibold leading-7">{booking.topic || "Δράση συλλόγου"}</h3>
+      <p className="mt-2 text-sm capitalize text-slate-600">{formatDateGreek(booking.booking_date)}</p>
+
+      <dl className="mt-6 space-y-4 text-sm">
+        <DetailRow label="Ώρα" value={booking.action_time} />
+        <DetailRow label="Συντονιστές" value={booking.therapist_name} />
+        <DetailRow label="Περιγραφή" value={booking.description} />
+      </dl>
+
+      <div className="mt-6 flex justify-end">
+        <button type="button" onClick={onClose} className="rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800">
+          Κλείσιμο
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
+export default function App() {
+  const path = typeof window === "undefined" ? "/manage" : window.location.pathname.replace(/\/+$/, "") || "/";
+  return path === "/events" ? <PublicEventsApp /> : <ManageAccess />;
+}
+
 function formatDateGreek(isoDate: string) {
   const [year, month, day] = isoDate.split("-").map(Number);
   const date = new Date(year, month - 1, day);
@@ -450,6 +917,7 @@ function BookingForm({
   const [laterTime, setLaterTime] = useState(existing ? existing.action_time === null : false);
   const [laterTopic, setLaterTopic] = useState(existing ? existing.topic === null : false);
   const [laterDescription, setLaterDescription] = useState(existing ? existing.description === null : false);
+  const [isPublic, setIsPublic] = useState(existing?.is_public ?? false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -458,6 +926,11 @@ function BookingForm({
 
     if (name.trim().length < 2) {
       setError("Συμπληρώστε το ονοματεπώνυμο του θεραπευτή.");
+      return;
+    }
+
+    if (isPublic && (laterTime || !time.trim() || laterTopic || !topic.trim())) {
+      setError("Για να εμφανιστεί η δράση στο δημόσιο πρόγραμμα, συμπληρώστε τουλάχιστον την ώρα και το θέμα.");
       return;
     }
 
@@ -474,6 +947,7 @@ function BookingForm({
         topic: laterTopic ? null : topic.trim() || null,
         description: laterDescription ? null : description.trim() || null,
         status: "booked" as BookingStatus,
+        is_public: isPublic,
       };
 
       if (existing) {
@@ -585,6 +1059,19 @@ function BookingForm({
           placeholder="Λίγες πληροφορίες για το περιεχόμενο της δράσης"
           textarea
         />
+
+        <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-sky-200 bg-sky-50 px-3 py-3 text-sm leading-5 text-sky-950">
+          <input
+            type="checkbox"
+            checked={isPublic}
+            onChange={(event) => setIsPublic(event.target.checked)}
+            className="mt-0.5 h-4 w-4 accent-sky-600"
+          />
+          <span>
+            <strong className="block font-semibold">Να εμφανίζεται στο δημόσιο πρόγραμμα</strong>
+            <span className="mt-0.5 block text-xs text-sky-800">Η δράση θα εμφανίζεται στον σύνδεσμο /events. Για δημοσίευση χρειάζονται ώρα και θέμα.</span>
+          </span>
+        </label>
 
         {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
 
@@ -734,6 +1221,7 @@ function BookingDetails({
         <DetailRow label="Ώρα" value={booking.action_time} />
         <DetailRow label="Θέμα" value={booking.topic} />
         <DetailRow label="Περιγραφή" value={booking.description} />
+        {!isCompleted && <DetailRow label="Δημόσιο πρόγραμμα" value={booking.is_public ? "Εμφανίζεται δημόσια" : "Δεν εμφανίζεται δημόσια"} />}
       </dl>
 
       {!canManage && !isCompleted && (

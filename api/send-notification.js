@@ -65,6 +65,7 @@ export default async function handler(request, response) {
   const actionTime = clean(body.action_time, 100) || "Δεν έχει συμπληρωθεί";
   const topic = clean(body.topic, 500) || "Δεν έχει συμπληρωθεί";
   const description = clean(body.description, 3000) || "Δεν έχει συμπληρωθεί";
+  const publicStatus = body.is_public === true ? "Ναι" : "Όχι";
 
   if (!bookingDate || therapistName.length < 2) {
     return response.status(400).json({ error: "Missing required fields", code: "INVALID_PAYLOAD" });
@@ -97,6 +98,7 @@ export default async function handler(request, response) {
     `Ώρα: ${actionTime}`,
     `Θέμα: ${topic}`,
     `Περιγραφή: ${description}`,
+    `Εμφάνιση στο δημόσιο πρόγραμμα: ${publicStatus}`,
     `Η αλλαγή καταγράφηκε: ${changedAt}`,
   ].join("\n");
 
@@ -109,6 +111,7 @@ export default async function handler(request, response) {
         <tr><td style="padding:8px 0;font-weight:700">Ώρα</td><td>${escapeHtml(actionTime)}</td></tr>
         <tr><td style="padding:8px 0;font-weight:700">Θέμα</td><td>${escapeHtml(topic)}</td></tr>
         <tr><td style="padding:8px 0;font-weight:700;vertical-align:top">Περιγραφή</td><td>${escapeHtml(description).replaceAll("\n", "<br>")}</td></tr>
+        <tr><td style="padding:8px 0;font-weight:700">Δημόσιο πρόγραμμα</td><td>${escapeHtml(publicStatus)}</td></tr>
       </table>
       <p style="margin-top:20px;color:#667085;font-size:13px">Η αλλαγή καταγράφηκε: ${escapeHtml(changedAt)}</p>
     </div>`;

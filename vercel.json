@@ -2,5 +2,9 @@
   "framework": "vite",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
-  "installCommand": "npm install --no-audit --no-fund --registry=https://registry.npmjs.org/"
+  "installCommand": "npm install --no-audit --no-fund --registry=https://registry.npmjs.org/",
+  "rewrites": [
+    { "source": "/manage/:path*", "destination": "/index.html" },
+    { "source": "/events/:path*", "destination": "/index.html" }
+  ]
 }
