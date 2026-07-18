@@ -65,9 +65,16 @@ function firebaseMessage(error: unknown, fallback: string) {
   switch (code) {
     case "auth/operation-not-allowed":
       return "Η ανώνυμη σύνδεση δεν έχει ενεργοποιηθεί στο Firebase Authentication.";
+    case "auth/unauthorized-domain":
+      return "Το domain του Vercel δεν έχει προστεθεί στα Authorized domains του Firebase Authentication.";
+    case "auth/configuration-not-found":
+      return "Δεν έχει ολοκληρωθεί η ρύθμιση του Firebase Authentication για αυτή την εφαρμογή.";
     case "permission-denied":
     case "firestore/permission-denied":
       return "Το Firebase απέρριψε την ενέργεια. Έλεγξε αν δημοσίευσες τους κανόνες Firestore.";
+    case "failed-precondition":
+    case "firestore/failed-precondition":
+      return "Δεν έχει δημιουργηθεί σωστά η βάση Firestore ή λείπει κάποια απαραίτητη ρύθμιση.";
     case "unavailable":
     case "firestore/unavailable":
       return "Δεν υπάρχει σύνδεση με τη βάση αυτή τη στιγμή. Έλεγξε το internet και δοκίμασε ξανά.";
@@ -242,12 +249,11 @@ export default function App() {
                     <button
                       key={date}
                       type="button"
-                      disabled={loading || Boolean(connectionError)}
                       onClick={() =>
                         booking ? setViewBooking(booking) : setSelectedDate(date)
                       }
                       className={
-                        "flex h-24 flex-col items-start rounded-lg border p-2.5 text-left transition disabled:cursor-not-allowed disabled:opacity-60 " +
+                        "flex h-24 flex-col items-start rounded-lg border p-2.5 text-left transition " +
                         (isBooked
                           ? "border-emerald-500 bg-emerald-100 hover:bg-emerald-200"
                           : "border-slate-200 bg-white hover:border-emerald-400 hover:bg-emerald-50")
@@ -301,6 +307,7 @@ export default function App() {
         <BookingForm
           date={selectedDate}
           onClose={() => setSelectedDate(null)}
+          connectionError={connectionError}
           onSaved={(booking) => {
             setBookings((previous) => [
               ...previous.filter(
@@ -340,6 +347,7 @@ export default function App() {
         <BookingForm
           date={editBooking.booking_date}
           existing={editBooking}
+          connectionError={connectionError}
           onClose={() => setEditBooking(null)}
           onSaved={(booking) => {
             setBookings((previous) => [
@@ -369,11 +377,13 @@ function formatDateGreek(isoDate: string) {
 function BookingForm({
   date,
   existing,
+  connectionError,
   onClose,
   onSaved,
 }: {
   date: string;
   existing?: Booking;
+  connectionError?: string | null;
   onClose: () => void;
   onSaved: (booking: Booking) => void;
 }) {
@@ -487,6 +497,12 @@ function BookingForm({
       <p className="mb-5 mt-1 text-sm capitalize text-slate-600">
         {formatDateGreek(date)}
       </p>
+
+      {connectionError && (
+        <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs leading-5 text-amber-900">
+          Μπορείτε να συμπληρώσετε τη φόρμα, αλλά η αποθήκευση θα λειτουργήσει μόνο όταν διορθωθεί η σύνδεση με το Firebase. {connectionError}
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
