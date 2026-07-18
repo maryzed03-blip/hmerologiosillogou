@@ -3,8 +3,6 @@ import {
   deleteDoc,
   doc,
   onSnapshot,
-  orderBy,
-  query,
   runTransaction,
   serverTimestamp,
   updateDoc,
@@ -15,6 +13,8 @@ import {
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { db, ensureAnonymousUser } from "./firebase";
 
+type BookingStatus = "booked" | "completed";
+
 type Booking = {
   id: string;
   booking_date: string;
@@ -23,18 +23,57 @@ type Booking = {
   topic: string | null;
   description: string | null;
   owner_uid: string;
+  status: BookingStatus;
 };
 
-const MONTHS = [
-  { key: "2026-10", label: "Οκτώβριος 2026", year: 2026, month: 9 },
-  { key: "2026-11", label: "Νοέμβριος 2026", year: 2026, month: 10 },
-  { key: "2026-12", label: "Δεκέμβριος 2026", year: 2026, month: 11 },
-  { key: "2027-01", label: "Ιανουάριος 2027", year: 2027, month: 0 },
-  { key: "2027-02", label: "Φεβρουάριος 2027", year: 2027, month: 1 },
-] as const;
+type MonthItem = {
+  key: string;
+  label: string;
+  year: number;
+  month: number;
+};
 
-const WEEKDAYS = ["Δευ", "Τρί", "Τετ", "Πέμ", "Παρ", "Σάβ", "Κυρ"];
 const PLACEHOLDER = "Θα συμπληρωθεί αργότερα";
+const WEEKDAYS = ["Δευ", "Τρί", "Τετ", "Πέμ", "Παρ", "Σάβ", "Κυρ"];
+
+const STATIC_BOOKINGS: Booking[] = [
+  {
+    id: "2026-07-05",
+    booking_date: "2026-07-05",
+    therapist_name: "Ευαγγελία Ξανθοπούλου, Μαρία Ζάχου",
+    action_time: "19:30 – 21:30",
+    topic: "Από την εσωτερική ησυχία στην αυθεντική συνάντηση",
+    description: "Πραγματοποιημένη δράση συλλόγου. Η ημερομηνία παραμένει ως ιστορική αναφορά.",
+    owner_uid: "static-completed-event",
+    status: "completed",
+  },
+];
+
+function buildMonths(startYear: number, startMonth: number, endYear: number, endMonth: number): MonthItem[] {
+  const result: MonthItem[] = [];
+  const current = new Date(startYear, startMonth, 1);
+  const end = new Date(endYear, endMonth, 1);
+
+  while (current <= end) {
+    const year = current.getFullYear();
+    const month = current.getMonth();
+    result.push({
+      key: `${year}-${String(month + 1).padStart(2, "0")}`,
+      label: current.toLocaleDateString("el-GR", {
+        month: "long",
+        year: "numeric",
+      }).replace(/^./, (m) => m.toUpperCase()),
+      year,
+      month,
+    });
+
+    current.setMonth(current.getMonth() + 1);
+  }
+
+  return result;
+}
+
+const MONTHS = buildMonths(2026, 6, 2027, 7); // Ιούλιος 2026 έως Αύγουστος 2027
 
 function toDateString(year: number, month: number, day: number) {
   const m = String(month + 1).padStart(2, "0");
@@ -42,20 +81,17 @@ function toDateString(year: number, month: number, day: number) {
   return `${year}-${m}-${d}`;
 }
 
-function bookingFromSnapshot(
-  snapshot: QueryDocumentSnapshot<DocumentData>,
-): Booking {
+function bookingFromSnapshot(snapshot: QueryDocumentSnapshot<DocumentData>): Booking {
   const data = snapshot.data();
   return {
     id: snapshot.id,
     booking_date: String(data.booking_date ?? snapshot.id),
     therapist_name: String(data.therapist_name ?? ""),
-    action_time:
-      typeof data.action_time === "string" ? data.action_time : null,
+    action_time: typeof data.action_time === "string" ? data.action_time : null,
     topic: typeof data.topic === "string" ? data.topic : null,
-    description:
-      typeof data.description === "string" ? data.description : null,
+    description: typeof data.description === "string" ? data.description : null,
     owner_uid: String(data.owner_uid ?? ""),
+    status: data.status === "completed" ? "completed" : "booked",
   };
 }
 
@@ -71,7 +107,7 @@ function firebaseMessage(error: unknown, fallback: string) {
       return "Δεν έχει ολοκληρωθεί η ρύθμιση του Firebase Authentication για αυτή την εφαρμογή.";
     case "permission-denied":
     case "firestore/permission-denied":
-      return "Το Firebase απέρριψε την ενέργεια. Έλεγξε αν δημοσίευσες τους κανόνες Firestore.";
+      return "Το Firebase απέρριψε την ενέργεια. Άνοιξε το αρχείο firestore.rules και δημοσίευσέ το στο Firestore → Rules.";
     case "failed-precondition":
     case "firestore/failed-precondition":
       return "Δεν έχει δημιουργηθεί σωστά η βάση Firestore ή λείπει κάποια απαραίτητη ρύθμιση.";
@@ -83,9 +119,16 @@ function firebaseMessage(error: unknown, fallback: string) {
   }
 }
 
+function mergeBookings(liveBookings: Booking[]) {
+  const map = new Map<string, Booking>();
+  for (const item of STATIC_BOOKINGS) map.set(item.booking_date, item);
+  for (const item of liveBookings) map.set(item.booking_date, item);
+  return Array.from(map.values()).sort((a, b) => a.booking_date.localeCompare(b.booking_date));
+}
+
 export default function App() {
   const [activeMonth, setActiveMonth] = useState(MONTHS[0].key);
-  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [bookings, setBookings] = useState<Booking[]>(STATIC_BOOKINGS);
   const [loading, setLoading] = useState(true);
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [currentUid, setCurrentUid] = useState<string | null>(null);
@@ -108,36 +151,27 @@ export default function App() {
         if (cancelled) return;
         setCurrentUid(user.uid);
 
-        const bookingsQuery = query(
-          collection(db, "bookings"),
-          orderBy("booking_date", "asc"),
-        );
-
         stopRealtime = onSnapshot(
-          bookingsQuery,
+          collection(db, "bookings"),
           (snapshot) => {
             if (cancelled) return;
-            setBookings(snapshot.docs.map(bookingFromSnapshot));
+            const liveBookings = snapshot.docs.map(bookingFromSnapshot);
+            setBookings(mergeBookings(liveBookings));
             setConnectionError(null);
             setLoading(false);
           },
           (error: FirestoreError) => {
             if (cancelled) return;
-            setConnectionError(
-              firebaseMessage(
-                error,
-                "Δεν ήταν δυνατή η φόρτωση των κρατήσεων από το Firebase.",
-              ),
-            );
+            setBookings(STATIC_BOOKINGS);
+            setConnectionError(firebaseMessage(error, "Δεν ήταν δυνατή η φόρτωση των κρατήσεων από το Firebase."));
             setLoading(false);
           },
         );
       })
       .catch((error) => {
         if (cancelled) return;
-        setConnectionError(
-          firebaseMessage(error, "Δεν ήταν δυνατή η σύνδεση με το Firebase."),
-        );
+        setBookings(STATIC_BOOKINGS);
+        setConnectionError(firebaseMessage(error, "Δεν ήταν δυνατή η σύνδεση με το Firebase."));
         setLoading(false);
       });
 
@@ -147,15 +181,11 @@ export default function App() {
     };
   }, []);
 
-  const month = MONTHS.find((item) => item.key === activeMonth)!;
+  const month = MONTHS.find((item) => item.key === activeMonth) ?? MONTHS[0];
 
   const calendarCells = useMemo(() => {
     const firstDay = new Date(month.year, month.month, 1);
-    const daysInMonth = new Date(
-      month.year,
-      month.month + 1,
-      0,
-    ).getDate();
+    const daysInMonth = new Date(month.year, month.month + 1, 0).getDate();
     const startOffset = (firstDay.getDay() + 6) % 7;
     const cells: Array<number | null> = [];
 
@@ -169,7 +199,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
       <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto max-w-5xl px-4 py-7 sm:px-6">
+        <div className="mx-auto max-w-6xl px-4 py-7 sm:px-6">
           <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">
             Κοινό ημερολόγιο συλλόγου
           </p>
@@ -177,24 +207,20 @@ export default function App() {
             Διαθεσιμότητα Θεραπευτών για Δράσεις
           </h1>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-            Επιλέξτε μια ελεύθερη ημερομηνία για να δηλώσετε σεμινάριο ή
-            βιωματικό εργαστήριο. Οι πράσινες ημερομηνίες έχουν ήδη δεσμευτεί.
+            Επιλέξτε μια ελεύθερη ημερομηνία για να δηλώσετε σεμινάριο ή βιωματικό εργαστήριο.
+            Οι πράσινες ημερομηνίες έχουν ήδη δεσμευτεί και οι λιλά έχουν ήδη πραγματοποιηθεί.
           </p>
         </div>
       </header>
 
-      <main className="mx-auto max-w-5xl px-4 py-6 sm:px-6">
+      <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
         {connectionError && (
           <div className="mb-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
-            <strong className="font-semibold">Δεν συνδέθηκε η εφαρμογή:</strong>{" "}
-            {connectionError}
+            <strong className="font-semibold">Πρόβλημα σύνδεσης με Firebase:</strong> {connectionError}
           </div>
         )}
 
-        <nav
-          aria-label="Επιλογή μήνα"
-          className="mb-6 flex gap-2 overflow-x-auto pb-2"
-        >
+        <nav aria-label="Επιλογή μήνα" className="mb-6 flex gap-2 overflow-x-auto pb-2">
           {MONTHS.map((item) => (
             <button
               key={item.key}
@@ -215,67 +241,58 @@ export default function App() {
         <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
           <div className="flex items-center justify-between border-b border-slate-200 px-4 py-4 sm:px-5">
             <h2 className="text-lg font-semibold">{month.label}</h2>
-            <span className="text-xs text-slate-500">
-              {loading ? "Σύνδεση με Firebase…" : `${bookings.length} κρατήσεις`}
-            </span>
+            <span className="text-xs text-slate-500">{loading ? "Σύνδεση με Firebase…" : `${bookings.length} συνολικά γεγονότα`}</span>
           </div>
 
           <div className="overflow-x-auto p-3 sm:p-5">
             <div className="min-w-[630px]">
               <div className="mb-2 grid grid-cols-7 gap-1.5 text-center text-xs font-semibold text-slate-500">
                 {WEEKDAYS.map((weekday) => (
-                  <div key={weekday} className="py-1.5">
-                    {weekday}
-                  </div>
+                  <div key={weekday} className="py-1.5">{weekday}</div>
                 ))}
               </div>
 
               <div className="grid grid-cols-7 gap-1.5">
                 {calendarCells.map((day, index) => {
                   if (day === null) {
-                    return (
-                      <div
-                        key={`empty-${index}`}
-                        className="h-24 rounded-lg bg-slate-50/70"
-                      />
-                    );
+                    return <div key={`empty-${index}`} className="h-28 rounded-lg bg-slate-50/70" />;
                   }
 
                   const date = toDateString(month.year, month.month, day);
                   const booking = bookingsByDate.get(date);
-                  const isBooked = Boolean(booking);
+                  const status = booking?.status ?? null;
+
+                  const buttonClass =
+                    status === "completed"
+                      ? "border-violet-400 bg-violet-100 hover:bg-violet-200"
+                      : status === "booked"
+                        ? "border-emerald-500 bg-emerald-100 hover:bg-emerald-200"
+                        : "border-slate-200 bg-white hover:border-emerald-400 hover:bg-emerald-50";
 
                   return (
                     <button
                       key={date}
                       type="button"
-                      onClick={() =>
-                        booking ? setViewBooking(booking) : setSelectedDate(date)
-                      }
-                      className={
-                        "flex h-24 flex-col items-start rounded-lg border p-2.5 text-left transition " +
-                        (isBooked
-                          ? "border-emerald-500 bg-emerald-100 hover:bg-emerald-200"
-                          : "border-slate-200 bg-white hover:border-emerald-400 hover:bg-emerald-50")
-                      }
+                      onClick={() => booking ? setViewBooking(booking) : setSelectedDate(date)}
+                      className={`flex h-28 flex-col items-start rounded-lg border p-2.5 text-left transition ${buttonClass}`}
                     >
-                      <span
-                        className={
-                          "text-sm font-bold " +
-                          (isBooked ? "text-emerald-950" : "text-slate-700")
-                        }
-                      >
+                      <span className={`text-sm font-bold ${status === "completed" ? "text-violet-950" : status === "booked" ? "text-emerald-950" : "text-slate-700"}`}>
                         {day}
                       </span>
 
                       {booking && (
                         <>
-                          <span className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-emerald-700">
-                            Δεσμευμένη
+                          <span className={`mt-1 text-[10px] font-semibold uppercase tracking-wide ${status === "completed" ? "text-violet-700" : "text-emerald-700"}`}>
+                            {status === "completed" ? "Πραγματοποιήθηκε" : "Δεσμευμένη"}
                           </span>
-                          <span className="mt-1 line-clamp-2 text-xs font-medium leading-4 text-emerald-950">
+                          <span className={`mt-1 line-clamp-2 text-xs font-medium leading-4 ${status === "completed" ? "text-violet-950" : "text-emerald-950"}`}>
                             {booking.therapist_name}
                           </span>
+                          {booking.topic && (
+                            <span className={`mt-1 line-clamp-2 text-[11px] leading-4 ${status === "completed" ? "text-violet-800" : "text-slate-700"}`}>
+                              {booking.topic}
+                            </span>
+                          )}
                         </>
                       )}
                     </button>
@@ -295,28 +312,24 @@ export default function App() {
             <span className="inline-block h-3.5 w-3.5 rounded border border-emerald-500 bg-emerald-100" />
             Δεσμευμένη ημερομηνία
           </span>
+          <span className="flex items-center gap-2">
+            <span className="inline-block h-3.5 w-3.5 rounded border border-violet-400 bg-violet-100" />
+            Πραγματοποιημένη δράση
+          </span>
         </div>
 
         <p className="mt-6 rounded-lg bg-slate-100 px-4 py-3 text-xs leading-5 text-slate-600">
-          Η επεξεργασία ή η ακύρωση μιας κράτησης γίνεται μόνο από τον ίδιο
-          browser και την ίδια συσκευή από όπου δημιουργήθηκε.
+          Η επεξεργασία ή η ακύρωση μιας κράτησης γίνεται μόνο από τον ίδιο browser και την ίδια συσκευή από όπου δημιουργήθηκε.
         </p>
       </main>
 
       {selectedDate && (
         <BookingForm
           date={selectedDate}
-          onClose={() => setSelectedDate(null)}
           connectionError={connectionError}
+          onClose={() => setSelectedDate(null)}
           onSaved={(booking) => {
-            setBookings((previous) => [
-              ...previous.filter(
-                (item) =>
-                  item.id !== booking.id &&
-                  item.booking_date !== booking.booking_date,
-              ),
-              booking,
-            ]);
+            setBookings((previous) => mergeBookings([...previous.filter((item) => item.id !== booking.id && item.booking_date !== booking.booking_date), booking]));
             setSelectedDate(null);
           }}
         />
@@ -325,19 +338,16 @@ export default function App() {
       {viewBooking && (
         <BookingDetails
           booking={viewBooking}
-          canManage={
-            Boolean(currentUid) && viewBooking.owner_uid === currentUid
-          }
+          canManage={viewBooking.status === "booked" && Boolean(currentUid) && viewBooking.owner_uid === currentUid}
           onClose={() => setViewBooking(null)}
           onEdit={() => {
+            if (viewBooking.status === "completed") return;
             const booking = viewBooking;
             setViewBooking(null);
             setEditBooking(booking);
           }}
           onDeleted={(id) => {
-            setBookings((previous) =>
-              previous.filter((item) => item.id !== id),
-            );
+            setBookings((previous) => previous.filter((item) => item.id !== id));
             setViewBooking(null);
           }}
         />
@@ -350,10 +360,7 @@ export default function App() {
           connectionError={connectionError}
           onClose={() => setEditBooking(null)}
           onSaved={(booking) => {
-            setBookings((previous) => [
-              ...previous.filter((item) => item.id !== booking.id),
-              booking,
-            ]);
+            setBookings((previous) => mergeBookings([...previous.filter((item) => item.id !== booking.id), booking]));
             setEditBooking(null);
           }}
         />
@@ -390,18 +397,10 @@ function BookingForm({
   const [name, setName] = useState(existing?.therapist_name ?? "");
   const [time, setTime] = useState(existing?.action_time ?? "");
   const [topic, setTopic] = useState(existing?.topic ?? "");
-  const [description, setDescription] = useState(
-    existing?.description ?? "",
-  );
-  const [laterTime, setLaterTime] = useState(
-    existing ? existing.action_time === null : false,
-  );
-  const [laterTopic, setLaterTopic] = useState(
-    existing ? existing.topic === null : false,
-  );
-  const [laterDescription, setLaterDescription] = useState(
-    existing ? existing.description === null : false,
-  );
+  const [description, setDescription] = useState(existing?.description ?? "");
+  const [laterTime, setLaterTime] = useState(existing ? existing.action_time === null : false);
+  const [laterTopic, setLaterTopic] = useState(existing ? existing.topic === null : false);
+  const [laterDescription, setLaterDescription] = useState(existing ? existing.description === null : false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -425,13 +424,12 @@ function BookingForm({
         action_time: laterTime ? null : time.trim() || null,
         topic: laterTopic ? null : topic.trim() || null,
         description: laterDescription ? null : description.trim() || null,
+        status: "booked" as BookingStatus,
       };
 
       if (existing) {
         if (existing.owner_uid !== user.uid) {
-          throw Object.assign(new Error("NOT_OWNER"), {
-            code: "not-owner",
-          });
+          throw Object.assign(new Error("NOT_OWNER"), { code: "not-owner" });
         }
 
         await updateDoc(bookingRef, {
@@ -440,17 +438,12 @@ function BookingForm({
           updated_at: serverTimestamp(),
         });
 
-        onSaved({
-          ...existing,
-          ...values,
-        });
+        onSaved({ ...existing, ...values });
       } else {
         await runTransaction(db, async (transaction) => {
           const current = await transaction.get(bookingRef);
           if (current.exists()) {
-            throw Object.assign(new Error("DATE_ALREADY_BOOKED"), {
-              code: "date-already-booked",
-            });
+            throw Object.assign(new Error("DATE_ALREADY_BOOKED"), { code: "date-already-booked" });
           }
 
           transaction.set(bookingRef, {
@@ -471,18 +464,11 @@ function BookingForm({
       const code = (caughtError as { code?: string } | null)?.code;
 
       if (code === "date-already-booked") {
-        setError(
-          "Η ημερομηνία δεσμεύτηκε μόλις από άλλο μέλος. Επιλέξτε άλλη ημερομηνία.",
-        );
+        setError("Η ημερομηνία δεσμεύτηκε μόλις από άλλο μέλος. Επιλέξτε άλλη ημερομηνία.");
       } else if (code === "not-owner") {
         setError("Δεν μπορείτε να επεξεργαστείτε αυτή την κράτηση.");
       } else {
-        setError(
-          firebaseMessage(
-            caughtError,
-            "Παρουσιάστηκε σφάλμα κατά την αποθήκευση. Δοκιμάστε ξανά.",
-          ),
-        );
+        setError(firebaseMessage(caughtError, "Παρουσιάστηκε σφάλμα κατά την αποθήκευση. Δοκιμάστε ξανά."));
       }
     } finally {
       setSaving(false);
@@ -491,16 +477,12 @@ function BookingForm({
 
   return (
     <Modal onClose={saving ? undefined : onClose}>
-      <h3 className="text-lg font-semibold">
-        {existing ? "Επεξεργασία δέσμευσης" : "Νέα δέσμευση"}
-      </h3>
-      <p className="mb-5 mt-1 text-sm capitalize text-slate-600">
-        {formatDateGreek(date)}
-      </p>
+      <h3 className="text-lg font-semibold">{existing ? "Επεξεργασία δέσμευσης" : "Νέα δέσμευση"}</h3>
+      <p className="mb-5 mt-1 text-sm capitalize text-slate-600">{formatDateGreek(date)}</p>
 
       {connectionError && (
         <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs leading-5 text-amber-900">
-          Μπορείτε να συμπληρώσετε τη φόρμα, αλλά η αποθήκευση θα λειτουργήσει μόνο όταν διορθωθεί η σύνδεση με το Firebase. {connectionError}
+          Η φόρμα ανοίγει κανονικά, αλλά η αποθήκευση θα δουλέψει μόνο όταν διορθωθεί η σύνδεση με το Firebase. {connectionError}
         </div>
       )}
 
@@ -527,7 +509,7 @@ function BookingForm({
           onChange={setTime}
           later={laterTime}
           onLaterChange={setLaterTime}
-          placeholder="π.χ. 18:00 – 20:00"
+          placeholder="π.χ. 19:30 – 21:30"
         />
 
         <OptionalField
@@ -551,11 +533,7 @@ function BookingForm({
           textarea
         />
 
-        {error && (
-          <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
-            {error}
-          </p>
-        )}
+        {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
 
         <div className="flex justify-end gap-2 pt-2">
           <button
@@ -659,9 +637,7 @@ function BookingDetails({
   const [error, setError] = useState<string | null>(null);
 
   async function handleDelete() {
-    if (!window.confirm("Θέλετε σίγουρα να ακυρώσετε αυτή τη δέσμευση;")) {
-      return;
-    }
+    if (!window.confirm("Θέλετε σίγουρα να ακυρώσετε αυτή τη δέσμευση;")) return;
 
     setDeleting(true);
     setError(null);
@@ -675,30 +651,25 @@ function BookingDetails({
       await deleteDoc(doc(db, "bookings", booking.booking_date));
       onDeleted(booking.id);
     } catch (caughtError) {
-      setError(
-        firebaseMessage(
-          caughtError,
-          "Δεν ήταν δυνατή η ακύρωση της κράτησης.",
-        ),
-      );
+      setError(firebaseMessage(caughtError, "Δεν ήταν δυνατή η ακύρωση της κράτησης."));
     } finally {
       setDeleting(false);
     }
   }
 
+  const isCompleted = booking.status === "completed";
+
   return (
     <Modal onClose={deleting ? undefined : onClose}>
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">
-            Δεσμευμένη ημερομηνία
+          <p className={`text-xs font-semibold uppercase tracking-wide ${isCompleted ? "text-violet-700" : "text-emerald-700"}`}>
+            {isCompleted ? "Πραγματοποιημένη δράση" : "Δεσμευμένη ημερομηνία"}
           </p>
-          <h3 className="mt-1 text-lg font-semibold capitalize">
-            {formatDateGreek(booking.booking_date)}
-          </h3>
+          <h3 className="mt-1 text-lg font-semibold capitalize">{formatDateGreek(booking.booking_date)}</h3>
         </div>
-        <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-800">
-          Κρατημένη
+        <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${isCompleted ? "bg-violet-100 text-violet-800" : "bg-emerald-100 text-emerald-800"}`}>
+          {isCompleted ? "Ολοκληρώθηκε" : "Κρατημένη"}
         </span>
       </div>
 
@@ -709,21 +680,22 @@ function BookingDetails({
         <DetailRow label="Περιγραφή" value={booking.description} />
       </dl>
 
-      {!canManage && (
+      {!canManage && !isCompleted && (
         <p className="mt-5 rounded-lg bg-slate-100 px-3 py-2 text-xs leading-5 text-slate-600">
-          Μόνο το μέλος που δημιούργησε αυτή την κράτηση από τη συγκεκριμένη
-          συσκευή μπορεί να την επεξεργαστεί ή να την ακυρώσει.
+          Μόνο το μέλος που δημιούργησε αυτή την κράτηση από τη συγκεκριμένη συσκευή μπορεί να την επεξεργαστεί ή να την ακυρώσει.
         </p>
       )}
 
-      {error && (
-        <p className="mt-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
-          {error}
+      {isCompleted && (
+        <p className="mt-5 rounded-lg bg-violet-50 px-3 py-2 text-xs leading-5 text-violet-900">
+          Αυτή η δράση έχει ήδη πραγματοποιηθεί και εμφανίζεται μόνο ως ιστορική καταγραφή.
         </p>
       )}
+
+      {error && <p className="mt-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
 
       <div className="mt-6 flex flex-wrap justify-end gap-2">
-        {canManage && (
+        {canManage && !isCompleted && (
           <>
             <button
               type="button"
@@ -762,28 +734,15 @@ function DetailRow({ label, value }: { label: string; value: string | null }) {
 
   return (
     <div>
-      <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-        {label}
-      </dt>
-      <dd
-        className={
-          "mt-1 leading-6 " +
-          (isEmpty ? "italic text-slate-400" : "text-slate-900")
-        }
-      >
+      <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</dt>
+      <dd className={`mt-1 leading-6 ${isEmpty ? "italic text-slate-400" : "text-slate-900"}`}>
         {isEmpty ? PLACEHOLDER : value}
       </dd>
     </div>
   );
 }
 
-function Modal({
-  children,
-  onClose,
-}: {
-  children: ReactNode;
-  onClose?: () => void;
-}) {
+function Modal({ children, onClose }: { children: ReactNode; onClose?: () => void }) {
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/50 p-4"

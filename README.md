@@ -2,6 +2,17 @@
 
 Μονοσέλιδη εφαρμογή React/Vite που χρησιμοποιεί Firebase Authentication και Cloud Firestore.
 
+## Τι περιλαμβάνει
+
+- Μήνες από **Ιούλιο 2026** έως **Αύγουστο 2027**.
+- Ζωντανές κρατήσεις σε κοινή βάση Firestore.
+- Ιστορική, λιλά καταχώριση για **5 Ιουλίου 2026**:
+  - Ευαγγελία Ξανθοπούλου · Μαρία Ζάχου
+  - 19:30 – 21:30
+  - Από την εσωτερική ησυχία στην αυθεντική συνάντηση
+- Αποτροπή διπλής κράτησης της ίδιας ημέρας.
+- Επεξεργασία / ακύρωση μόνο από τον ίδιο browser που δημιούργησε την κράτηση.
+
 ## Τι έχει ήδη ρυθμιστεί
 
 - Τα στοιχεία του Firebase project `imerologiosullogou` βρίσκονται στο `src/firebase.ts`.
@@ -9,22 +20,24 @@
 - Οι κρατήσεις αποθηκεύονται στη συλλογή `bookings`.
 - Κάθε ημερομηνία είναι μοναδικό Firestore document, άρα αποτρέπεται η διπλή κράτηση με transaction.
 - Οι αλλαγές εμφανίζονται ζωντανά σε όλους με realtime listener.
-- Μόνο ο ίδιος browser που έκανε την κράτηση μπορεί να την επεξεργαστεί ή να τη διαγράψει.
 
 ## Απαραίτητη ρύθμιση στο Firebase
 
-1. Firebase Console → Authentication → Sign-in method → ενεργοποίησε `Anonymous`.
-2. Firebase Console → Firestore Database → Create database.
-3. Firestore → Rules → αντικατάστησε τους κανόνες με το περιεχόμενο του `firestore.rules` και πάτησε Publish.
+1. Firebase Console → **Authentication** → **Sign-in method** → ενεργοποίησε `Anonymous`.
+2. Firebase Console → **Firestore Database** → **Create database**.
+3. Firestore → **Rules** → αντικατάστησε τους κανόνες με το περιεχόμενο του `firestore.rules` και πάτησε **Publish**.
+4. Firebase Console → **Authentication** → **Settings** → **Authorized domains** → πρόσθεσε το domain του Vercel σου.
+
+Αν δεν γίνει το βήμα 3 ή 4, η εφαρμογή θα ανοίγει αλλά η αποθήκευση θα αποτυγχάνει.
 
 ## Ανέβασμα σε GitHub και Vercel
 
 1. Ανέβασε όλα τα αρχεία αυτού του φακέλου σε νέο GitHub repository.
-2. Στο Vercel πάτησε Add New → Project και σύνδεσε το repository.
+2. Στο Vercel πάτησε **Add New → Project** και σύνδεσε το repository.
 3. Το Vercel θα αναγνωρίσει Vite. Οι σωστές ρυθμίσεις είναι ήδη στο `vercel.json`:
    - Build command: `npm run build`
    - Output directory: `dist`
-4. Πάτησε Deploy.
+4. Πάτησε **Deploy**.
 
 Δεν χρειάζονται environment variables στο Vercel για αυτή την έκδοση.
 

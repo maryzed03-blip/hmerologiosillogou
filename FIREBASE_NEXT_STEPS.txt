@@ -1,0 +1,11 @@
+ΑΝ ΒΛΕΠΕΙΣ "Παρουσιάστηκε σφάλμα κατά την αποθήκευση"
+
+1. Στο Firebase άνοιξε Build > Firestore Database και βεβαιώσου ότι η βάση έχει δημιουργηθεί.
+2. Πήγαινε Firestore > Rules.
+3. Άνοιξε το αρχείο firestore.rules αυτού του project.
+4. Αντέγραψε όλο το περιεχόμενό του μέσα στο Firebase και πάτησε Publish.
+5. Πήγαινε Authentication > Settings > Authorized domains.
+6. Πρόσθεσε το domain του Vercel σου, π.χ. hmerologiosillogou.vercel.app
+7. Κάνε refresh στην εφαρμογή και ξαναδοκίμασε.
+
+Η εφαρμογή περιλαμβάνει μήνες από Ιούλιο 2026 έως Αύγουστο 2027 και ιστορική καταχώριση στις 5 Ιουλίου 2026.
