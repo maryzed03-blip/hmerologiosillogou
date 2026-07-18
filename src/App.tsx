@@ -77,6 +77,18 @@ function buildMonths(startYear: number, startMonth: number, endYear: number, end
 
 const MONTHS = buildMonths(2026, 6, 2027, 7); // Ιούλιος 2026 έως Αύγουστος 2027
 
+function getInitialMonthKey() {
+  const now = new Date();
+  const currentKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const firstKey = MONTHS[0].key;
+  const lastKey = MONTHS[MONTHS.length - 1].key;
+
+  if (MONTHS.some((item) => item.key === currentKey)) return currentKey;
+  if (currentKey < firstKey) return firstKey;
+  if (currentKey > lastKey) return lastKey;
+  return firstKey;
+}
+
 function toDateString(year: number, month: number, day: number) {
   const m = String(month + 1).padStart(2, "0");
   const d = String(day).padStart(2, "0");
@@ -258,7 +270,7 @@ function ManageAccess() {
 }
 
 function ManageApp() {
-  const [activeMonth, setActiveMonth] = useState(MONTHS[0].key);
+  const [activeMonth, setActiveMonth] = useState(getInitialMonthKey);
   const [bookings, setBookings] = useState<Booking[]>(STATIC_BOOKINGS);
   const [loading, setLoading] = useState(true);
   const [connectionError, setConnectionError] = useState<string | null>(null);
@@ -350,12 +362,22 @@ function ManageApp() {
             Επιλέξτε μια ελεύθερη ημερομηνία για να δηλώσετε σεμινάριο ή βιωματικό εργαστήριο.
             Οι πράσινες ημερομηνίες έχουν ήδη δεσμευτεί και οι λιλά έχουν ήδη πραγματοποιηθεί.
           </p>
-          <a
-            href="/events"
-            className="mt-4 inline-flex items-center rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-emerald-400 hover:text-emerald-800"
-          >
-            Προβολή δημόσιου προγράμματος
-          </a>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <a
+              href="/events"
+              className="inline-flex items-center rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-emerald-400 hover:text-emerald-800"
+            >
+              Προβολή δημόσιου προγράμματος
+            </a>
+            <a
+              href="https://eusyllogossepshyg.carrd.co/"
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center rounded-lg bg-emerald-700 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-800"
+            >
+              Ιστοσελίδα Συλλόγου
+            </a>
+          </div>
         </div>
       </header>
 
@@ -372,23 +394,36 @@ function ManageApp() {
           </div>
         )}
 
-        <nav aria-label="Επιλογή μήνα" className="mb-6 flex gap-2 overflow-x-auto pb-2">
-          {MONTHS.map((item) => (
-            <button
-              key={item.key}
-              type="button"
-              onClick={() => setActiveMonth(item.key)}
-              className={
-                "shrink-0 rounded-full border px-4 py-2 text-sm font-medium transition " +
-                (activeMonth === item.key
-                  ? "border-emerald-600 bg-emerald-600 text-white shadow-sm"
-                  : "border-slate-300 bg-white text-slate-700 hover:border-emerald-400 hover:text-emerald-800")
-              }
-            >
-              {item.label}
-            </button>
-          ))}
-        </nav>
+        <div className="mb-6">
+          <label htmlFor="manage-month" className="mb-2 block text-sm font-semibold text-slate-700 sm:hidden">
+            Επιλογή μήνα
+          </label>
+          <select
+            id="manage-month"
+            value={activeMonth}
+            onChange={(event) => setActiveMonth(event.target.value)}
+            className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-800 shadow-sm focus:border-emerald-500 focus:outline-none sm:hidden"
+          >
+            {MONTHS.map((item) => <option key={item.key} value={item.key}>{item.label}</option>)}
+          </select>
+          <nav aria-label="Επιλογή μήνα" className="hidden gap-2 overflow-x-auto pb-2 sm:flex">
+            {MONTHS.map((item) => (
+              <button
+                key={item.key}
+                type="button"
+                onClick={() => setActiveMonth(item.key)}
+                className={
+                  "shrink-0 rounded-full border px-4 py-2 text-sm font-medium transition " +
+                  (activeMonth === item.key
+                    ? "border-emerald-600 bg-emerald-600 text-white shadow-sm"
+                    : "border-slate-300 bg-white text-slate-700 hover:border-emerald-400 hover:text-emerald-800")
+                }
+              >
+                {item.label}
+              </button>
+            ))}
+          </nav>
+        </div>
 
         <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
           <div className="flex items-center justify-between border-b border-slate-200 px-4 py-4 sm:px-5">
@@ -396,9 +431,9 @@ function ManageApp() {
             <span className="text-xs text-slate-500">{loading ? "Σύνδεση με Firebase…" : `${bookings.length} συνολικά γεγονότα`}</span>
           </div>
 
-          <div className="overflow-x-auto p-3 sm:p-5">
-            <div className="min-w-[630px]">
-              <div className="mb-2 grid grid-cols-7 gap-1.5 text-center text-xs font-semibold text-slate-500">
+          <div className="p-2 sm:p-5">
+            <div className="w-full">
+              <div className="mb-1.5 grid grid-cols-7 gap-1 text-center text-[10px] font-semibold text-slate-500 sm:mb-2 sm:gap-1.5 sm:text-xs">
                 {WEEKDAYS.map((weekday) => (
                   <div key={weekday} className="py-1.5">{weekday}</div>
                 ))}
@@ -407,7 +442,7 @@ function ManageApp() {
               <div className="grid grid-cols-7 gap-1.5">
                 {calendarCells.map((day, index) => {
                   if (day === null) {
-                    return <div key={`empty-${index}`} className="h-28 rounded-lg bg-slate-50/70" />;
+                    return <div key={`empty-${index}`} className="h-14 rounded-md bg-slate-50/70 sm:h-28 sm:rounded-lg" />;
                   }
 
                   const date = toDateString(month.year, month.month, day);
@@ -426,22 +461,23 @@ function ManageApp() {
                       key={date}
                       type="button"
                       onClick={() => booking ? setViewBooking(booking) : setSelectedDate(date)}
-                      className={`flex h-28 flex-col items-start rounded-lg border p-2.5 text-left transition ${buttonClass}`}
+                      className={`flex h-14 min-w-0 flex-col items-center justify-start rounded-md border p-1.5 text-center transition sm:h-28 sm:items-start sm:rounded-lg sm:p-2.5 sm:text-left ${buttonClass}`}
                     >
-                      <span className={`text-sm font-bold ${status === "completed" ? "text-violet-950" : status === "booked" ? "text-emerald-950" : "text-slate-700"}`}>
+                      <span className={`text-xs font-bold sm:text-sm ${status === "completed" ? "text-violet-950" : status === "booked" ? "text-emerald-950" : "text-slate-700"}`}>
                         {day}
                       </span>
 
                       {booking && (
                         <>
-                          <span className={`mt-1 text-[10px] font-semibold uppercase tracking-wide ${status === "completed" ? "text-violet-700" : "text-emerald-700"}`}>
+                          <span className={`mt-1 h-2 w-2 rounded-full sm:hidden ${status === "completed" ? "bg-violet-600" : "bg-emerald-600"}`} aria-hidden="true" />
+                          <span className={`mt-1 hidden text-[10px] font-semibold uppercase tracking-wide sm:block ${status === "completed" ? "text-violet-700" : "text-emerald-700"}`}>
                             {status === "completed" ? "Πραγματοποιήθηκε" : "Δεσμευμένη"}
                           </span>
-                          <span className={`mt-1 line-clamp-2 text-xs font-medium leading-4 ${status === "completed" ? "text-violet-950" : "text-emerald-950"}`}>
+                          <span className={`mt-1 hidden line-clamp-2 text-xs font-medium leading-4 sm:block ${status === "completed" ? "text-violet-950" : "text-emerald-950"}`}>
                             {booking.therapist_name}
                           </span>
                           {booking.topic && (
-                            <span className={`mt-1 line-clamp-2 text-[11px] leading-4 ${status === "completed" ? "text-violet-800" : "text-slate-700"}`}>
+                            <span className={`mt-1 hidden line-clamp-2 text-[11px] leading-4 sm:block ${status === "completed" ? "text-violet-800" : "text-slate-700"}`}>
                               {booking.topic}
                             </span>
                           )}
@@ -454,6 +490,7 @@ function ManageApp() {
             </div>
           </div>
         </section>
+        <p className="mt-2 text-xs leading-5 text-slate-500 sm:hidden">Πατήστε μια ημερομηνία για να δείτε ή να συμπληρώσετε τα στοιχεία της.</p>
 
         <div className="mt-4 flex flex-wrap items-center gap-5 text-xs text-slate-600">
           <span className="flex items-center gap-2">
@@ -526,7 +563,7 @@ function ManageApp() {
 
 
 function PublicEventsApp() {
-  const [activeMonth, setActiveMonth] = useState(MONTHS[0].key);
+  const [activeMonth, setActiveMonth] = useState(getInitialMonthKey);
   const [bookings, setBookings] = useState<Booking[]>(STATIC_BOOKINGS);
   const [loading, setLoading] = useState(true);
   const [connectionError, setConnectionError] = useState<string | null>(null);
@@ -604,12 +641,22 @@ function PublicEventsApp() {
           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
             Δείτε τις προγραμματισμένες και τις πραγματοποιημένες δράσεις του συλλόγου.
           </p>
-          <a
-            href="/manage"
-            className="mt-4 inline-flex items-center rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-600 hover:border-emerald-400 hover:text-emerald-800"
-          >
-            Manage
-          </a>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <a
+              href="https://eusyllogossepshyg.carrd.co/"
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center rounded-lg bg-emerald-700 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-800"
+            >
+              Επισκεφθείτε την ιστοσελίδα του Συλλόγου
+            </a>
+            <a
+              href="/manage"
+              className="inline-flex items-center rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-600 hover:border-emerald-400 hover:text-emerald-800"
+            >
+              Manage
+            </a>
+          </div>
         </div>
       </header>
 
@@ -620,23 +667,36 @@ function PublicEventsApp() {
           </div>
         )}
 
-        <nav aria-label="Επιλογή μήνα" className="mb-6 flex gap-2 overflow-x-auto pb-2">
-          {MONTHS.map((item) => (
-            <button
-              key={item.key}
-              type="button"
-              onClick={() => setActiveMonth(item.key)}
-              className={
-                "shrink-0 rounded-full border px-4 py-2 text-sm font-medium transition " +
-                (activeMonth === item.key
-                  ? "border-sky-600 bg-sky-600 text-white shadow-sm"
-                  : "border-slate-300 bg-white text-slate-700 hover:border-sky-400 hover:text-sky-800")
-              }
-            >
-              {item.label}
-            </button>
-          ))}
-        </nav>
+        <div className="mb-6">
+          <label htmlFor="events-month" className="mb-2 block text-sm font-semibold text-slate-700 sm:hidden">
+            Επιλογή μήνα
+          </label>
+          <select
+            id="events-month"
+            value={activeMonth}
+            onChange={(event) => setActiveMonth(event.target.value)}
+            className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-800 shadow-sm focus:border-sky-500 focus:outline-none sm:hidden"
+          >
+            {MONTHS.map((item) => <option key={item.key} value={item.key}>{item.label}</option>)}
+          </select>
+          <nav aria-label="Επιλογή μήνα" className="hidden gap-2 overflow-x-auto pb-2 sm:flex">
+            {MONTHS.map((item) => (
+              <button
+                key={item.key}
+                type="button"
+                onClick={() => setActiveMonth(item.key)}
+                className={
+                  "shrink-0 rounded-full border px-4 py-2 text-sm font-medium transition " +
+                  (activeMonth === item.key
+                    ? "border-sky-600 bg-sky-600 text-white shadow-sm"
+                    : "border-slate-300 bg-white text-slate-700 hover:border-sky-400 hover:text-sky-800")
+                }
+              >
+                {item.label}
+              </button>
+            ))}
+          </nav>
+        </div>
 
         <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
           <div className="flex items-center justify-between border-b border-slate-200 px-4 py-4 sm:px-5">
@@ -644,14 +704,14 @@ function PublicEventsApp() {
             <span className="text-xs text-slate-500">{loading ? "Φόρτωση…" : `${monthEvents.length} δράσεις`}</span>
           </div>
 
-          <div className="overflow-x-auto p-3 sm:p-5">
-            <div className="min-w-[630px]">
-              <div className="mb-2 grid grid-cols-7 gap-1.5 text-center text-xs font-semibold text-slate-500">
+          <div className="p-2 sm:p-5">
+            <div className="w-full">
+              <div className="mb-1.5 grid grid-cols-7 gap-1 text-center text-[10px] font-semibold text-slate-500 sm:mb-2 sm:gap-1.5 sm:text-xs">
                 {WEEKDAYS.map((weekday) => <div key={weekday} className="py-1.5">{weekday}</div>)}
               </div>
               <div className="grid grid-cols-7 gap-1.5">
                 {calendarCells.map((day, index) => {
-                  if (day === null) return <div key={`empty-${index}`} className="h-28 rounded-lg bg-slate-50/70" />;
+                  if (day === null) return <div key={`empty-${index}`} className="h-14 rounded-md bg-slate-50/70 sm:h-28 sm:rounded-lg" />;
                   const date = toDateString(month.year, month.month, day);
                   const booking = publicBookingsByDate.get(date);
                   const isCompleted = booking?.status === "completed";
@@ -662,7 +722,7 @@ function PublicEventsApp() {
                       disabled={!booking}
                       onClick={() => booking && setViewBooking(booking)}
                       className={
-                        "flex h-28 flex-col items-start rounded-lg border p-2.5 text-left transition " +
+                        "flex h-14 min-w-0 flex-col items-center justify-start rounded-md border p-1.5 text-center transition sm:h-28 sm:items-start sm:rounded-lg sm:p-2.5 sm:text-left " +
                         (booking
                           ? isCompleted
                             ? "border-violet-400 bg-violet-100 hover:bg-violet-200"
@@ -670,16 +730,17 @@ function PublicEventsApp() {
                           : "cursor-default border-slate-100 bg-slate-50 text-slate-400")
                       }
                     >
-                      <span className={`text-sm font-bold ${booking ? (isCompleted ? "text-violet-950" : "text-sky-950") : "text-slate-400"}`}>{day}</span>
+                      <span className={`text-xs font-bold sm:text-sm ${booking ? (isCompleted ? "text-violet-950" : "text-sky-950") : "text-slate-400"}`}>{day}</span>
                       {booking && (
                         <>
-                          <span className={`mt-1 text-[10px] font-semibold uppercase tracking-wide ${isCompleted ? "text-violet-700" : "text-sky-700"}`}>
+                          <span className={`mt-1 h-2 w-2 rounded-full sm:hidden ${isCompleted ? "bg-violet-600" : "bg-sky-600"}`} aria-hidden="true" />
+                          <span className={`mt-1 hidden text-[10px] font-semibold uppercase tracking-wide sm:block ${isCompleted ? "text-violet-700" : "text-sky-700"}`}>
                             {isCompleted ? "Πραγματοποιήθηκε" : "Προσεχώς"}
                           </span>
-                          <span className={`mt-1 line-clamp-3 text-xs font-semibold leading-4 ${isCompleted ? "text-violet-950" : "text-sky-950"}`}>
+                          <span className={`mt-1 hidden line-clamp-3 text-xs font-semibold leading-4 sm:block ${isCompleted ? "text-violet-950" : "text-sky-950"}`}>
                             {booking.topic || "Δράση συλλόγου"}
                           </span>
-                          {booking.action_time && <span className="mt-1 text-[11px] text-slate-700">{booking.action_time}</span>}
+                          {booking.action_time && <span className="mt-1 hidden text-[11px] text-slate-700 sm:block">{booking.action_time}</span>}
                         </>
                       )}
                     </button>
@@ -689,6 +750,7 @@ function PublicEventsApp() {
             </div>
           </div>
         </section>
+        <p className="mt-2 text-xs leading-5 text-slate-500 sm:hidden">Πατήστε μια χρωματισμένη ημερομηνία για να δείτε τη δράση. Οι λεπτομέρειες εμφανίζονται και στη λίστα παρακάτω.</p>
 
         <section className="mt-8">
           <div className="mb-4 flex items-end justify-between gap-4">
@@ -1289,14 +1351,14 @@ function DetailRow({ label, value }: { label: string; value: string | null }) {
 function Modal({ children, onClose }: { children: ReactNode; onClose?: () => void }) {
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/50 p-4"
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/50 p-2 sm:items-center sm:p-4"
       onClick={() => onClose?.()}
       role="presentation"
     >
       <div
         role="dialog"
         aria-modal="true"
-        className="my-auto w-full max-w-lg rounded-xl bg-white p-5 shadow-2xl sm:p-6"
+        className="my-2 max-h-[calc(100vh-1rem)] w-full max-w-lg overflow-y-auto rounded-xl bg-white p-4 shadow-2xl sm:my-auto sm:max-h-[calc(100vh-2rem)] sm:p-6"
         onClick={(event) => event.stopPropagation()}
       >
         {children}

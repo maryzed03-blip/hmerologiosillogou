@@ -64,3 +64,9 @@ npm run dev
 - Χρησιμοποιεί τις ίδιες μεταβλητές Vercel: `GMAIL_USER`, `GMAIL_APP_PASSWORD`, `NOTIFY_TO`.
 
 Ο κωδικός `1111` είναι απλό οπτικό εμπόδιο και όχι ισχυρή αυθεντικοποίηση.
+
+## Mobile/current-month update
+- On phones, the calendar fits the screen without horizontal scrolling.
+- Month selection uses a dropdown on small screens.
+- The app opens directly on the current month when it is within July 2026–August 2027.
+- Association website link: https://eusyllogossepshyg.carrd.co/
