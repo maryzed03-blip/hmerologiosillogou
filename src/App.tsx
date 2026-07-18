@@ -164,6 +164,18 @@ async function notifyAdmin(action: NotificationAction, booking: Booking) {
 const MANAGE_ACCESS_KEY = "association-manage-unlocked";
 const MANAGE_CODE = "1111";
 
+
+function AssociationLogo({ size = "md", centered = false }: { size?: "sm" | "md"; centered?: boolean }) {
+  const sizeClass = size === "sm" ? "h-24 w-24 sm:h-28 sm:w-28" : "h-28 w-28 sm:h-32 sm:w-32";
+  return (
+    <div className={centered ? "flex justify-center" : ""}>
+      <div className={`overflow-hidden rounded-full border border-slate-200 bg-white p-1 shadow-sm ${sizeClass}`}>
+        <img src="/logo.png" alt="Λογότυπο Σ.Ε.Ψ.Υ.G" className="h-full w-full rounded-full object-cover" />
+      </div>
+    </div>
+  );
+}
+
 function ManageAccess() {
   const [unlocked, setUnlocked] = useState(() => {
     if (typeof window === "undefined") return false;
@@ -206,7 +218,8 @@ function ManageAccess() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-100 px-4 py-10 text-slate-900">
       <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-xl sm:p-8">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Περιοχή μελών</p>
+        <AssociationLogo centered />
+        <p className="mt-5 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Περιοχή μελών</p>
         <h1 className="mt-2 text-2xl font-semibold">Διαχείριση ημερολογίου</h1>
         <p className="mt-2 text-sm leading-6 text-slate-600">
           Πληκτρολογήστε τον κωδικό για να ανοίξετε το ημερολόγιο διαθεσιμότητας.
@@ -326,7 +339,8 @@ function ManageApp() {
     <div className="min-h-screen bg-slate-50 text-slate-900">
       <header className="border-b border-slate-200 bg-white">
         <div className="mx-auto max-w-6xl px-4 py-7 sm:px-6">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">
+          <AssociationLogo size="sm" />
+          <p className="mb-2 mt-4 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">
             Κοινό ημερολόγιο συλλόγου
           </p>
           <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
@@ -583,8 +597,10 @@ function PublicEventsApp() {
     <div className="min-h-screen bg-slate-50 text-slate-900">
       <header className="border-b border-slate-200 bg-white">
         <div className="mx-auto max-w-6xl px-4 py-7 sm:px-6">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">Δημόσιο πρόγραμμα δράσεων</p>
+          <AssociationLogo size="sm" />
+          <p className="mb-2 mt-4 text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">Δημόσιο πρόγραμμα δράσεων</p>
           <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Σεμινάρια & Βιωματικά Εργαστήρια</h1>
+          <p className="mt-2 max-w-4xl text-sm font-medium leading-6 text-slate-700">Πανευρωπαϊκός Επιστημονικός Σύλλογος Σ.Ε.Ψ.Υ.G Σωματικά Επικεντρωμένης Ψυχοθεραπείας Gestalt</p>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
             Δείτε τις προγραμματισμένες και τις πραγματοποιημένες δράσεις του συλλόγου. Οι κενές ημερομηνίες δεν εμφανίζουν διαθεσιμότητα ή δυνατότητα καταχώρισης.
           </p>
