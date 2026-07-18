@@ -77,9 +77,26 @@ function buildMonths(startYear: number, startMonth: number, endYear: number, end
 
 const MONTHS = buildMonths(2026, 6, 2027, 7); // Ιούλιος 2026 έως Αύγουστος 2027
 
+function getCurrentMonthKeyInGreece() {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Athens",
+    year: "numeric",
+    month: "2-digit",
+  }).formatToParts(new Date());
+
+  const year = parts.find((part) => part.type === "year")?.value;
+  const month = parts.find((part) => part.type === "month")?.value;
+
+  if (!year || !month) {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  }
+
+  return `${year}-${month}`;
+}
+
 function getInitialMonthKey() {
-  const now = new Date();
-  const currentKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const currentKey = getCurrentMonthKeyInGreece();
   const firstKey = MONTHS[0].key;
   const lastKey = MONTHS[MONTHS.length - 1].key;
 
@@ -270,7 +287,7 @@ function ManageAccess() {
 }
 
 function ManageApp() {
-  const [activeMonth, setActiveMonth] = useState(getInitialMonthKey);
+  const [activeMonth, setActiveMonth] = useState(() => getInitialMonthKey());
   const [bookings, setBookings] = useState<Booking[]>(STATIC_BOOKINGS);
   const [loading, setLoading] = useState(true);
   const [connectionError, setConnectionError] = useState<string | null>(null);
@@ -279,6 +296,10 @@ function ManageApp() {
   const [viewBooking, setViewBooking] = useState<Booking | null>(null);
   const [editBooking, setEditBooking] = useState<Booking | null>(null);
   const [emailNotice, setEmailNotice] = useState<{ ok: boolean; text: string } | null>(null);
+
+  useEffect(() => {
+    setActiveMonth(getInitialMonthKey());
+  }, []);
 
   function reportEmailStatus(result: { ok: boolean; code: string }) {
     setEmailNotice(result.ok
@@ -563,11 +584,15 @@ function ManageApp() {
 
 
 function PublicEventsApp() {
-  const [activeMonth, setActiveMonth] = useState(getInitialMonthKey);
+  const [activeMonth, setActiveMonth] = useState(() => getInitialMonthKey());
   const [bookings, setBookings] = useState<Booking[]>(STATIC_BOOKINGS);
   const [loading, setLoading] = useState(true);
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [viewBooking, setViewBooking] = useState<Booking | null>(null);
+
+  useEffect(() => {
+    setActiveMonth(getInitialMonthKey());
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
