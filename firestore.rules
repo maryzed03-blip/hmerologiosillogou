@@ -11,13 +11,15 @@ service cloud.firestore {
         && request.resource.data.therapist_name is string
         && request.resource.data.therapist_name.size() >= 2;
 
+      // Όποιος έχει μπει στην εφαρμογή μπορεί να επεξεργαστεί οποιαδήποτε κράτηση.
       allow update: if request.auth != null
-        && resource.data.owner_uid == request.auth.uid
         && request.resource.data.owner_uid == resource.data.owner_uid
-        && request.resource.data.booking_date == resource.data.booking_date;
+        && request.resource.data.booking_date == resource.data.booking_date
+        && request.resource.data.therapist_name is string
+        && request.resource.data.therapist_name.size() >= 2;
 
-      allow delete: if request.auth != null
-        && resource.data.owner_uid == request.auth.uid;
+      // Όποιος έχει μπει στην εφαρμογή μπορεί να ακυρώσει οποιαδήποτε κράτηση.
+      allow delete: if request.auth != null;
     }
   }
 }

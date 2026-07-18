@@ -470,8 +470,8 @@ function ManageApp() {
           </span>
         </div>
 
-        <p className="mt-6 rounded-lg bg-slate-100 px-4 py-3 text-xs leading-5 text-slate-600">
-          Η επεξεργασία ή η ακύρωση μιας κράτησης γίνεται μόνο από τον ίδιο browser και την ίδια συσκευή από όπου δημιουργήθηκε.
+        <p className="mt-6 rounded-lg bg-emerald-50 px-4 py-3 text-xs leading-5 text-emerald-900">
+          Όλα τα μέλη που εισέρχονται με τον κωδικό διαχείρισης μπορούν να επεξεργάζονται ή να ακυρώνουν οποιαδήποτε κράτηση.
         </p>
       </main>
 
@@ -491,7 +491,7 @@ function ManageApp() {
       {viewBooking && (
         <BookingDetails
           booking={viewBooking}
-          canManage={viewBooking.status === "booked" && Boolean(currentUid) && viewBooking.owner_uid === currentUid}
+          canManage={viewBooking.status === "booked"}
           onClose={() => setViewBooking(null)}
           onEdit={() => {
             if (viewBooking.status === "completed") return;
@@ -602,7 +602,7 @@ function PublicEventsApp() {
           <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Σεμινάρια & Βιωματικά Εργαστήρια</h1>
           <p className="mt-2 max-w-4xl text-sm font-medium leading-6 text-slate-700">Πανευρωπαϊκός Επιστημονικός Σύλλογος Σ.Ε.Ψ.Υ.G Σωματικά Επικεντρωμένης Ψυχοθεραπείας Gestalt</p>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-            Δείτε τις προγραμματισμένες και τις πραγματοποιημένες δράσεις του συλλόγου. Οι κενές ημερομηνίες δεν εμφανίζουν διαθεσιμότητα ή δυνατότητα καταχώρισης.
+            Δείτε τις προγραμματισμένες και τις πραγματοποιημένες δράσεις του συλλόγου.
           </p>
           <a
             href="/manage"
@@ -807,20 +807,20 @@ function FriendOfAssociationSection() {
     }
   }
 
-  const fieldClass = "w-full rounded-xl border border-slate-300 bg-white px-3.5 py-3 text-sm focus:border-rose-500 focus:outline-none";
+  const fieldClass = "w-full rounded-xl border border-emerald-200 bg-white px-3.5 py-3 text-sm focus:border-emerald-500 focus:outline-none";
 
   return (
-    <section className="mt-10 overflow-hidden rounded-2xl border border-rose-200 bg-white shadow-sm">
-      <div className="bg-rose-50 px-5 py-6 sm:px-8 sm:py-8">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-rose-700">Στήριξε τις δράσεις μας</p>
-        <h2 className="mt-2 text-2xl font-semibold text-slate-900">Γίνε Φίλος του Συλλόγου μας!</h2>
+    <section className="mt-10 overflow-hidden rounded-2xl border border-emerald-200 bg-white shadow-sm">
+      <div className="bg-emerald-50 px-5 py-6 sm:px-8 sm:py-8">
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Στήριξε τις δράσεις μας</p>
+        <h2 className="mt-2 text-2xl font-bold text-emerald-950 underline decoration-emerald-400 decoration-2 underline-offset-4">Γίνε Φίλος του Συλλόγου μας!</h2>
 
         <div className="mt-4 max-w-4xl space-y-3 text-sm leading-6 text-slate-700 sm:text-base sm:leading-7">
-          <p>Οι περισσότερες δράσεις και τα σεμινάρια που διοργανώνουμε προσφέρονται δωρεάν, με στόχο να είναι ανοιχτά και προσβάσιμα σε όσο το δυνατόν περισσότερους ανθρώπους.</p>
-          <p>Για να μπορούμε όμως να συνεχίζουμε, να οργανώνουμε νέες δράσεις και να δίνουμε μεγαλύτερη εξωστρέφεια στο έργο του Συλλόγου, χρειαζόμαστε τη στήριξη ανθρώπων που πιστεύουν σε αυτή την προσπάθεια.</p>
-          <p>Με μόλις <strong>10 ευρώ τον χρόνο</strong>, μπορείς να γίνεις <strong>Φίλος του Συλλόγου</strong> και να συμβάλεις ουσιαστικά στη συνέχιση και την ανάπτυξη των δράσεών μας.</p>
-          <p>Το ποσό είναι μικρό, αλλά η συμμετοχή και η στήριξη κάθε ανθρώπου έχουν πραγματική αξία για εμάς.</p>
-          <p className="font-semibold text-rose-900">Γίνε κι εσύ μέρος αυτής της προσπάθειας. Γίνε Φίλος του Συλλόγου!</p>
+          <p>Οι περισσότερες δράσεις και τα σεμινάρια που διοργανώνουμε προσφέρονται <strong className="font-bold text-emerald-950">δωρεάν</strong>, με στόχο να είναι <u className="decoration-emerald-500 decoration-2 underline-offset-2">ανοιχτά και προσβάσιμα</u> σε όσο το δυνατόν περισσότερους ανθρώπους.</p>
+          <p>Για να μπορούμε όμως να συνεχίζουμε, να οργανώνουμε νέες δράσεις και να δίνουμε μεγαλύτερη εξωστρέφεια στο έργο του Συλλόγου, <strong className="font-bold text-emerald-950">χρειαζόμαστε τη στήριξη ανθρώπων που πιστεύουν σε αυτή την προσπάθεια.</strong></p>
+          <p>Με μόλις <strong className="font-bold text-emerald-950 underline decoration-emerald-500 decoration-2 underline-offset-2">10 ευρώ τον χρόνο</strong>, μπορείς να γίνεις <strong className="font-bold text-emerald-950">Φίλος του Συλλόγου</strong> και να συμβάλεις ουσιαστικά στη συνέχιση και την ανάπτυξη των δράσεών μας.</p>
+          <p>Το ποσό είναι μικρό, αλλά η συμμετοχή και η στήριξη κάθε ανθρώπου έχουν <strong className="font-bold text-emerald-950">πραγματική αξία για εμάς.</strong></p>
+          <p className="font-bold text-emerald-950 underline decoration-emerald-500 decoration-2 underline-offset-3">Γίνε κι εσύ μέρος αυτής της προσπάθειας. Γίνε Φίλος του Συλλόγου!</p>
         </div>
       </div>
 
@@ -859,7 +859,7 @@ function FriendOfAssociationSection() {
 
           <div className="flex flex-col gap-3 sm:col-span-2 sm:flex-row sm:items-center sm:justify-between">
             <p className="max-w-2xl text-xs leading-5 text-slate-500">Τα στοιχεία χρησιμοποιούνται μόνο για να επικοινωνήσει μαζί σας ο Σύλλογος σχετικά με την εγγραφή σας ως Φίλος.</p>
-            <button type="submit" disabled={submitting} className="rounded-xl bg-rose-700 px-5 py-3 text-sm font-semibold text-white hover:bg-rose-800 disabled:cursor-wait disabled:opacity-60">
+            <button type="submit" disabled={submitting} className="rounded-xl bg-emerald-700 px-5 py-3 text-sm font-semibold text-white hover:bg-emerald-800 disabled:cursor-wait disabled:opacity-60">
               {submitting ? "Αποστολή…" : "Θέλω να γίνω Φίλος"}
             </button>
           </div>
@@ -967,10 +967,6 @@ function BookingForm({
       };
 
       if (existing) {
-        if (existing.owner_uid !== user.uid) {
-          throw Object.assign(new Error("NOT_OWNER"), { code: "not-owner" });
-        }
-
         await updateDoc(bookingRef, {
           ...values,
           owner_uid: existing.owner_uid,
@@ -1008,8 +1004,6 @@ function BookingForm({
 
       if (code === "date-already-booked") {
         setError("Η ημερομηνία δεσμεύτηκε μόλις από άλλο μέλος. Επιλέξτε άλλη ημερομηνία.");
-      } else if (code === "not-owner") {
-        setError("Δεν μπορείτε να επεξεργαστείτε αυτή την κράτηση.");
       } else {
         setError(firebaseMessage(caughtError, "Παρουσιάστηκε σφάλμα κατά την αποθήκευση. Δοκιμάστε ξανά."));
       }
@@ -1201,11 +1195,7 @@ function BookingDetails({
     setError(null);
 
     try {
-      const user = await ensureAnonymousUser();
-      if (booking.owner_uid !== user.uid) {
-        throw Object.assign(new Error("NOT_OWNER"), { code: "not-owner" });
-      }
-
+      await ensureAnonymousUser();
       await deleteDoc(doc(db, "bookings", booking.booking_date));
       onDeleted(booking.id);
       void notifyAdmin("delete", booking).then(onEmailStatus);
@@ -1239,12 +1229,6 @@ function BookingDetails({
         <DetailRow label="Περιγραφή" value={booking.description} />
         {!isCompleted && <DetailRow label="Δημόσιο πρόγραμμα" value={booking.is_public ? "Εμφανίζεται δημόσια" : "Δεν εμφανίζεται δημόσια"} />}
       </dl>
-
-      {!canManage && !isCompleted && (
-        <p className="mt-5 rounded-lg bg-slate-100 px-3 py-2 text-xs leading-5 text-slate-600">
-          Μόνο το μέλος που δημιούργησε αυτή την κράτηση από τη συγκεκριμένη συσκευή μπορεί να την επεξεργαστεί ή να την ακυρώσει.
-        </p>
-      )}
 
       {isCompleted && (
         <p className="mt-5 rounded-lg bg-violet-50 px-3 py-2 text-xs leading-5 text-violet-900">
