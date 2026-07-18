@@ -1,4 +1,4 @@
-import tls from "node:tls";
+import nodemailer from "nodemailer";
 
 const ACTION_LABELS = {
   create: "Νέα καταχώριση",
@@ -7,8 +7,7 @@ const ACTION_LABELS = {
 };
 
 function clean(value, maxLength = 2000) {
-  if (typeof value !== "string") return "";
-  return value.trim().slice(0, maxLength);
+  return typeof value === "string" ? value.trim().slice(0, maxLength) : "";
 }
 
 function escapeHtml(value) {
@@ -33,166 +32,32 @@ function formatGreekDate(isoDate) {
   }).format(new Date(`${year}-${month}-${day}T12:00:00+03:00`));
 }
 
-function encodeHeader(value) {
-  return `=?UTF-8?B?${Buffer.from(value, "utf8").toString("base64")}?=`;
-}
-
-function dotStuff(value) {
-  return value.replace(/(^|\r\n)\./g, "$1..");
-}
-
-function createResponseReader(socket) {
-  let buffer = "";
-  let currentLines = [];
-  const ready = [];
-  const waiters = [];
-
-  function deliver(response) {
-    const waiter = waiters.shift();
-    if (waiter) waiter.resolve(response);
-    else ready.push(response);
-  }
-
-  socket.on("data", (chunk) => {
-    buffer += chunk.toString("utf8");
-    let index;
-    while ((index = buffer.indexOf("\r\n")) >= 0) {
-      const line = buffer.slice(0, index);
-      buffer = buffer.slice(index + 2);
-      currentLines.push(line);
-      if (/^\d{3} /.test(line)) {
-        deliver(currentLines.join("\n"));
-        currentLines = [];
-      }
-    }
-  });
-
-  socket.on("error", (error) => {
-    while (waiters.length) waiters.shift().reject(error);
-  });
-
-  return function nextResponse(timeoutMs = 15000) {
-    if (ready.length) return Promise.resolve(ready.shift());
-    return new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        const i = waiters.findIndex((item) => item.resolve === wrappedResolve);
-        if (i >= 0) waiters.splice(i, 1);
-        reject(new Error("SMTP response timeout"));
-      }, timeoutMs);
-      const wrappedResolve = (value) => {
-        clearTimeout(timeout);
-        resolve(value);
-      };
-      waiters.push({ resolve: wrappedResolve, reject });
-    });
-  };
-}
-
-function assertCode(response, allowedCodes) {
-  const code = Number.parseInt(response.slice(0, 3), 10);
-  if (!allowedCodes.includes(code)) {
-    throw new Error(`SMTP error ${response}`);
-  }
-}
-
-async function sendGmail({ user, appPassword, to, subject, text, html }) {
-  const socket = tls.connect({
-    host: "smtp.gmail.com",
-    port: 465,
-    servername: "smtp.gmail.com",
-    rejectUnauthorized: true,
-  });
-  socket.setTimeout(20000, () => socket.destroy(new Error("SMTP connection timeout")));
-
-  const nextResponse = createResponseReader(socket);
-  await new Promise((resolve, reject) => {
-    socket.once("secureConnect", resolve);
-    socket.once("error", reject);
-  });
-
-  let response = await nextResponse();
-  assertCode(response, [220]);
-
-  async function command(value, expectedCodes) {
-    socket.write(`${value}\r\n`);
-    const reply = await nextResponse();
-    assertCode(reply, expectedCodes);
-    return reply;
-  }
-
-  try {
-    await command("EHLO vercel.app", [250]);
-    await command("AUTH LOGIN", [334]);
-    await command(Buffer.from(user).toString("base64"), [334]);
-    await command(Buffer.from(appPassword.replaceAll(" ", "")).toString("base64"), [235]);
-    await command(`MAIL FROM:<${user}>`, [250]);
-    await command(`RCPT TO:<${to}>`, [250, 251]);
-    await command("DATA", [354]);
-
-    const boundary = `calendar-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-    const message = [
-      `From: ${encodeHeader("Ημερολόγιο Συλλόγου")} <${user}>`,
-      `To: <${to}>`,
-      `Subject: ${encodeHeader(subject)}`,
-      "MIME-Version: 1.0",
-      `Content-Type: multipart/alternative; boundary=\"${boundary}\"`,
-      "",
-      `--${boundary}`,
-      "Content-Type: text/plain; charset=UTF-8",
-      "Content-Transfer-Encoding: 8bit",
-      "",
-      text,
-      "",
-      `--${boundary}`,
-      "Content-Type: text/html; charset=UTF-8",
-      "Content-Transfer-Encoding: 8bit",
-      "",
-      html,
-      "",
-      `--${boundary}--`,
-      "",
-    ].join("\r\n");
-
-    socket.write(`${dotStuff(message)}\r\n.\r\n`);
-    response = await nextResponse();
-    assertCode(response, [250]);
-    await command("QUIT", [221]);
-  } finally {
-    socket.end();
-  }
-}
-
 export default async function handler(request, response) {
   if (request.method !== "POST") {
     response.setHeader("Allow", "POST");
     return response.status(405).json({ error: "Method not allowed" });
   }
 
-  const origin = request.headers.origin;
-  const host = request.headers.host;
-  if (origin) {
-    try {
-      if (new URL(origin).host !== host) {
-        return response.status(403).json({ error: "Invalid origin" });
-      }
-    } catch {
-      return response.status(403).json({ error: "Invalid origin" });
-    }
-  }
-
-  const gmailUser = process.env.GMAIL_USER;
-  const gmailAppPassword = process.env.GMAIL_APP_PASSWORD;
-  const notifyTo = process.env.NOTIFY_TO || gmailUser;
+  const gmailUser = clean(process.env.GMAIL_USER, 320);
+  const gmailAppPassword = clean(process.env.GMAIL_APP_PASSWORD, 100).replaceAll(" ", "");
+  const notifyTo = clean(process.env.NOTIFY_TO || gmailUser, 320);
 
   if (!gmailUser || !gmailAppPassword || !notifyTo) {
-    console.error("Missing Gmail environment variables");
-    return response.status(500).json({ error: "Email service is not configured" });
+    console.error("EMAIL_CONFIG_MISSING", {
+      hasUser: Boolean(gmailUser),
+      hasPassword: Boolean(gmailAppPassword),
+      hasRecipient: Boolean(notifyTo),
+    });
+    return response.status(500).json({
+      error: "Email service is not configured",
+      code: "EMAIL_CONFIG_MISSING",
+    });
   }
 
   const body = request.body ?? {};
   const action = clean(body.action, 20);
   if (!Object.hasOwn(ACTION_LABELS, action)) {
-    return response.status(400).json({ error: "Invalid action" });
+    return response.status(400).json({ error: "Invalid action", code: "INVALID_ACTION" });
   }
 
   const bookingDate = clean(body.booking_date, 20);
@@ -202,7 +67,7 @@ export default async function handler(request, response) {
   const description = clean(body.description, 3000) || "Δεν έχει συμπληρωθεί";
 
   if (!bookingDate || therapistName.length < 2) {
-    return response.status(400).json({ error: "Missing required fields" });
+    return response.status(400).json({ error: "Missing required fields", code: "INVALID_PAYLOAD" });
   }
 
   const actionLabel = ACTION_LABELS[action];
@@ -212,6 +77,17 @@ export default async function handler(request, response) {
     timeStyle: "short",
     timeZone: "Europe/Athens",
   }).format(new Date());
+
+  const transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+      user: gmailUser,
+      pass: gmailAppPassword,
+    },
+    connectionTimeout: 15000,
+    greetingTimeout: 15000,
+    socketTimeout: 20000,
+  });
 
   const subject = `${actionLabel} — ${formattedDate}`;
   const text = [
@@ -238,17 +114,20 @@ export default async function handler(request, response) {
     </div>`;
 
   try {
-    await sendGmail({
-      user: gmailUser,
-      appPassword: gmailAppPassword,
+    const info = await transporter.sendMail({
+      from: `"Ημερολόγιο Συλλόγου" <${gmailUser}>`,
       to: notifyTo,
       subject,
       text,
       html,
     });
+
+    console.log("EMAIL_SENT", { messageId: info.messageId, action, bookingDate });
     return response.status(200).json({ ok: true });
   } catch (error) {
-    console.error("Email notification failed", error);
-    return response.status(500).json({ error: "Email delivery failed" });
+    const code = typeof error === "object" && error && "code" in error ? String(error.code) : "EMAIL_SEND_FAILED";
+    const command = typeof error === "object" && error && "command" in error ? String(error.command) : undefined;
+    console.error("EMAIL_SEND_FAILED", { code, command, message: error instanceof Error ? error.message : String(error) });
+    return response.status(500).json({ error: "Email delivery failed", code });
   }
 }

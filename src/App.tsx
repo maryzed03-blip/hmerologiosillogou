@@ -126,6 +126,36 @@ function mergeBookings(liveBookings: Booking[]) {
   return Array.from(map.values()).sort((a, b) => a.booking_date.localeCompare(b.booking_date));
 }
 
+
+type NotificationAction = "create" | "update" | "delete";
+
+async function notifyAdmin(action: NotificationAction, booking: Booking) {
+  try {
+    const response = await fetch("/api/send-notification", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action,
+        booking_date: booking.booking_date,
+        therapist_name: booking.therapist_name,
+        action_time: booking.action_time,
+        topic: booking.topic,
+        description: booking.description,
+      }),
+    });
+
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      console.warn("Η ειδοποίηση email απέτυχε.", payload);
+      return { ok: false, code: typeof payload.code === "string" ? payload.code : `HTTP_${response.status}` };
+    }
+    return { ok: true, code: "EMAIL_SENT" };
+  } catch (error) {
+    console.warn("Η ειδοποίηση email απέτυχε.", error);
+    return { ok: false, code: "NETWORK_ERROR" };
+  }
+}
+
 export default function App() {
   const [activeMonth, setActiveMonth] = useState(MONTHS[0].key);
   const [bookings, setBookings] = useState<Booking[]>(STATIC_BOOKINGS);
@@ -135,6 +165,14 @@ export default function App() {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [viewBooking, setViewBooking] = useState<Booking | null>(null);
   const [editBooking, setEditBooking] = useState<Booking | null>(null);
+  const [emailNotice, setEmailNotice] = useState<{ ok: boolean; text: string } | null>(null);
+
+  function reportEmailStatus(result: { ok: boolean; code: string }) {
+    setEmailNotice(result.ok
+      ? { ok: true, text: "Η αλλαγή αποθηκεύτηκε και η ειδοποίηση email στάλθηκε." }
+      : { ok: false, text: `Η αλλαγή αποθηκεύτηκε, αλλά το email δεν στάλθηκε (${result.code}).` });
+    window.setTimeout(() => setEmailNotice(null), 9000);
+  }
 
   const bookingsByDate = useMemo(() => {
     const map = new Map<string, Booking>();
@@ -214,6 +252,12 @@ export default function App() {
       </header>
 
       <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
+        {emailNotice && (
+          <div className={`mb-5 rounded-lg border px-4 py-3 text-sm ${emailNotice.ok ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-amber-200 bg-amber-50 text-amber-900"}`}>
+            {emailNotice.text}
+          </div>
+        )}
+
         {connectionError && (
           <div className="mb-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
             <strong className="font-semibold">Πρόβλημα σύνδεσης με Firebase:</strong> {connectionError}
@@ -327,6 +371,7 @@ export default function App() {
         <BookingForm
           date={selectedDate}
           connectionError={connectionError}
+          onEmailStatus={reportEmailStatus}
           onClose={() => setSelectedDate(null)}
           onSaved={(booking) => {
             setBookings((previous) => mergeBookings([...previous.filter((item) => item.id !== booking.id && item.booking_date !== booking.booking_date), booking]));
@@ -346,6 +391,7 @@ export default function App() {
             setViewBooking(null);
             setEditBooking(booking);
           }}
+          onEmailStatus={reportEmailStatus}
           onDeleted={(id) => {
             setBookings((previous) => previous.filter((item) => item.id !== id));
             setViewBooking(null);
@@ -358,6 +404,7 @@ export default function App() {
           date={editBooking.booking_date}
           existing={editBooking}
           connectionError={connectionError}
+          onEmailStatus={reportEmailStatus}
           onClose={() => setEditBooking(null)}
           onSaved={(booking) => {
             setBookings((previous) => mergeBookings([...previous.filter((item) => item.id !== booking.id), booking]));
@@ -385,12 +432,14 @@ function BookingForm({
   date,
   existing,
   connectionError,
+  onEmailStatus,
   onClose,
   onSaved,
 }: {
   date: string;
   existing?: Booking;
   connectionError?: string | null;
+  onEmailStatus: (result: { ok: boolean; code: string }) => void;
   onClose: () => void;
   onSaved: (booking: Booking) => void;
 }) {
@@ -438,7 +487,9 @@ function BookingForm({
           updated_at: serverTimestamp(),
         });
 
-        onSaved({ ...existing, ...values });
+        const savedBooking = { ...existing, ...values };
+        onSaved(savedBooking);
+        void notifyAdmin("update", savedBooking).then(onEmailStatus);
       } else {
         await runTransaction(db, async (transaction) => {
           const current = await transaction.get(bookingRef);
@@ -454,11 +505,13 @@ function BookingForm({
           });
         });
 
-        onSaved({
+        const savedBooking = {
           id: date,
           ...values,
           owner_uid: user.uid,
-        });
+        };
+        onSaved(savedBooking);
+        void notifyAdmin("create", savedBooking).then(onEmailStatus);
       }
     } catch (caughtError) {
       const code = (caughtError as { code?: string } | null)?.code;
@@ -625,12 +678,14 @@ function BookingDetails({
   canManage,
   onClose,
   onEdit,
+  onEmailStatus,
   onDeleted,
 }: {
   booking: Booking;
   canManage: boolean;
   onClose: () => void;
   onEdit: () => void;
+  onEmailStatus: (result: { ok: boolean; code: string }) => void;
   onDeleted: (id: string) => void;
 }) {
   const [deleting, setDeleting] = useState(false);
@@ -650,6 +705,7 @@ function BookingDetails({
 
       await deleteDoc(doc(db, "bookings", booking.booking_date));
       onDeleted(booking.id);
+      void notifyAdmin("delete", booking).then(onEmailStatus);
     } catch (caughtError) {
       setError(firebaseMessage(caughtError, "Δεν ήταν δυνατή η ακύρωση της κράτησης."));
     } finally {
