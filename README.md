@@ -70,3 +70,18 @@ npm run dev
 - Month selection uses a dropdown on small screens.
 - The app opens directly on the current month when it is within July 2026–August 2027.
 - Association website link: https://eusyllogossepshyg.carrd.co/
+
+## Κρατήσεις θέσεων ανά event
+
+Η δημόσια σελίδα `/events` περιλαμβάνει φόρμα «Θέλω να παρακολουθήσω» για κάθε προσεχή δημόσια δράση. Οι συμμετοχές αποθηκεύονται ανά event και είναι ορατές συγκεντρωτικά μόνο στο `/manage`.
+
+Στη διαχείριση εμφανίζονται:
+
+- αριθμός συμμετοχών ανά δράση,
+- ονοματεπώνυμο, email, τηλέφωνο και επάγγελμα,
+- προαιρετικό σχόλιο,
+- ημερομηνία υποβολής,
+- διαγραφή συμμετοχής,
+- εξαγωγή CSV.
+
+Για τη ρύθμιση των ασφαλών server endpoints διάβασε το `PARTICIPATION_SETUP_VERCEL.md`.

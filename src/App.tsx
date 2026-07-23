@@ -27,6 +27,20 @@ type Booking = {
   is_public: boolean;
 };
 
+type EventRegistration = {
+  id: string;
+  event_id: string;
+  event_date: string;
+  event_topic: string;
+  event_time: string;
+  full_name: string;
+  email: string;
+  phone: string;
+  profession: string;
+  comment: string;
+  created_at: string | null;
+};
+
 type MonthItem = {
   key: string;
   label: string;
@@ -190,8 +204,12 @@ async function notifyAdmin(action: NotificationAction, booking: Booking) {
 }
 
 
-const MANAGE_ACCESS_KEY = "association-manage-unlocked";
-const MANAGE_CODE = "1111";
+const MANAGE_ACCESS_KEY = "association-manage-code";
+
+function getManageCode() {
+  if (typeof window === "undefined") return "";
+  return window.sessionStorage.getItem(MANAGE_ACCESS_KEY) || "";
+}
 
 
 function AssociationLogo({ size = "md", centered = false }: { size?: "sm" | "md"; centered?: boolean }) {
@@ -207,23 +225,38 @@ function AssociationLogo({ size = "md", centered = false }: { size?: "sm" | "md"
 
 function ManageAccess() {
   const [unlocked, setUnlocked] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return window.sessionStorage.getItem(MANAGE_ACCESS_KEY) === "yes";
+    const savedCode = getManageCode();
+    return Boolean(savedCode && savedCode !== "yes");
   });
   const [code, setCode] = useState("");
+  const [checking, setChecking] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  function handleUnlock(event: FormEvent) {
+  async function handleUnlock(event: FormEvent) {
     event.preventDefault();
-    if (code.trim() !== MANAGE_CODE) {
+    setChecking(true);
+    setError(null);
+
+    try {
+      const response = await fetch("/api/verify-manage-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: code.trim() }),
+      });
+
+      if (!response.ok) {
+        throw new Error("INVALID_CODE");
+      }
+
+      window.sessionStorage.setItem(MANAGE_ACCESS_KEY, code.trim());
+      setUnlocked(true);
+      setCode("");
+    } catch {
       setError("Ο κωδικός δεν είναι σωστός.");
       setCode("");
-      return;
+    } finally {
+      setChecking(false);
     }
-
-    window.sessionStorage.setItem(MANAGE_ACCESS_KEY, "yes");
-    setUnlocked(true);
-    setError(null);
   }
 
   if (unlocked) {
@@ -251,7 +284,7 @@ function ManageAccess() {
         <p className="mt-5 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Περιοχή μελών</p>
         <h1 className="mt-2 text-2xl font-semibold">Διαχείριση ημερολογίου</h1>
         <p className="mt-2 text-sm leading-6 text-slate-600">
-          Πληκτρολογήστε τον κωδικό για να ανοίξετε το ημερολόγιο διαθεσιμότητας.
+          Πληκτρολογήστε τον κωδικό για να ανοίξετε το ημερολόγιο και τις λίστες συμμετοχών.
         </p>
 
         <form onSubmit={handleUnlock} className="mt-6 space-y-4">
@@ -266,15 +299,16 @@ function ManageAccess() {
               onChange={(event) => setCode(event.target.value)}
               autoFocus
               required
-              className="w-full rounded-xl border border-slate-300 px-4 py-3 text-center text-xl tracking-[0.4em] focus:border-emerald-500 focus:outline-none"
+              disabled={checking}
+              className="w-full rounded-xl border border-slate-300 px-4 py-3 text-center text-xl tracking-[0.4em] focus:border-emerald-500 focus:outline-none disabled:bg-slate-100"
               placeholder="••••"
             />
           </div>
 
           {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
 
-          <button type="submit" className="w-full rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white hover:bg-emerald-700">
-            Είσοδος
+          <button type="submit" disabled={checking} className="w-full rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-60">
+            {checking ? "Έλεγχος…" : "Είσοδος"}
           </button>
         </form>
 
@@ -295,10 +329,35 @@ function ManageApp() {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [viewBooking, setViewBooking] = useState<Booking | null>(null);
   const [editBooking, setEditBooking] = useState<Booking | null>(null);
+  const [registrationsBooking, setRegistrationsBooking] = useState<Booking | null>(null);
+  const [registrationCounts, setRegistrationCounts] = useState<Record<string, number>>({});
+  const [registrationError, setRegistrationError] = useState<string | null>(null);
   const [emailNotice, setEmailNotice] = useState<{ ok: boolean; text: string } | null>(null);
 
   useEffect(() => {
     setActiveMonth(getInitialMonthKey());
+  }, []);
+
+  async function loadRegistrationCounts() {
+    const code = getManageCode();
+    if (!code) return;
+    try {
+      const response = await fetch(`/api/event-registrations?summary=1&code=${encodeURIComponent(code)}`);
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw Object.assign(new Error("SUMMARY_FAILED"), { code: payload.code || `HTTP_${response.status}` });
+      setRegistrationCounts(payload.counts || {});
+      setRegistrationError(null);
+    } catch (error) {
+      const code = (error as { code?: string } | null)?.code;
+      setRegistrationError(`Δεν φορτώθηκαν οι συμμετοχές${code ? ` (${code})` : ""}. Έλεγξε τις ρυθμίσεις Firebase Admin στο Vercel.`);
+    }
+  }
+
+  useEffect(() => {
+    void loadRegistrationCounts();
+    const handleFocus = () => void loadRegistrationCounts();
+    window.addEventListener("focus", handleFocus);
+    return () => window.removeEventListener("focus", handleFocus);
   }, []);
 
   function reportEmailStatus(result: { ok: boolean; code: string }) {
@@ -415,6 +474,12 @@ function ManageApp() {
           </div>
         )}
 
+        {registrationError && (
+          <div className="mb-5 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            <strong className="font-semibold">Λίστες συμμετοχών:</strong> {registrationError}
+          </div>
+        )}
+
         <div className="mb-6">
           <label htmlFor="manage-month" className="mb-2 block text-sm font-semibold text-slate-700 sm:hidden">
             Επιλογή μήνα
@@ -502,6 +567,11 @@ function ManageApp() {
                               {booking.topic}
                             </span>
                           )}
+                          {booking.is_public && (registrationCounts[date] || 0) > 0 && (
+                            <span className="mt-1 rounded-full bg-sky-700 px-1.5 py-0.5 text-[9px] font-bold text-white sm:text-[10px]">
+                              {registrationCounts[date]} συμμετοχές
+                            </span>
+                          )}
                         </>
                       )}
                     </button>
@@ -550,6 +620,12 @@ function ManageApp() {
         <BookingDetails
           booking={viewBooking}
           canManage={viewBooking.status === "booked"}
+          registrationCount={registrationCounts[viewBooking.booking_date] || 0}
+          onViewRegistrations={() => {
+            const booking = viewBooking;
+            setViewBooking(null);
+            setRegistrationsBooking(booking);
+          }}
           onClose={() => setViewBooking(null)}
           onEdit={() => {
             if (viewBooking.status === "completed") return;
@@ -576,6 +652,17 @@ function ManageApp() {
             setBookings((previous) => mergeBookings([...previous.filter((item) => item.id !== booking.id), booking]));
             setEditBooking(null);
           }}
+        />
+      )}
+
+      {registrationsBooking && (
+        <RegistrationsModal
+          booking={registrationsBooking}
+          onClose={() => {
+            setRegistrationsBooking(null);
+            void loadRegistrationCounts();
+          }}
+          onCountChange={(count) => setRegistrationCounts((previous) => ({ ...previous, [registrationsBooking.booking_date]: count }))}
         />
       )}
     </div>
@@ -956,10 +1043,105 @@ function FriendOfAssociationSection() {
   );
 }
 
+type EventRegistrationFormValues = {
+  fullName: string;
+  email: string;
+  phone: string;
+  profession: string;
+  comment: string;
+};
+
 function PublicBookingDetails({ booking, onClose }: { booking: Booking; onClose: () => void }) {
   const isCompleted = booking.status === "completed";
+  const [showForm, setShowForm] = useState(false);
+  const [values, setValues] = useState<EventRegistrationFormValues>({
+    fullName: "",
+    email: "",
+    phone: "",
+    profession: "",
+    comment: "",
+  });
+  const [consent, setConsent] = useState(false);
+  const [website, setWebsite] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
+
+  function updateValue(field: keyof EventRegistrationFormValues, value: string) {
+    setValues((previous) => ({ ...previous, [field]: value }));
+  }
+
+  async function handleRegistration(event: FormEvent) {
+    event.preventDefault();
+    setNotice(null);
+
+    if (values.fullName.trim().length < 2) {
+      setNotice({ ok: false, text: "Συμπληρώστε το ονοματεπώνυμό σας." });
+      return;
+    }
+    if (!/^\S+@\S+\.\S+$/.test(values.email.trim())) {
+      setNotice({ ok: false, text: "Συμπληρώστε ένα έγκυρο email." });
+      return;
+    }
+    if (values.phone.trim().length < 6 || values.profession.trim().length < 2) {
+      setNotice({ ok: false, text: "Συμπληρώστε το τηλέφωνο και το επάγγελμά σας." });
+      return;
+    }
+    if (!consent) {
+      setNotice({ ok: false, text: "Χρειάζεται να αποδεχτείτε τη χρήση των στοιχείων για τη συγκεκριμένη συμμετοχή." });
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const response = await fetch("/api/register-event", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          eventId: booking.booking_date,
+          ...values,
+          consent,
+          website,
+        }),
+      });
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        if (payload.code === "ALREADY_REGISTERED") {
+          throw Object.assign(new Error("ALREADY_REGISTERED"), { code: "ALREADY_REGISTERED" });
+        }
+        if (payload.code === "EVENT_NOT_OPEN") {
+          throw Object.assign(new Error("EVENT_NOT_OPEN"), { code: "EVENT_NOT_OPEN" });
+        }
+        throw Object.assign(new Error("REQUEST_FAILED"), { code: payload.code || `HTTP_${response.status}` });
+      }
+
+      setValues({ fullName: "", email: "", phone: "", profession: "", comment: "" });
+      setConsent(false);
+      setWebsite("");
+      setNotice({
+        ok: true,
+        text: payload.emailWarning
+          ? "Η θέση σας καταχωρίστηκε. Δεν ήταν δυνατή μόνο η αποστολή του email επιβεβαίωσης."
+          : "Η θέση σας καταχωρίστηκε και στάλθηκε επιβεβαίωση στο email σας.",
+      });
+    } catch (error) {
+      const code = (error as { code?: string } | null)?.code;
+      if (code === "ALREADY_REGISTERED") {
+        setNotice({ ok: false, text: "Υπάρχει ήδη συμμετοχή με αυτό το email για τη συγκεκριμένη δράση." });
+      } else if (code === "EVENT_NOT_OPEN") {
+        setNotice({ ok: false, text: "Η συγκεκριμένη δράση δεν δέχεται πλέον συμμετοχές." });
+      } else {
+        setNotice({ ok: false, text: `Δεν ήταν δυνατή η καταχώριση${code ? ` (${code})` : ""}. Δοκιμάστε ξανά.` });
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  const fieldClass = "w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:border-sky-500 focus:outline-none disabled:bg-slate-100";
+
   return (
-    <Modal onClose={onClose}>
+    <Modal onClose={submitting ? undefined : onClose}>
       <p className={`text-xs font-semibold uppercase tracking-wide ${isCompleted ? "text-violet-700" : "text-sky-700"}`}>
         {isCompleted ? "Πραγματοποιημένη δράση" : "Προσεχής δράση"}
       </p>
@@ -972,8 +1154,73 @@ function PublicBookingDetails({ booking, onClose }: { booking: Booking; onClose:
         <DetailRow label="Περιγραφή" value={booking.description} />
       </dl>
 
+      {!isCompleted && !showForm && (
+        <div className="mt-6 rounded-xl border border-sky-200 bg-sky-50 p-4">
+          <p className="text-sm leading-6 text-sky-950">Θέλεις να κρατήσεις θέση στη συγκεκριμένη δράση;</p>
+          <button
+            type="button"
+            onClick={() => setShowForm(true)}
+            className="mt-3 w-full rounded-lg bg-sky-700 px-4 py-3 text-sm font-semibold text-white hover:bg-sky-800"
+          >
+            Θέλω να παρακολουθήσω
+          </button>
+        </div>
+      )}
+
+      {!isCompleted && showForm && (
+        <form onSubmit={handleRegistration} className="mt-6 space-y-4 border-t border-slate-200 pt-5">
+          <div>
+            <h4 className="text-lg font-semibold">Κράτηση θέσης</h4>
+            <p className="mt-1 text-xs leading-5 text-slate-500">Συμπλήρωσε τα στοιχεία σου. Η συμμετοχή θα συνδεθεί αυτόματα με αυτή τη δράση.</p>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label htmlFor="registration-name" className="mb-1.5 block text-sm font-medium">Ονοματεπώνυμο</label>
+              <input id="registration-name" value={values.fullName} onChange={(event) => updateValue("fullName", event.target.value)} required maxLength={160} className={fieldClass} />
+            </div>
+            <div>
+              <label htmlFor="registration-email" className="mb-1.5 block text-sm font-medium">Email</label>
+              <input id="registration-email" type="email" value={values.email} onChange={(event) => updateValue("email", event.target.value)} required maxLength={220} className={fieldClass} />
+            </div>
+            <div>
+              <label htmlFor="registration-phone" className="mb-1.5 block text-sm font-medium">Τηλέφωνο</label>
+              <input id="registration-phone" type="tel" value={values.phone} onChange={(event) => updateValue("phone", event.target.value)} required maxLength={60} className={fieldClass} />
+            </div>
+            <div>
+              <label htmlFor="registration-profession" className="mb-1.5 block text-sm font-medium">Επάγγελμα</label>
+              <input id="registration-profession" value={values.profession} onChange={(event) => updateValue("profession", event.target.value)} required maxLength={160} className={fieldClass} />
+            </div>
+          </div>
+
+          <div>
+            <label htmlFor="registration-comment" className="mb-1.5 block text-sm font-medium">Σχόλιο <span className="font-normal text-slate-400">(προαιρετικό)</span></label>
+            <textarea id="registration-comment" rows={3} value={values.comment} onChange={(event) => updateValue("comment", event.target.value)} maxLength={1000} className={fieldClass} />
+          </div>
+
+          <div aria-hidden="true" className="absolute -left-[10000px] h-px w-px overflow-hidden">
+            <label htmlFor="registration-website">Website</label>
+            <input id="registration-website" tabIndex={-1} autoComplete="off" value={website} onChange={(event) => setWebsite(event.target.value)} />
+          </div>
+
+          <label className="flex cursor-pointer items-start gap-2 text-xs leading-5 text-slate-600">
+            <input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} className="mt-0.5 h-4 w-4 accent-sky-600" />
+            Αποδέχομαι τη χρήση των στοιχείων μου αποκλειστικά για τη διαχείριση της συμμετοχής μου στη συγκεκριμένη δράση και την επικοινωνία από τον Σύλλογο.
+          </label>
+
+          {notice && <p className={`rounded-lg px-3 py-2.5 text-sm ${notice.ok ? "bg-emerald-50 text-emerald-800" : "bg-red-50 text-red-700"}`}>{notice.text}</p>}
+
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <button type="button" disabled={submitting} onClick={() => setShowForm(false)} className="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium hover:bg-slate-50 disabled:opacity-60">Πίσω</button>
+            <button type="submit" disabled={submitting || notice?.ok === true} className="rounded-lg bg-sky-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-sky-800 disabled:opacity-60">
+              {submitting ? "Καταχώριση…" : notice?.ok ? "Η θέση καταχωρίστηκε" : "Ολοκλήρωση κράτησης"}
+            </button>
+          </div>
+        </form>
+      )}
+
       <div className="mt-6 flex justify-end">
-        <button type="button" onClick={onClose} className="rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800">
+        <button type="button" onClick={onClose} disabled={submitting} className="rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60">
           Κλείσιμο
         </button>
       </div>
@@ -1260,6 +1507,8 @@ function OptionalField({
 function BookingDetails({
   booking,
   canManage,
+  registrationCount,
+  onViewRegistrations,
   onClose,
   onEdit,
   onEmailStatus,
@@ -1267,6 +1516,8 @@ function BookingDetails({
 }: {
   booking: Booking;
   canManage: boolean;
+  registrationCount: number;
+  onViewRegistrations: () => void;
   onClose: () => void;
   onEdit: () => void;
   onEmailStatus: (result: { ok: boolean; code: string }) => void;
@@ -1317,6 +1568,17 @@ function BookingDetails({
         {!isCompleted && <DetailRow label="Δημόσιο πρόγραμμα" value={booking.is_public ? "Εμφανίζεται δημόσια" : "Δεν εμφανίζεται δημόσια"} />}
       </dl>
 
+      {booking.is_public && (
+        <button
+          type="button"
+          onClick={onViewRegistrations}
+          className="mt-5 flex w-full items-center justify-between rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-left text-sm font-semibold text-sky-950 hover:bg-sky-100"
+        >
+          <span>Προβολή συμμετοχών</span>
+          <span className="rounded-full bg-sky-700 px-2.5 py-1 text-xs text-white">{registrationCount}</span>
+        </button>
+      )}
+
       {isCompleted && (
         <p className="mt-5 rounded-lg bg-violet-50 px-3 py-2 text-xs leading-5 text-violet-900">
           Αυτή η δράση έχει ήδη πραγματοποιηθεί και εμφανίζεται μόνο ως ιστορική καταγραφή.
@@ -1360,6 +1622,147 @@ function BookingDetails({
   );
 }
 
+function RegistrationsModal({
+  booking,
+  onClose,
+  onCountChange,
+}: {
+  booking: Booking;
+  onClose: () => void;
+  onCountChange: (count: number) => void;
+}) {
+  const [registrations, setRegistrations] = useState<EventRegistration[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  async function loadRegistrations() {
+    setLoading(true);
+    setError(null);
+    try {
+      const code = getManageCode();
+      const response = await fetch(`/api/event-registrations?eventId=${encodeURIComponent(booking.booking_date)}&code=${encodeURIComponent(code)}`);
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw Object.assign(new Error("LOAD_FAILED"), { code: payload.code || `HTTP_${response.status}` });
+      const items = Array.isArray(payload.registrations) ? payload.registrations : [];
+      setRegistrations(items);
+      onCountChange(items.length);
+    } catch (caughtError) {
+      const code = (caughtError as { code?: string } | null)?.code;
+      setError(`Δεν ήταν δυνατή η φόρτωση των συμμετοχών${code ? ` (${code})` : ""}.`);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    void loadRegistrations();
+  }, [booking.booking_date]);
+
+  async function deleteRegistration(registration: EventRegistration) {
+    if (!window.confirm(`Να διαγραφεί η συμμετοχή του/της ${registration.full_name};`)) return;
+    setDeletingId(registration.id);
+    setError(null);
+    try {
+      const response = await fetch("/api/event-registrations", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: getManageCode(), registrationId: registration.id }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw Object.assign(new Error("DELETE_FAILED"), { code: payload.code || `HTTP_${response.status}` });
+      const next = registrations.filter((item) => item.id !== registration.id);
+      setRegistrations(next);
+      onCountChange(next.length);
+    } catch (caughtError) {
+      const code = (caughtError as { code?: string } | null)?.code;
+      setError(`Δεν ήταν δυνατή η διαγραφή${code ? ` (${code})` : ""}.`);
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
+  function exportCsv() {
+    const quote = (value: string) => `"${value.replaceAll('"', '""')}"`;
+    const rows = [
+      ["Ονοματεπώνυμο", "Email", "Τηλέφωνο", "Επάγγελμα", "Σχόλιο", "Ημερομηνία υποβολής"],
+      ...registrations.map((item) => [
+        item.full_name,
+        item.email,
+        item.phone,
+        item.profession,
+        item.comment,
+        item.created_at ? new Date(item.created_at).toLocaleString("el-GR") : "",
+      ]),
+    ];
+    const csv = `\uFEFF${rows.map((row) => row.map((cell) => quote(String(cell ?? ""))).join(",")).join("\n")}`;
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `symmetoxes-${booking.booking_date}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  return (
+    <Modal onClose={deletingId ? undefined : onClose} wide>
+      <div className="flex flex-col gap-3 border-b border-slate-200 pb-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-sky-700">Συγκεντρωτική λίστα</p>
+          <h3 className="mt-1 text-xl font-semibold">{booking.topic || "Δράση Συλλόγου"}</h3>
+          <p className="mt-1 text-sm capitalize text-slate-600">{formatDateGreek(booking.booking_date)} · {registrations.length} συμμετοχές</p>
+        </div>
+        <button type="button" onClick={exportCsv} disabled={loading || registrations.length === 0} className="rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-800 hover:bg-emerald-100 disabled:opacity-50">
+          Εξαγωγή CSV
+        </button>
+      </div>
+
+      {loading && <p className="py-8 text-center text-sm text-slate-500">Φόρτωση συμμετοχών…</p>}
+      {error && <p className="mt-4 rounded-lg bg-red-50 px-3 py-2.5 text-sm text-red-700">{error}</p>}
+
+      {!loading && registrations.length === 0 && !error && (
+        <p className="py-8 text-center text-sm text-slate-500">Δεν υπάρχουν ακόμη δηλώσεις συμμετοχής για αυτή τη δράση.</p>
+      )}
+
+      {!loading && registrations.length > 0 && (
+        <div className="mt-4 space-y-3">
+          {registrations.map((registration, index) => (
+            <article key={registration.id} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold text-slate-400">#{index + 1}</p>
+                  <h4 className="mt-1 font-semibold text-slate-900">{registration.full_name}</h4>
+                  <div className="mt-2 grid gap-1 text-sm text-slate-600 sm:grid-cols-2 sm:gap-x-6">
+                    <p><strong>Email:</strong> <a href={`mailto:${registration.email}`} className="break-all text-sky-700 underline">{registration.email}</a></p>
+                    <p><strong>Τηλέφωνο:</strong> <a href={`tel:${registration.phone}`} className="text-sky-700 underline">{registration.phone}</a></p>
+                    <p><strong>Επάγγελμα:</strong> {registration.profession}</p>
+                    <p><strong>Υποβολή:</strong> {registration.created_at ? new Date(registration.created_at).toLocaleString("el-GR") : "—"}</p>
+                  </div>
+                  {registration.comment && <p className="mt-3 rounded-lg bg-white px-3 py-2 text-sm leading-6 text-slate-600"><strong>Σχόλιο:</strong> {registration.comment}</p>}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void deleteRegistration(registration)}
+                  disabled={deletingId === registration.id}
+                  className="shrink-0 rounded-lg border border-red-200 bg-white px-3 py-2 text-xs font-semibold text-red-700 hover:bg-red-50 disabled:opacity-60"
+                >
+                  {deletingId === registration.id ? "Διαγραφή…" : "Διαγραφή"}
+                </button>
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
+
+      <div className="mt-6 flex justify-end">
+        <button type="button" onClick={onClose} disabled={Boolean(deletingId)} className="rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60">Κλείσιμο</button>
+      </div>
+    </Modal>
+  );
+}
+
 function DetailRow({ label, value }: { label: string; value: string | null }) {
   const isEmpty = !value || !value.trim();
 
@@ -1373,7 +1776,7 @@ function DetailRow({ label, value }: { label: string; value: string | null }) {
   );
 }
 
-function Modal({ children, onClose }: { children: ReactNode; onClose?: () => void }) {
+function Modal({ children, onClose, wide = false }: { children: ReactNode; onClose?: () => void; wide?: boolean }) {
   return (
     <div
       className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/50 p-2 sm:items-center sm:p-4"
@@ -1383,7 +1786,7 @@ function Modal({ children, onClose }: { children: ReactNode; onClose?: () => voi
       <div
         role="dialog"
         aria-modal="true"
-        className="my-2 max-h-[calc(100vh-1rem)] w-full max-w-lg overflow-y-auto rounded-xl bg-white p-4 shadow-2xl sm:my-auto sm:max-h-[calc(100vh-2rem)] sm:p-6"
+        className={`my-2 max-h-[calc(100vh-1rem)] w-full overflow-y-auto rounded-xl bg-white p-4 shadow-2xl sm:my-auto sm:max-h-[calc(100vh-2rem)] sm:p-6 ${wide ? "max-w-5xl" : "max-w-lg"}`}
         onClick={(event) => event.stopPropagation()}
       >
         {children}
