@@ -205,10 +205,18 @@ async function notifyAdmin(action: NotificationAction, booking: Booking) {
 
 
 const MANAGE_ACCESS_KEY = "association-manage-code";
+const MANAGE_ROLE_KEY = "association-manage-role";
+type ManageRole = "member" | "admin";
 
 function getManageCode() {
   if (typeof window === "undefined") return "";
   return window.sessionStorage.getItem(MANAGE_ACCESS_KEY) || "";
+}
+
+function getManageRole(): ManageRole | null {
+  if (typeof window === "undefined") return null;
+  const role = window.sessionStorage.getItem(MANAGE_ROLE_KEY);
+  return role === "admin" || role === "member" ? role : null;
 }
 
 
@@ -224,10 +232,8 @@ function AssociationLogo({ size = "md", centered = false }: { size?: "sm" | "md"
 }
 
 function ManageAccess() {
-  const [unlocked, setUnlocked] = useState(() => {
-    const savedCode = getManageCode();
-    return Boolean(savedCode && savedCode !== "yes");
-  });
+  const [role, setRole] = useState<ManageRole | null>(() => getManageRole());
+  const [unlocked, setUnlocked] = useState(() => Boolean(getManageCode() && getManageRole()));
   const [code, setCode] = useState("");
   const [checking, setChecking] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -244,11 +250,14 @@ function ManageAccess() {
         body: JSON.stringify({ code: code.trim() }),
       });
 
-      if (!response.ok) {
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || (payload.role !== "member" && payload.role !== "admin")) {
         throw new Error("INVALID_CODE");
       }
 
       window.sessionStorage.setItem(MANAGE_ACCESS_KEY, code.trim());
+      window.sessionStorage.setItem(MANAGE_ROLE_KEY, payload.role);
+      setRole(payload.role);
       setUnlocked(true);
       setCode("");
     } catch {
@@ -259,14 +268,16 @@ function ManageAccess() {
     }
   }
 
-  if (unlocked) {
+  if (unlocked && role) {
     return (
       <>
-        <ManageApp />
+        <ManageApp role={role} />
         <button
           type="button"
           onClick={() => {
             window.sessionStorage.removeItem(MANAGE_ACCESS_KEY);
+            window.sessionStorage.removeItem(MANAGE_ROLE_KEY);
+            setRole(null);
             setUnlocked(false);
           }}
           className="fixed bottom-4 right-4 z-40 rounded-full border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-600 shadow-lg hover:bg-slate-50"
@@ -284,7 +295,7 @@ function ManageAccess() {
         <p className="mt-5 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Περιοχή μελών</p>
         <h1 className="mt-2 text-2xl font-semibold">Διαχείριση ημερολογίου</h1>
         <p className="mt-2 text-sm leading-6 text-slate-600">
-          Πληκτρολογήστε τον κωδικό για να ανοίξετε το ημερολόγιο και τις λίστες συμμετοχών.
+          Με τον κωδικό μελών ανοίγει η διαχείριση δράσεων. Με τον κωδικό διοικητικού εμφανίζονται επιπλέον τα προσωπικά στοιχεία των συμμετεχόντων.
         </p>
 
         <form onSubmit={handleUnlock} className="mt-6 space-y-4">
@@ -320,7 +331,7 @@ function ManageAccess() {
   );
 }
 
-function ManageApp() {
+function ManageApp({ role }: { role: ManageRole }) {
   const [activeMonth, setActiveMonth] = useState(() => getInitialMonthKey());
   const [bookings, setBookings] = useState<Booking[]>(STATIC_BOOKINGS);
   const [loading, setLoading] = useState(true);
@@ -432,9 +443,12 @@ function ManageApp() {
       <header className="border-b border-slate-200 bg-white">
         <div className="mx-auto max-w-6xl px-4 py-7 sm:px-6">
           <AssociationLogo size="sm" />
-          <p className="mb-2 mt-4 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">
-            Κοινό ημερολόγιο συλλόγου
-          </p>
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Κοινό ημερολόγιο συλλόγου</p>
+            <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${role === "admin" ? "bg-violet-100 text-violet-800" : "bg-emerald-100 text-emerald-800"}`}>
+              {role === "admin" ? "Πρόσβαση διοικητικού" : "Πρόσβαση μέλους"}
+            </span>
+          </div>
           <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
             Διαθεσιμότητα Θεραπευτών για Δράσεις
           </h1>
@@ -599,7 +613,7 @@ function ManageApp() {
         </div>
 
         <p className="mt-6 rounded-lg bg-emerald-50 px-4 py-3 text-xs leading-5 text-emerald-900">
-          Όλα τα μέλη που εισέρχονται με τον κωδικό διαχείρισης μπορούν να επεξεργάζονται ή να ακυρώνουν οποιαδήποτε κράτηση.
+          Όλα τα μέλη μπορούν να διαχειρίζονται τις δράσεις και να βλέπουν τον αριθμό συμμετοχών. Μόνο το διοικητικό, με τον κωδικό 2222, βλέπει τα προσωπικά στοιχεία των συμμετεχόντων.
         </p>
       </main>
 
@@ -621,6 +635,7 @@ function ManageApp() {
           booking={viewBooking}
           canManage={viewBooking.status === "booked"}
           registrationCount={registrationCounts[viewBooking.booking_date] || 0}
+          canViewRegistrationDetails={role === "admin"}
           onViewRegistrations={() => {
             const booking = viewBooking;
             setViewBooking(null);
@@ -655,7 +670,7 @@ function ManageApp() {
         />
       )}
 
-      {registrationsBooking && (
+      {role === "admin" && registrationsBooking && (
         <RegistrationsModal
           booking={registrationsBooking}
           onClose={() => {
@@ -1508,6 +1523,7 @@ function BookingDetails({
   booking,
   canManage,
   registrationCount,
+  canViewRegistrationDetails,
   onViewRegistrations,
   onClose,
   onEdit,
@@ -1517,6 +1533,7 @@ function BookingDetails({
   booking: Booking;
   canManage: boolean;
   registrationCount: number;
+  canViewRegistrationDetails: boolean;
   onViewRegistrations: () => void;
   onClose: () => void;
   onEdit: () => void;
@@ -1568,15 +1585,22 @@ function BookingDetails({
         {!isCompleted && <DetailRow label="Δημόσιο πρόγραμμα" value={booking.is_public ? "Εμφανίζεται δημόσια" : "Δεν εμφανίζεται δημόσια"} />}
       </dl>
 
-      {booking.is_public && (
+      {booking.is_public && canViewRegistrationDetails && (
         <button
           type="button"
           onClick={onViewRegistrations}
           className="mt-5 flex w-full items-center justify-between rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-left text-sm font-semibold text-sky-950 hover:bg-sky-100"
         >
-          <span>Προβολή συμμετοχών</span>
+          <span>Προβολή στοιχείων συμμετεχόντων</span>
           <span className="rounded-full bg-sky-700 px-2.5 py-1 text-xs text-white">{registrationCount}</span>
         </button>
+      )}
+
+      {booking.is_public && !canViewRegistrationDetails && (
+        <div className="mt-5 flex w-full items-center justify-between rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-950">
+          <span>Συνολικές συμμετοχές</span>
+          <span className="rounded-full bg-emerald-700 px-2.5 py-1 text-xs text-white">{registrationCount}</span>
+        </div>
       )}
 
       {isCompleted && (

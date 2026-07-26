@@ -1,4 +1,4 @@
-import { deleteDocument, isValidManageCode, queryCollection } from "../lib/firestore-rest.js";
+import { deleteDocument, getAccessRole, queryCollection } from "../lib/firestore-rest.js";
 
 function clean(value, maxLength = 1000) {
   return typeof value === "string" ? value.trim().slice(0, maxLength) : "";
@@ -23,7 +23,8 @@ function serializeRegistration(document) {
 
 export default async function handler(request, response) {
   const code = request.method === "GET" ? request.query?.code : request.body?.code;
-  if (!isValidManageCode(code)) {
+  const role = getAccessRole(code);
+  if (!role) {
     return response.status(401).json({ error: "Invalid code", code: "INVALID_MANAGE_CODE" });
   }
 
@@ -42,6 +43,10 @@ export default async function handler(request, response) {
         return response.status(200).json({ counts });
       }
 
+      if (role !== "admin") {
+        return response.status(403).json({ error: "Administrator access required", code: "ADMIN_REQUIRED" });
+      }
+
       if (!/^\d{4}-\d{2}-\d{2}$/.test(eventId)) {
         return response.status(400).json({ error: "Invalid event", code: "INVALID_EVENT" });
       }
@@ -54,6 +59,10 @@ export default async function handler(request, response) {
     }
 
     if (request.method === "DELETE") {
+      if (role !== "admin") {
+        return response.status(403).json({ error: "Administrator access required", code: "ADMIN_REQUIRED" });
+      }
+
       const registrationId = clean(request.body?.registrationId, 120);
       if (!registrationId) {
         return response.status(400).json({ error: "Missing registration", code: "INVALID_REGISTRATION" });
