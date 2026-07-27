@@ -612,9 +612,6 @@ function ManageApp({ role }: { role: ManageRole }) {
           </span>
         </div>
 
-        <p className="mt-6 rounded-lg bg-emerald-50 px-4 py-3 text-xs leading-5 text-emerald-900">
-          Όλα τα μέλη μπορούν να διαχειρίζονται τις δράσεις και να βλέπουν τον αριθμό συμμετοχών. Μόνο το διοικητικό, με τον κωδικό 2222, βλέπει τα προσωπικά στοιχεία των συμμετεχόντων.
-        </p>
       </main>
 
       {selectedDate && (
