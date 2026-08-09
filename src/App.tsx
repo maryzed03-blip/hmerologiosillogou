@@ -1038,7 +1038,7 @@ function ActivityCard({
 function PublicEventsApp() {
   type PublicView = "calendar" | "all" | "upcoming";
   const [activeMonth, setActiveMonth] = useState(() => getInitialMonthKey());
-  const [activeView, setActiveView] = useState<PublicView>("calendar");
+  const [activeView, setActiveView] = useState<PublicView>("all");
   const [bookings, setBookings] = useState<Booking[]>(STATIC_BOOKINGS);
   const [loading, setLoading] = useState(true);
   const [connectionError, setConnectionError] = useState<string | null>(null);
@@ -1049,6 +1049,7 @@ function PublicEventsApp() {
   const [accessChecking, setAccessChecking] = useState(false);
   const [accessError, setAccessError] = useState<string | null>(null);
   const [therapistDirectory, setTherapistDirectory] = useState<TherapistDirectoryItem[]>([]);
+  const [calendarExpanded, setCalendarExpanded] = useState(false);
 
   useEffect(() => {
     setActiveMonth(getInitialMonthKey());
@@ -1110,8 +1111,11 @@ function PublicEventsApp() {
     const requestedView = params.get("view");
     const eventId = params.get("event");
 
-    if (requestedView === "all" || requestedView === "upcoming" || requestedView === "calendar") {
+    if (requestedView === "all" || requestedView === "upcoming") {
       setActiveView(requestedView);
+    } else if (requestedView === "calendar") {
+      setActiveView("all");
+      setCalendarExpanded(true);
     }
 
     if (eventId) {
@@ -1166,6 +1170,17 @@ function PublicEventsApp() {
 
   const monthEvents = publicBookings.filter((booking) => booking.booking_date.startsWith(month.key));
   const visibleCards = activeView === "upcoming" ? upcomingBookings : allCards;
+  const activeMonthIndex = Math.max(0, MONTHS.findIndex((item) => item.key === activeMonth));
+
+  function showPreviousMonth() {
+    if (activeMonthIndex <= 0) return;
+    setActiveMonth(MONTHS[activeMonthIndex - 1].key);
+  }
+
+  function showNextMonth() {
+    if (activeMonthIndex >= MONTHS.length - 1) return;
+    setActiveMonth(MONTHS[activeMonthIndex + 1].key);
+  }
 
   async function handlePublicAccess(event: FormEvent) {
     event.preventDefault();
@@ -1211,128 +1226,211 @@ function PublicEventsApp() {
         +
       </button>
 
-      <header className="sepsyg-public-hero">
-        <div className="sepsyg-public-wrap sepsyg-hero-inner">
-          <AssociationLogo size="sm" centered />
-          <p className="sepsyg-kicker">Ημερολόγιο Συλλόγου</p>
-          <h1>Δράσεις &amp; Εκδηλώσεις</h1>
+      <header className="sepsyg-public-hero sepsyg-public-hero-compact">
+        <div className="sepsyg-public-wrap sepsyg-hero-inner sepsyg-hero-inner-compact">
+          <div className="sepsyg-hero-brand-row">
+            <AssociationLogo size="sm" centered={false} />
+            <div>
+              <p className="sepsyg-kicker">Πανευρωπαϊκός Επιστημονικός Σύλλογος Σ.Ε.ΨΥ.G.</p>
+              <h1>Δράσεις &amp; Εκδηλώσεις</h1>
+            </div>
+          </div>
+
           <p className="sepsyg-hero-copy">
-            Σεμινάρια, βιωματικά εργαστήρια και συναντήσεις του Πανευρωπαϊκού Επιστημονικού Συλλόγου Σ.Ε.ΨΥ.G.
+            Σεμινάρια, βιωματικά εργαστήρια και συναντήσεις του Συλλόγου.
+            Διάλεξε μια δράση για περισσότερες πληροφορίες και δήλωση συμμετοχής.
           </p>
-          <nav className="sepsyg-view-tabs" aria-label="Προβολή δράσεων">
-            <button className={activeView === "calendar" ? "active" : ""} onClick={() => setActiveView("calendar")}>Ημερολόγιο</button>
-            <button className={activeView === "all" ? "active" : ""} onClick={() => setActiveView("all")}>Όλες οι δράσεις</button>
-            <button className={activeView === "upcoming" ? "active" : ""} onClick={() => setActiveView("upcoming")}>Προσεχείς δράσεις</button>
-          </nav>
         </div>
       </header>
 
       <main className="sepsyg-public-wrap sepsyg-public-main">
         {connectionError && <div className="sepsyg-alert"><strong>Πρόβλημα σύνδεσης:</strong> {connectionError}</div>}
 
-        {activeView === "calendar" ? (
-          <>
-            <div className="sepsyg-month-select">
-              <label htmlFor="events-month">Επιλογή μήνα</label>
-              <select id="events-month" value={activeMonth} onChange={(event) => setActiveMonth(event.target.value)}>
-                {MONTHS.map((item) => <option key={item.key} value={item.key}>{item.label}</option>)}
-              </select>
-              <nav aria-label="Επιλογή μήνα" className="sepsyg-month-pills">
-                {MONTHS.map((item) => (
-                  <button key={item.key} type="button" onClick={() => setActiveMonth(item.key)} className={activeMonth === item.key ? "active" : ""}>
-                    {item.label}
-                  </button>
-                ))}
-              </nav>
+        <section className="sepsyg-actions-calendar-layout">
+          <div className="sepsyg-actions-column">
+            <div className="sepsyg-column-heading">
+              <div>
+                <span>Δράσεις του Συλλόγου</span>
+                <h2>{activeView === "upcoming" ? "Προσεχείς δράσεις" : "Όλες οι δράσεις του Συλλόγου"}</h2>
+              </div>
+
+              <div className="sepsyg-inline-tabs" aria-label="Φίλτρο δράσεων">
+                <button
+                  type="button"
+                  className={activeView !== "upcoming" ? "active" : ""}
+                  onClick={() => setActiveView("all")}
+                >
+                  Όλες οι δράσεις
+                </button>
+                <button
+                  type="button"
+                  className={activeView === "upcoming" ? "active" : ""}
+                  onClick={() => setActiveView("upcoming")}
+                >
+                  Προσεχείς δράσεις
+                </button>
+              </div>
             </div>
 
-            <section className="sepsyg-calendar-card">
-              <div className="sepsyg-calendar-title">
-                <h2>{month.label}</h2>
-                <span>{loading ? "Φόρτωση…" : `${monthEvents.length} δράσεις`}</span>
-              </div>
-              <div className="sepsyg-calendar-body">
-                <div className="sepsyg-weekdays">
-                  {WEEKDAYS.map((weekday) => <div key={weekday}>{weekday}</div>)}
-                </div>
-                <div className="sepsyg-calendar-grid">
-                  {calendarCells.map((day, index) => {
-                    if (day === null) return <div key={`empty-${index}`} className="sepsyg-day empty" />;
-                    const date = toDateString(month.year, month.month, day);
-                    const booking = publicBookingsByDate.get(date);
-                    const isCompleted = booking ? isBookingCompleted(booking) : false;
-                    return (
-                      <button
-                        key={date}
-                        type="button"
-                        disabled={!booking}
-                        onClick={() => booking && setViewBooking(booking)}
-                        className={`sepsyg-day ${booking ? (isCompleted ? "completed" : "upcoming") : ""} ${booking ? activityCategoryClass(booking) : ""}`}
-                      >
-                        <span className="day-number">{day}</span>
-                        {booking && (
-                          <>
-                            <span className="day-status">{isCompleted ? "Πραγματοποιήθηκε" : "Προσεχώς"}</span>
-                            <span className="sepsyg-day-coordinator-photo">
-                              {coordinatorPhotoFor(booking.therapist_name, therapistDirectory, booking.coordinator_photo_url) ? (
-                                <img
-                                  src={coordinatorPhotoFor(booking.therapist_name, therapistDirectory, booking.coordinator_photo_url) || ""}
-                                  alt=""
-                                  loading="lazy"
-                                />
-                              ) : (
-                                booking.therapist_name.charAt(0)
-                              )}
-                            </span>
-                            <strong>{booking.topic || "Δράση Συλλόγου"}</strong>
-                            {booking.action_time && <small>{booking.action_time}</small>}
-                          </>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </section>
-
-            <section className="sepsyg-month-events">
-              <div className="sepsyg-section-heading"><span>Αναλυτικά</span><h2>Δράσεις του μήνα</h2></div>
-              {monthEvents.length ? (
-                <div className="sepsyg-events-grid">
-                  {monthEvents.map((booking) => <ActivityCard
-                    key={booking.id}
-                    booking={booking}
-                    therapistDirectory={therapistDirectory}
-                    onOpen={() => setViewBooking(booking)}
-                  />)}
-                </div>
-              ) : <div className="sepsyg-empty-state">Δεν υπάρχουν δημοσιευμένες δράσεις για αυτόν τον μήνα.</div>}
-            </section>
-          </>
-        ) : (
-          <section className="sepsyg-list-view">
-            <div className="sepsyg-section-heading centered">
-              <span>{activeView === "upcoming" ? "Τι έρχεται" : "Αρχείο & προσεχείς"}</span>
-              <h2>{activeView === "upcoming" ? "Προσεχείς δράσεις" : "Όλες οι δράσεις"}</h2>
-              <p>{activeView === "upcoming" ? "Διάλεξε τη δράση που σε ενδιαφέρει και δήλωσε τη συμμετοχή σου." : "Όλες οι δημοσιευμένες δράσεις του Συλλόγου σε μία ενιαία προβολή."}</p>
-            </div>
             {visibleCards.length ? (
-              <div className="sepsyg-events-grid">
-                {visibleCards.map((booking) => <ActivityCard
+              <div className="sepsyg-events-grid sepsyg-events-grid-main">
+                {visibleCards.map((booking) => (
+                  <ActivityCard
                     key={booking.id}
                     booking={booking}
                     therapistDirectory={therapistDirectory}
                     onOpen={() => setViewBooking(booking)}
-                  />)}
+                  />
+                ))}
               </div>
-            ) : <div className="sepsyg-empty-state">Δεν υπάρχουν διαθέσιμες δράσεις αυτή τη στιγμή.</div>}
-          </section>
-        )}
+            ) : (
+              <div className="sepsyg-empty-state">Δεν υπάρχουν διαθέσιμες δράσεις αυτή τη στιγμή.</div>
+            )}
+          </div>
+
+          <aside className="sepsyg-mini-calendar-panel">
+            <div className="sepsyg-mini-calendar-heading">
+              <div>
+                <span>Ημερολόγιο</span>
+                <h2>{month.label}</h2>
+              </div>
+
+              <div className="sepsyg-mini-month-nav">
+                <button
+                  type="button"
+                  onClick={showPreviousMonth}
+                  disabled={activeMonthIndex <= 0}
+                  aria-label="Προηγούμενος μήνας"
+                >
+                  ‹
+                </button>
+                <button
+                  type="button"
+                  onClick={showNextMonth}
+                  disabled={activeMonthIndex >= MONTHS.length - 1}
+                  aria-label="Επόμενος μήνας"
+                >
+                  ›
+                </button>
+              </div>
+            </div>
+
+            <div className="sepsyg-mini-weekdays">
+              {WEEKDAYS.map((weekday) => <div key={weekday}>{weekday.slice(0, 2)}</div>)}
+            </div>
+
+            <div className="sepsyg-mini-grid">
+              {calendarCells.map((day, index) => {
+                if (day === null) return <div key={`mini-empty-${index}`} className="sepsyg-mini-day empty" />;
+
+                const date = toDateString(month.year, month.month, day);
+                const booking = publicBookingsByDate.get(date);
+
+                return (
+                  <button
+                    key={date}
+                    type="button"
+                    className={`sepsyg-mini-day ${booking ? "has-event" : ""} ${booking ? activityCategoryClass(booking) : ""}`}
+                    disabled={!booking}
+                    onClick={() => booking && setViewBooking(booking)}
+                    aria-label={booking ? `${day} ${month.label}: ${booking.topic || "Δράση Συλλόγου"}` : `${day} ${month.label}`}
+                  >
+                    <span>{day}</span>
+                    {booking && <i aria-hidden="true" />}
+                  </button>
+                );
+              })}
+            </div>
+
+            <button
+              type="button"
+              className="sepsyg-expand-calendar"
+              onClick={() => setCalendarExpanded(true)}
+            >
+              Μεγέθυνση ημερολογίου
+            </button>
+
+            <p className="sepsyg-mini-calendar-note">
+              Οι ημέρες με δράση έχουν μικρή χρωματική ένδειξη. Πάτησε την ημέρα για να ανοίξει η δράση.
+            </p>
+          </aside>
+        </section>
 
         <div className="sepsyg-public-links">
           <a href="https://eusyllogossepshyg.carrd.co/" target="_blank" rel="noreferrer">Ιστοσελίδα Συλλόγου</a>
         </div>
       </main>
+
+      {calendarExpanded && (
+        <div
+          className="sepsyg-calendar-overlay"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setCalendarExpanded(false);
+          }}
+        >
+          <div className="sepsyg-calendar-expand-card" role="dialog" aria-modal="true" aria-label="Μεγάλο ημερολόγιο δράσεων">
+            <button
+              type="button"
+              className="sepsyg-calendar-expand-close"
+              onClick={() => setCalendarExpanded(false)}
+              aria-label="Κλείσιμο"
+            >
+              ×
+            </button>
+
+            <div className="sepsyg-calendar-expand-head">
+              <div>
+                <span>Ημερολόγιο δράσεων</span>
+                <h2>{month.label}</h2>
+              </div>
+
+              <div className="sepsyg-calendar-expand-tools">
+                <button type="button" onClick={showPreviousMonth} disabled={activeMonthIndex <= 0}>‹</button>
+                <select value={activeMonth} onChange={(event) => setActiveMonth(event.target.value)}>
+                  {MONTHS.map((item) => (
+                    <option key={item.key} value={item.key}>{item.label}</option>
+                  ))}
+                </select>
+                <button type="button" onClick={showNextMonth} disabled={activeMonthIndex >= MONTHS.length - 1}>›</button>
+              </div>
+            </div>
+
+            <div className="sepsyg-calendar-expand-weekdays">
+              {WEEKDAYS.map((weekday) => <div key={weekday}>{weekday}</div>)}
+            </div>
+
+            <div className="sepsyg-calendar-expand-grid">
+              {calendarCells.map((day, index) => {
+                if (day === null) return <div key={`expanded-empty-${index}`} className="sepsyg-calendar-expand-day empty" />;
+
+                const date = toDateString(month.year, month.month, day);
+                const booking = publicBookingsByDate.get(date);
+
+                return (
+                  <button
+                    key={date}
+                    type="button"
+                    disabled={!booking}
+                    className={`sepsyg-calendar-expand-day ${booking ? "has-event" : ""} ${booking ? activityCategoryClass(booking) : ""}`}
+                    onClick={() => {
+                      if (!booking) return;
+                      setCalendarExpanded(false);
+                      setViewBooking(booking);
+                    }}
+                  >
+                    <span>{day}</span>
+                    {booking && <i aria-hidden="true" />}
+                  </button>
+                );
+              })}
+            </div>
+
+            <p className="sepsyg-calendar-expand-note">
+              Πάτησε μια ημέρα με ένδειξη για να ανοίξεις τη συγκεκριμένη δράση.
+            </p>
+          </div>
+        </div>
+      )}
 
       {accessOpen && (
         <div className="sepsyg-access-overlay" onMouseDown={(event) => {

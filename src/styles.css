@@ -734,3 +734,507 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
     grid-template-columns: 1fr;
   }
 }
+
+
+/* ==========================================================
+   SEPSYG v1.9 — ΝΕΑ ΔΗΜΟΣΙΑ ΣΕΛΙΔΑ ΔΡΑΣΕΩΝ
+   Δράσεις αριστερά + πραγματικό mini calendar δεξιά
+   ========================================================== */
+
+.sepsyg-public-hero-compact {
+  padding: 34px 0 24px !important;
+  background:
+    radial-gradient(circle at 7% 15%, rgba(225,175,133,.18), transparent 25%),
+    linear-gradient(180deg, #FFF9F3 0%, #F7EFE8 100%) !important;
+}
+
+.sepsyg-hero-inner-compact {
+  min-height: 0 !important;
+  align-items: flex-start !important;
+  text-align: left !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+}
+
+.sepsyg-hero-brand-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.sepsyg-hero-brand-row > div:last-child {
+  min-width: 0;
+}
+
+.sepsyg-hero-inner-compact .sepsyg-kicker {
+  margin: 0 0 5px !important;
+  font-size: .67rem !important;
+  letter-spacing: .14em !important;
+}
+
+.sepsyg-hero-inner-compact h1 {
+  margin: 0 !important;
+  max-width: none !important;
+  color: #174B49 !important;
+  font-family: Georgia, "Times New Roman", serif !important;
+  font-size: clamp(1.85rem, 3.1vw, 2.65rem) !important;
+  font-weight: 500 !important;
+  line-height: 1.08 !important;
+}
+
+.sepsyg-hero-inner-compact .sepsyg-hero-copy {
+  max-width: 760px !important;
+  margin: 14px 0 0 68px !important;
+  color: #627472 !important;
+  font-size: .9rem !important;
+  line-height: 1.7 !important;
+}
+
+.sepsyg-public-main {
+  padding-top: 28px !important;
+}
+
+.sepsyg-actions-calendar-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(330px, .72fr);
+  gap: 26px;
+  align-items: start;
+}
+
+.sepsyg-actions-column {
+  min-width: 0;
+}
+
+.sepsyg-column-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+.sepsyg-column-heading > div:first-child > span,
+.sepsyg-mini-calendar-heading span,
+.sepsyg-calendar-expand-head span {
+  display: block;
+  margin-bottom: 5px;
+  color: #008D8B;
+  font-size: .65rem;
+  font-weight: 800;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+
+.sepsyg-column-heading h2,
+.sepsyg-mini-calendar-heading h2,
+.sepsyg-calendar-expand-head h2 {
+  margin: 0;
+  color: #174B49;
+  font-family: Georgia, "Times New Roman", serif;
+  font-weight: 500;
+}
+
+.sepsyg-column-heading h2 {
+  font-size: clamp(1.55rem, 2.2vw, 2rem);
+}
+
+.sepsyg-inline-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.sepsyg-inline-tabs button {
+  min-height: 38px;
+  padding: 8px 14px;
+  border: 1px solid rgba(23,75,73,.13);
+  border-radius: 999px;
+  background: rgba(255,255,255,.75);
+  color: #174B49;
+  font-size: .75rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: .18s ease;
+}
+
+.sepsyg-inline-tabs button:hover {
+  border-color: rgba(0,141,139,.35);
+  transform: translateY(-1px);
+}
+
+.sepsyg-inline-tabs button.active {
+  background: #008D8B;
+  border-color: #008D8B;
+  color: #fff;
+  box-shadow: 0 9px 18px rgba(0,141,139,.14);
+}
+
+.sepsyg-events-grid-main {
+  grid-template-columns: repeat(2, minmax(0,1fr)) !important;
+  gap: 18px !important;
+}
+
+.sepsyg-events-grid-main .sepsyg-event-card {
+  border-radius: 21px !important;
+  box-shadow: 0 12px 30px rgba(23,75,73,.07) !important;
+}
+
+.sepsyg-events-grid-main .sepsyg-event-image {
+  aspect-ratio: 16 / 9 !important;
+  min-height: 0 !important;
+}
+
+.sepsyg-mini-calendar-panel {
+  position: sticky;
+  top: 18px;
+  padding: 20px;
+  border: 1px solid rgba(23,75,73,.11);
+  border-radius: 24px;
+  background: rgba(255,255,255,.88);
+  box-shadow: 0 16px 38px rgba(23,75,73,.08);
+}
+
+.sepsyg-mini-calendar-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.sepsyg-mini-calendar-heading h2 {
+  font-size: 1.45rem;
+}
+
+.sepsyg-mini-month-nav,
+.sepsyg-calendar-expand-tools {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.sepsyg-mini-month-nav button,
+.sepsyg-calendar-expand-tools button {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(23,75,73,.12);
+  border-radius: 50%;
+  background: #fff;
+  color: #174B49;
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.sepsyg-mini-month-nav button:disabled,
+.sepsyg-calendar-expand-tools button:disabled {
+  opacity: .28;
+  cursor: default;
+}
+
+.sepsyg-mini-weekdays,
+.sepsyg-calendar-expand-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0,1fr));
+  gap: 6px;
+  margin-bottom: 7px;
+  color: #778783;
+  text-align: center;
+  font-size: .65rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.sepsyg-mini-grid,
+.sepsyg-calendar-expand-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0,1fr));
+  gap: 7px;
+}
+
+.sepsyg-mini-day {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  min-width: 0;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid rgba(23,75,73,.08);
+  border-radius: 12px;
+  background: #FFFDFC;
+  color: #536663;
+  font-size: .77rem;
+  font-weight: 800;
+}
+
+.sepsyg-mini-day.empty {
+  border-color: transparent;
+  background: transparent;
+}
+
+.sepsyg-mini-day:disabled:not(.has-event) {
+  opacity: .7;
+}
+
+.sepsyg-mini-day.has-event {
+  border-color: rgba(23,75,73,.15);
+  background: #fff;
+  color: #174B49;
+  cursor: pointer;
+  box-shadow: 0 5px 12px rgba(23,75,73,.05);
+}
+
+.sepsyg-mini-day.has-event:hover {
+  transform: translateY(-1px);
+  border-color: rgba(0,141,139,.38);
+}
+
+.sepsyg-mini-day i,
+.sepsyg-calendar-expand-day i {
+  position: absolute;
+  left: 50%;
+  bottom: 6px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  transform: translateX(-50%);
+  background: #008D8B;
+}
+
+.sepsyg-mini-day.category-free i,
+.sepsyg-calendar-expand-day.category-free i {
+  background: #63A97E;
+}
+
+.sepsyg-mini-day.category-association i,
+.sepsyg-calendar-expand-day.category-association i {
+  background: #E39A55;
+}
+
+.sepsyg-mini-day.category-independent i,
+.sepsyg-calendar-expand-day.category-independent i {
+  background: #79B9D3;
+}
+
+.sepsyg-expand-calendar {
+  width: 100%;
+  min-height: 42px;
+  margin-top: 14px;
+  border: 1px solid #008D8B;
+  border-radius: 999px;
+  background: transparent;
+  color: #006B68;
+  font-size: .78rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: .18s ease;
+}
+
+.sepsyg-expand-calendar:hover {
+  background: #008D8B;
+  color: #fff;
+}
+
+.sepsyg-mini-calendar-note {
+  margin: 11px 2px 0;
+  color: #7C8A87;
+  font-size: .68rem;
+  line-height: 1.55;
+}
+
+.sepsyg-calendar-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 130;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(18,43,41,.56);
+  backdrop-filter: blur(7px);
+}
+
+.sepsyg-calendar-expand-card {
+  position: relative;
+  width: min(760px, 100%);
+  max-height: 92vh;
+  overflow: auto;
+  padding: 28px;
+  border: 1px solid rgba(23,75,73,.12);
+  border-radius: 28px;
+  background: #FFF9F3;
+  box-shadow: 0 28px 70px rgba(18,43,41,.23);
+}
+
+.sepsyg-calendar-expand-close {
+  position: absolute;
+  top: 12px;
+  right: 13px;
+  width: 38px;
+  height: 38px;
+  border: 0;
+  border-radius: 50%;
+  background: #fff;
+  color: #174B49;
+  font-size: 1.45rem;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(23,75,73,.09);
+}
+
+.sepsyg-calendar-expand-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding-right: 44px;
+  margin-bottom: 20px;
+}
+
+.sepsyg-calendar-expand-head h2 {
+  font-size: 1.8rem;
+}
+
+.sepsyg-calendar-expand-tools select {
+  min-height: 38px;
+  padding: 7px 11px;
+  border: 1px solid rgba(23,75,73,.14);
+  border-radius: 12px;
+  background: #fff;
+  color: #174B49;
+  font-size: .78rem;
+  font-weight: 700;
+}
+
+.sepsyg-calendar-expand-weekdays {
+  gap: 9px;
+  margin-bottom: 9px;
+  font-size: .72rem;
+}
+
+.sepsyg-calendar-expand-grid {
+  gap: 9px;
+}
+
+.sepsyg-calendar-expand-day {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(23,75,73,.09);
+  border-radius: 16px;
+  background: #fff;
+  color: #536663;
+  font-size: .95rem;
+  font-weight: 800;
+}
+
+.sepsyg-calendar-expand-day.empty {
+  border-color: transparent;
+  background: transparent;
+}
+
+.sepsyg-calendar-expand-day.has-event {
+  color: #174B49;
+  cursor: pointer;
+  box-shadow: 0 7px 16px rgba(23,75,73,.06);
+}
+
+.sepsyg-calendar-expand-day.has-event:hover {
+  border-color: rgba(0,141,139,.35);
+  transform: translateY(-1px);
+}
+
+.sepsyg-calendar-expand-day i {
+  bottom: 9px;
+  width: 7px;
+  height: 7px;
+}
+
+.sepsyg-calendar-expand-note {
+  margin: 16px 0 0;
+  color: #7B8986;
+  text-align: center;
+  font-size: .72rem;
+  line-height: 1.55;
+}
+
+@media (max-width: 1050px) {
+  .sepsyg-actions-calendar-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .sepsyg-mini-calendar-panel {
+    position: static;
+    max-width: 620px;
+    width: 100%;
+  }
+}
+
+@media (max-width: 760px) {
+  .sepsyg-public-hero-compact {
+    padding: 24px 0 18px !important;
+  }
+
+  .sepsyg-hero-brand-row {
+    gap: 11px;
+  }
+
+  .sepsyg-hero-inner-compact h1 {
+    font-size: 1.8rem !important;
+  }
+
+  .sepsyg-hero-inner-compact .sepsyg-hero-copy {
+    margin-left: 0 !important;
+    margin-top: 12px !important;
+    font-size: .84rem !important;
+  }
+
+  .sepsyg-column-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .sepsyg-inline-tabs {
+    justify-content: flex-start;
+  }
+
+  .sepsyg-events-grid-main {
+    grid-template-columns: 1fr !important;
+  }
+
+  .sepsyg-mini-calendar-panel {
+    padding: 16px;
+    border-radius: 20px;
+  }
+
+  .sepsyg-mini-grid {
+    gap: 5px;
+  }
+
+  .sepsyg-mini-day {
+    border-radius: 10px;
+    font-size: .72rem;
+  }
+
+  .sepsyg-calendar-expand-card {
+    padding: 22px 15px 20px;
+    border-radius: 22px;
+  }
+
+  .sepsyg-calendar-expand-head {
+    align-items: flex-start;
+    flex-direction: column;
+    padding-right: 40px;
+  }
+
+  .sepsyg-calendar-expand-grid {
+    gap: 5px;
+  }
+
+  .sepsyg-calendar-expand-day {
+    border-radius: 10px;
+    font-size: .78rem;
+  }
+}
