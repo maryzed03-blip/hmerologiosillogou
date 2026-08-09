@@ -62,6 +62,8 @@ export default async function handler(request, response) {
 
   const bookingDate = clean(body.booking_date, 20);
   const therapistName = clean(body.therapist_name, 200);
+  const additionalCoordinatorName = clean(body.additional_coordinator_name, 200);
+  const coordinators = [therapistName, additionalCoordinatorName].filter(Boolean).join(" & ");
   const actionTime = clean(body.action_time, 100) || "Δεν έχει συμπληρωθεί";
   const topic = clean(body.topic, 500) || "Δεν έχει συμπληρωθεί";
   const description = clean(body.description, 3000) || "Δεν έχει συμπληρωθεί";
@@ -94,7 +96,7 @@ export default async function handler(request, response) {
   const text = [
     `Ενέργεια: ${actionLabel}`,
     `Ημερομηνία δράσης: ${formattedDate}`,
-    `Θεραπευτής/ές: ${therapistName}`,
+    `Συντονιστές: ${coordinators}`,
     `Ώρα: ${actionTime}`,
     `Θέμα: ${topic}`,
     `Περιγραφή: ${description}`,
@@ -107,7 +109,7 @@ export default async function handler(request, response) {
       <h2 style="margin:0 0 18px">${escapeHtml(actionLabel)}</h2>
       <table style="border-collapse:collapse;width:100%">
         <tr><td style="padding:8px 0;font-weight:700;width:190px">Ημερομηνία δράσης</td><td>${escapeHtml(formattedDate)}</td></tr>
-        <tr><td style="padding:8px 0;font-weight:700">Θεραπευτής/ές</td><td>${escapeHtml(therapistName)}</td></tr>
+        <tr><td style="padding:8px 0;font-weight:700">Συντονιστές</td><td>${escapeHtml(coordinators)}</td></tr>
         <tr><td style="padding:8px 0;font-weight:700">Ώρα</td><td>${escapeHtml(actionTime)}</td></tr>
         <tr><td style="padding:8px 0;font-weight:700">Θέμα</td><td>${escapeHtml(topic)}</td></tr>
         <tr><td style="padding:8px 0;font-weight:700;vertical-align:top">Περιγραφή</td><td>${escapeHtml(description).replaceAll("\n", "<br>")}</td></tr>

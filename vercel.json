@@ -5,6 +5,7 @@
   "installCommand": "npm install --no-audit --no-fund --registry=https://registry.npmjs.org/",
   "rewrites": [
     { "source": "/manage/:path*", "destination": "/index.html" },
-    { "source": "/events/:path*", "destination": "/index.html" }
+    { "source": "/events/:path*", "destination": "/index.html" },
+    { "source": "/draseis/:path*", "destination": "/index.html" }
   ]
 }

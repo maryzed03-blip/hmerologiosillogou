@@ -19,9 +19,17 @@ type Booking = {
   id: string;
   booking_date: string;
   therapist_name: string;
+  additional_coordinator_name: string | null;
   action_time: string | null;
   topic: string | null;
   description: string | null;
+  event_type: string | null;
+  mode: string | null;
+  image_url: string | null;
+  detail_image_url: string | null;
+  long_description: string | null;
+  audience: string | null;
+  program_details: string | null;
   owner_uid: string;
   status: BookingStatus;
   is_public: boolean;
@@ -55,10 +63,18 @@ const STATIC_BOOKINGS: Booking[] = [
   {
     id: "2026-07-05",
     booking_date: "2026-07-05",
-    therapist_name: "Ευαγγελία Ξανθοπούλου, Μαρία Ζάχου",
+    therapist_name: "Ευαγγελία Ξανθοπούλου",
+    additional_coordinator_name: "Μαρία Ζάχου",
     action_time: "19:30 – 21:30",
     topic: "Από την εσωτερική ησυχία στην αυθεντική συνάντηση",
     description: "Πραγματοποιημένη δράση συλλόγου. Η ημερομηνία παραμένει ως ιστορική αναφορά.",
+    event_type: "Εργαστήριο",
+    mode: "Διαδικτυακά",
+    image_url: "https://demo.unityenergetics.org/wp-content/uploads/2026/08/Στιγμιότυπο-οθόνης-2026-08-06-194130.png",
+    detail_image_url: null,
+    long_description: null,
+    audience: null,
+    program_details: null,
     owner_uid: "static-completed-event",
     status: "completed",
     is_public: true,
@@ -109,6 +125,20 @@ function getCurrentMonthKeyInGreece() {
   return `${year}-${month}`;
 }
 
+function getTodayKeyInGreece() {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Athens",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+
+  const year = parts.find((part) => part.type === "year")?.value;
+  const month = parts.find((part) => part.type === "month")?.value;
+  const day = parts.find((part) => part.type === "day")?.value;
+  return year && month && day ? `${year}-${month}-${day}` : new Date().toISOString().slice(0, 10);
+}
+
 function getInitialMonthKey() {
   const currentKey = getCurrentMonthKeyInGreece();
   const firstKey = MONTHS[0].key;
@@ -132,13 +162,70 @@ function bookingFromSnapshot(snapshot: QueryDocumentSnapshot<DocumentData>): Boo
     id: snapshot.id,
     booking_date: String(data.booking_date ?? snapshot.id),
     therapist_name: String(data.therapist_name ?? ""),
+    additional_coordinator_name:
+      typeof data.additional_coordinator_name === "string" && data.additional_coordinator_name.trim()
+        ? data.additional_coordinator_name.trim()
+        : null,
     action_time: typeof data.action_time === "string" ? data.action_time : null,
     topic: typeof data.topic === "string" ? data.topic : null,
     description: typeof data.description === "string" ? data.description : null,
+    event_type: typeof data.event_type === "string" ? data.event_type : null,
+    mode: typeof data.mode === "string" ? data.mode : null,
+    image_url: typeof data.image_url === "string" ? data.image_url : null,
+    detail_image_url: typeof data.detail_image_url === "string" ? data.detail_image_url : null,
+    long_description: typeof data.long_description === "string" ? data.long_description : null,
+    audience: typeof data.audience === "string" ? data.audience : null,
+    program_details: typeof data.program_details === "string" ? data.program_details : null,
     owner_uid: String(data.owner_uid ?? ""),
     status: data.status === "completed" ? "completed" : "booked",
     is_public: data.is_public === true,
   };
+}
+
+
+async function compressImageFile(file: File | null): Promise<string> {
+  if (!file) return "";
+
+  return await new Promise<string>((resolve) => {
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      const img = new Image();
+
+      img.onload = () => {
+        const maxDim = 900;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height && width > maxDim) {
+          height = Math.round((height * maxDim) / width);
+          width = maxDim;
+        } else if (height >= width && height > maxDim) {
+          width = Math.round((width * maxDim) / height);
+          height = maxDim;
+        }
+
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const context = canvas.getContext("2d");
+
+        if (!context) {
+          resolve("");
+          return;
+        }
+
+        context.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL("image/jpeg", 0.72));
+      };
+
+      img.onerror = () => resolve("");
+      img.src = String(reader.result ?? "");
+    };
+
+    reader.onerror = () => resolve("");
+    reader.readAsDataURL(file);
+  });
 }
 
 function firebaseMessage(error: unknown, fallback: string) {
@@ -172,6 +259,12 @@ function mergeBookings(liveBookings: Booking[]) {
   return Array.from(map.values()).sort((a, b) => a.booking_date.localeCompare(b.booking_date));
 }
 
+function coordinatorsLabel(booking: Booking) {
+  return [booking.therapist_name, booking.additional_coordinator_name]
+    .filter((value): value is string => Boolean(value && value.trim()))
+    .join(" & ");
+}
+
 
 type NotificationAction = "create" | "update" | "delete";
 
@@ -184,6 +277,7 @@ async function notifyAdmin(action: NotificationAction, booking: Booking) {
         action,
         booking_date: booking.booking_date,
         therapist_name: booking.therapist_name,
+        additional_coordinator_name: booking.additional_coordinator_name,
         action_time: booking.action_time,
         topic: booking.topic,
         description: booking.description,
@@ -439,7 +533,7 @@ function ManageApp({ role }: { role: ManageRole }) {
   }, [month]);
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
+    <div className="sepsyg-manage-page min-h-screen bg-slate-50 text-slate-900">
       <header className="border-b border-slate-200 bg-white">
         <div className="mx-auto max-w-6xl px-4 py-7 sm:px-6">
           <AssociationLogo size="sm" />
@@ -574,7 +668,7 @@ function ManageApp({ role }: { role: ManageRole }) {
                             {status === "completed" ? "Πραγματοποιήθηκε" : "Δεσμευμένη"}
                           </span>
                           <span className={`mt-1 hidden line-clamp-2 text-xs font-medium leading-4 sm:block ${status === "completed" ? "text-violet-950" : "text-emerald-950"}`}>
-                            {booking.therapist_name}
+                            {coordinatorsLabel(booking)}
                           </span>
                           {booking.topic && (
                             <span className={`mt-1 hidden line-clamp-2 text-[11px] leading-4 sm:block ${status === "completed" ? "text-violet-800" : "text-slate-700"}`}>
@@ -682,12 +776,45 @@ function ManageApp({ role }: { role: ManageRole }) {
 }
 
 
+function ActivityCard({ booking, onOpen }: { booking: Booking; onOpen: () => void }) {
+  const completed = booking.status === "completed" || booking.booking_date < getTodayKeyInGreece();
+  const canRegister = !completed;
+  return (
+    <article className="sepsyg-event-card">
+      <div className="sepsyg-event-image">
+        {booking.image_url ? (
+          <img src={booking.image_url} alt={booking.topic || "Δράση Συλλόγου"} loading="lazy" />
+        ) : (
+          <div className="sepsyg-event-placeholder"><img src="/logo.png" alt="" /></div>
+        )}
+        <span className="sepsyg-event-type">{booking.event_type || "Δράση"}</span>
+      </div>
+      <div className="sepsyg-event-body">
+        <span className="sepsyg-event-mode">{booking.mode || (completed ? "Ολοκληρωμένη δράση" : "Προσεχής δράση")}</span>
+        <h3>{booking.topic || "Δράση Συλλόγου"}</h3>
+        {booking.description && <p className="sepsyg-event-desc">{booking.description}</p>}
+        <div className="sepsyg-event-meta">
+          <span>📅 {formatDateGreek(booking.booking_date)}</span>
+          <span>🕒 {booking.action_time || "Η ώρα θα ανακοινωθεί"}</span>
+          {booking.therapist_name && <span>◦ {coordinatorsLabel(booking)}</span>}
+        </div>
+        <button type="button" className="sepsyg-event-action" onClick={onOpen}>
+          Δείτε περισσότερα
+        </button>
+      </div>
+    </article>
+  );
+}
+
 function PublicEventsApp() {
+  type PublicView = "calendar" | "all" | "upcoming";
   const [activeMonth, setActiveMonth] = useState(() => getInitialMonthKey());
+  const [activeView, setActiveView] = useState<PublicView>("calendar");
   const [bookings, setBookings] = useState<Booking[]>(STATIC_BOOKINGS);
   const [loading, setLoading] = useState(true);
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [viewBooking, setViewBooking] = useState<Booking | null>(null);
+  const [deepLinkHandled, setDeepLinkHandled] = useState(false);
 
   useEffect(() => {
     setActiveMonth(getInitialMonthKey());
@@ -729,6 +856,34 @@ function PublicEventsApp() {
     };
   }, []);
 
+  const today = getTodayKeyInGreece();
+  useEffect(() => {
+    if (deepLinkHandled || loading || typeof window === "undefined") return;
+
+    const params = new URLSearchParams(window.location.search);
+    const requestedView = params.get("view");
+    const eventId = params.get("event");
+
+    if (requestedView === "all" || requestedView === "upcoming" || requestedView === "calendar") {
+      setActiveView(requestedView);
+    }
+
+    if (eventId) {
+      const linkedBooking = bookings.find(
+        (booking) => booking.booking_date === eventId && booking.is_public,
+      );
+
+      if (linkedBooking) {
+        setViewBooking(linkedBooking);
+        if (!requestedView) {
+          setActiveView(linkedBooking.booking_date < getTodayKeyInGreece() ? "all" : "upcoming");
+        }
+      }
+    }
+
+    setDeepLinkHandled(true);
+  }, [bookings, deepLinkHandled, loading]);
+
   const publicBookings = useMemo(
     () => bookings.filter((booking) => booking.is_public).sort((a, b) => a.booking_date.localeCompare(b.booking_date)),
     [bookings],
@@ -739,6 +894,17 @@ function PublicEventsApp() {
     for (const booking of publicBookings) map.set(booking.booking_date, booking);
     return map;
   }, [publicBookings]);
+
+  const upcomingBookings = useMemo(
+    () => publicBookings.filter((booking) => booking.status !== "completed" && booking.booking_date >= today),
+    [publicBookings, today],
+  );
+
+  const allCards = useMemo(() => {
+    const upcoming = publicBookings.filter((booking) => booking.status !== "completed" && booking.booking_date >= today);
+    const past = publicBookings.filter((booking) => booking.status === "completed" || booking.booking_date < today).reverse();
+    return [...upcoming, ...past];
+  }, [publicBookings, today]);
 
   const month = MONTHS.find((item) => item.key === activeMonth) ?? MONTHS[0];
   const calendarCells = useMemo(() => {
@@ -753,171 +919,111 @@ function PublicEventsApp() {
   }, [month]);
 
   const monthEvents = publicBookings.filter((booking) => booking.booking_date.startsWith(month.key));
+  const visibleCards = activeView === "upcoming" ? upcomingBookings : allCards;
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
-      <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto max-w-6xl px-4 py-7 sm:px-6">
-          <AssociationLogo size="sm" />
-          <p className="mb-2 mt-4 text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">Δημόσιο πρόγραμμα δράσεων</p>
-          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Σεμινάρια & Βιωματικά Εργαστήρια</h1>
-          <p className="mt-2 max-w-4xl text-sm font-medium leading-6 text-slate-700">Πανευρωπαϊκός Επιστημονικός Σύλλογος Σ.Ε.Ψ.Υ.G Σωματικά Επικεντρωμένης Ψυχοθεραπείας Gestalt</p>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-            Δείτε τις προγραμματισμένες και τις πραγματοποιημένες δράσεις του συλλόγου.
+    <div className="sepsyg-public-page">
+      <header className="sepsyg-public-hero">
+        <div className="sepsyg-public-wrap sepsyg-hero-inner">
+          <AssociationLogo size="sm" centered />
+          <p className="sepsyg-kicker">Ημερολόγιο Συλλόγου</p>
+          <h1>Δράσεις &amp; Εκδηλώσεις</h1>
+          <p className="sepsyg-hero-copy">
+            Σεμινάρια, βιωματικά εργαστήρια και συναντήσεις του Πανευρωπαϊκού Επιστημονικού Συλλόγου Σ.Ε.ΨΥ.G.
           </p>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <a
-              href="https://eusyllogossepshyg.carrd.co/"
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center rounded-lg bg-emerald-700 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-800"
-            >
-              Επισκεφθείτε την ιστοσελίδα του Συλλόγου
-            </a>
-            <a
-              href="/manage"
-              className="inline-flex items-center rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-600 hover:border-emerald-400 hover:text-emerald-800"
-            >
-              Manage
-            </a>
-          </div>
+          <nav className="sepsyg-view-tabs" aria-label="Προβολή δράσεων">
+            <button className={activeView === "calendar" ? "active" : ""} onClick={() => setActiveView("calendar")}>Ημερολόγιο</button>
+            <button className={activeView === "all" ? "active" : ""} onClick={() => setActiveView("all")}>Όλες οι δράσεις</button>
+            <button className={activeView === "upcoming" ? "active" : ""} onClick={() => setActiveView("upcoming")}>Προσεχείς δράσεις</button>
+          </nav>
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
-        {connectionError && (
-          <div className="mb-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
-            <strong className="font-semibold">Πρόβλημα σύνδεσης:</strong> {connectionError}
-          </div>
+      <main className="sepsyg-public-wrap sepsyg-public-main">
+        {connectionError && <div className="sepsyg-alert"><strong>Πρόβλημα σύνδεσης:</strong> {connectionError}</div>}
+
+        {activeView === "calendar" ? (
+          <>
+            <div className="sepsyg-month-select">
+              <label htmlFor="events-month">Επιλογή μήνα</label>
+              <select id="events-month" value={activeMonth} onChange={(event) => setActiveMonth(event.target.value)}>
+                {MONTHS.map((item) => <option key={item.key} value={item.key}>{item.label}</option>)}
+              </select>
+              <nav aria-label="Επιλογή μήνα" className="sepsyg-month-pills">
+                {MONTHS.map((item) => (
+                  <button key={item.key} type="button" onClick={() => setActiveMonth(item.key)} className={activeMonth === item.key ? "active" : ""}>
+                    {item.label}
+                  </button>
+                ))}
+              </nav>
+            </div>
+
+            <section className="sepsyg-calendar-card">
+              <div className="sepsyg-calendar-title">
+                <h2>{month.label}</h2>
+                <span>{loading ? "Φόρτωση…" : `${monthEvents.length} δράσεις`}</span>
+              </div>
+              <div className="sepsyg-calendar-body">
+                <div className="sepsyg-weekdays">
+                  {WEEKDAYS.map((weekday) => <div key={weekday}>{weekday}</div>)}
+                </div>
+                <div className="sepsyg-calendar-grid">
+                  {calendarCells.map((day, index) => {
+                    if (day === null) return <div key={`empty-${index}`} className="sepsyg-day empty" />;
+                    const date = toDateString(month.year, month.month, day);
+                    const booking = publicBookingsByDate.get(date);
+                    const isCompleted = booking?.status === "completed";
+                    return (
+                      <button key={date} type="button" disabled={!booking} onClick={() => booking && setViewBooking(booking)} className={`sepsyg-day ${booking ? (isCompleted ? "completed" : "upcoming") : ""}`}>
+                        <span className="day-number">{day}</span>
+                        {booking && (
+                          <>
+                            <span className="day-status">{isCompleted ? "Πραγματοποιήθηκε" : "Προσεχώς"}</span>
+                            <strong>{booking.topic || "Δράση Συλλόγου"}</strong>
+                            {booking.action_time && <small>{booking.action_time}</small>}
+                          </>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </section>
+
+            <section className="sepsyg-month-events">
+              <div className="sepsyg-section-heading"><span>Αναλυτικά</span><h2>Δράσεις του μήνα</h2></div>
+              {monthEvents.length ? (
+                <div className="sepsyg-events-grid">
+                  {monthEvents.map((booking) => <ActivityCard key={booking.id} booking={booking} onOpen={() => setViewBooking(booking)} />)}
+                </div>
+              ) : <div className="sepsyg-empty-state">Δεν υπάρχουν δημοσιευμένες δράσεις για αυτόν τον μήνα.</div>}
+            </section>
+          </>
+        ) : (
+          <section className="sepsyg-list-view">
+            <div className="sepsyg-section-heading centered">
+              <span>{activeView === "upcoming" ? "Τι έρχεται" : "Αρχείο & προσεχείς"}</span>
+              <h2>{activeView === "upcoming" ? "Προσεχείς δράσεις" : "Όλες οι δράσεις"}</h2>
+              <p>{activeView === "upcoming" ? "Διάλεξε τη δράση που σε ενδιαφέρει και δήλωσε τη συμμετοχή σου." : "Όλες οι δημοσιευμένες δράσεις του Συλλόγου σε μία ενιαία προβολή."}</p>
+            </div>
+            {visibleCards.length ? (
+              <div className="sepsyg-events-grid">
+                {visibleCards.map((booking) => <ActivityCard key={booking.id} booking={booking} onOpen={() => setViewBooking(booking)} />)}
+              </div>
+            ) : <div className="sepsyg-empty-state">Δεν υπάρχουν διαθέσιμες δράσεις αυτή τη στιγμή.</div>}
+          </section>
         )}
 
-        <div className="mb-6">
-          <label htmlFor="events-month" className="mb-2 block text-sm font-semibold text-slate-700 sm:hidden">
-            Επιλογή μήνα
-          </label>
-          <select
-            id="events-month"
-            value={activeMonth}
-            onChange={(event) => setActiveMonth(event.target.value)}
-            className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-800 shadow-sm focus:border-sky-500 focus:outline-none sm:hidden"
-          >
-            {MONTHS.map((item) => <option key={item.key} value={item.key}>{item.label}</option>)}
-          </select>
-          <nav aria-label="Επιλογή μήνα" className="hidden gap-2 overflow-x-auto pb-2 sm:flex">
-            {MONTHS.map((item) => (
-              <button
-                key={item.key}
-                type="button"
-                onClick={() => setActiveMonth(item.key)}
-                className={
-                  "shrink-0 rounded-full border px-4 py-2 text-sm font-medium transition " +
-                  (activeMonth === item.key
-                    ? "border-sky-600 bg-sky-600 text-white shadow-sm"
-                    : "border-slate-300 bg-white text-slate-700 hover:border-sky-400 hover:text-sky-800")
-                }
-              >
-                {item.label}
-              </button>
-            ))}
-          </nav>
+        <div className="sepsyg-public-links">
+          <a href="https://eusyllogossepshyg.carrd.co/" target="_blank" rel="noreferrer">Ιστοσελίδα Συλλόγου</a>
+          <a href="/manage">Διαχείριση ημερολογίου</a>
         </div>
-
-        <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-          <div className="flex items-center justify-between border-b border-slate-200 px-4 py-4 sm:px-5">
-            <h2 className="text-lg font-semibold">{month.label}</h2>
-            <span className="text-xs text-slate-500">{loading ? "Φόρτωση…" : `${monthEvents.length} δράσεις`}</span>
-          </div>
-
-          <div className="p-2 sm:p-5">
-            <div className="w-full">
-              <div className="mb-1.5 grid grid-cols-7 gap-1 text-center text-[10px] font-semibold text-slate-500 sm:mb-2 sm:gap-1.5 sm:text-xs">
-                {WEEKDAYS.map((weekday) => <div key={weekday} className="py-1.5">{weekday}</div>)}
-              </div>
-              <div className="grid grid-cols-7 gap-1.5">
-                {calendarCells.map((day, index) => {
-                  if (day === null) return <div key={`empty-${index}`} className="h-14 rounded-md bg-slate-50/70 sm:h-28 sm:rounded-lg" />;
-                  const date = toDateString(month.year, month.month, day);
-                  const booking = publicBookingsByDate.get(date);
-                  const isCompleted = booking?.status === "completed";
-                  return (
-                    <button
-                      key={date}
-                      type="button"
-                      disabled={!booking}
-                      onClick={() => booking && setViewBooking(booking)}
-                      className={
-                        "flex h-14 min-w-0 flex-col items-center justify-start rounded-md border p-1.5 text-center transition sm:h-28 sm:items-start sm:rounded-lg sm:p-2.5 sm:text-left " +
-                        (booking
-                          ? isCompleted
-                            ? "border-violet-400 bg-violet-100 hover:bg-violet-200"
-                            : "border-sky-500 bg-sky-100 hover:bg-sky-200"
-                          : "cursor-default border-slate-100 bg-slate-50 text-slate-400")
-                      }
-                    >
-                      <span className={`text-xs font-bold sm:text-sm ${booking ? (isCompleted ? "text-violet-950" : "text-sky-950") : "text-slate-400"}`}>{day}</span>
-                      {booking && (
-                        <>
-                          <span className={`mt-1 h-2 w-2 rounded-full sm:hidden ${isCompleted ? "bg-violet-600" : "bg-sky-600"}`} aria-hidden="true" />
-                          <span className={`mt-1 hidden text-[10px] font-semibold uppercase tracking-wide sm:block ${isCompleted ? "text-violet-700" : "text-sky-700"}`}>
-                            {isCompleted ? "Πραγματοποιήθηκε" : "Προσεχώς"}
-                          </span>
-                          <span className={`mt-1 hidden line-clamp-3 text-xs font-semibold leading-4 sm:block ${isCompleted ? "text-violet-950" : "text-sky-950"}`}>
-                            {booking.topic || "Δράση συλλόγου"}
-                          </span>
-                          {booking.action_time && <span className="mt-1 hidden text-[11px] text-slate-700 sm:block">{booking.action_time}</span>}
-                        </>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        </section>
-        <p className="mt-2 text-xs leading-5 text-slate-500 sm:hidden">Πατήστε μια χρωματισμένη ημερομηνία για να δείτε τη δράση. Οι λεπτομέρειες εμφανίζονται και στη λίστα παρακάτω.</p>
-
-        <section className="mt-8">
-          <div className="mb-4 flex items-end justify-between gap-4">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-700">Αναλυτικά</p>
-              <h2 className="mt-1 text-xl font-semibold">Δράσεις του μήνα</h2>
-            </div>
-          </div>
-
-          {monthEvents.length === 0 ? (
-            <div className="rounded-xl border border-slate-200 bg-white px-5 py-8 text-center text-sm text-slate-500">
-              Δεν υπάρχουν δημοσιευμένες δράσεις για αυτόν τον μήνα.
-            </div>
-          ) : (
-            <div className="grid gap-4 md:grid-cols-2">
-              {monthEvents.map((booking) => (
-                <button
-                  key={booking.id}
-                  type="button"
-                  onClick={() => setViewBooking(booking)}
-                  className={`rounded-xl border bg-white p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${booking.status === "completed" ? "border-violet-200" : "border-sky-200"}`}
-                >
-                  <p className={`text-xs font-semibold uppercase tracking-wide ${booking.status === "completed" ? "text-violet-700" : "text-sky-700"}`}>
-                    {booking.status === "completed" ? "Πραγματοποιήθηκε" : "Προσεχώς"}
-                  </p>
-                  <h3 className="mt-2 text-lg font-semibold leading-6">{booking.topic || "Δράση συλλόγου"}</h3>
-                  <p className="mt-2 text-sm font-medium capitalize text-slate-700">{formatDateGreek(booking.booking_date)}</p>
-                  <p className="mt-1 text-sm text-slate-600">{booking.action_time || "Η ώρα θα ανακοινωθεί"}</p>
-                  {booking.description && <p className="mt-3 line-clamp-3 text-sm leading-6 text-slate-600">{booking.description}</p>}
-                </button>
-              ))}
-            </div>
-          )}
-        </section>
-
-        <FriendOfAssociationSection />
       </main>
 
       {viewBooking && <PublicBookingDetails booking={viewBooking} onClose={() => setViewBooking(null)} />}
     </div>
   );
 }
-
 
 type FriendFormValues = {
   fullName: string;
@@ -1064,17 +1170,11 @@ type EventRegistrationFormValues = {
 };
 
 function PublicBookingDetails({ booking, onClose }: { booking: Booking; onClose: () => void }) {
-  const isCompleted = booking.status === "completed";
+  const isCompleted = booking.status === "completed" || booking.booking_date < getTodayKeyInGreece();
   const [showForm, setShowForm] = useState(false);
-  const [values, setValues] = useState<EventRegistrationFormValues>({
-    fullName: "",
-    email: "",
-    phone: "",
-    profession: "",
-    comment: "",
-  });
-  const [consent, setConsent] = useState(false);
+  const [values, setValues] = useState<EventRegistrationFormValues>({ fullName: "", email: "", phone: "", profession: "", comment: "" });
   const [website, setWebsite] = useState("");
+  const [consent, setConsent] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
 
@@ -1085,164 +1185,192 @@ function PublicBookingDetails({ booking, onClose }: { booking: Booking; onClose:
   async function handleRegistration(event: FormEvent) {
     event.preventDefault();
     setNotice(null);
-
-    if (values.fullName.trim().length < 2) {
-      setNotice({ ok: false, text: "Συμπληρώστε το ονοματεπώνυμό σας." });
-      return;
-    }
-    if (!/^\S+@\S+\.\S+$/.test(values.email.trim())) {
-      setNotice({ ok: false, text: "Συμπληρώστε ένα έγκυρο email." });
-      return;
-    }
-    if (values.phone.trim().length < 6 || values.profession.trim().length < 2) {
-      setNotice({ ok: false, text: "Συμπληρώστε το τηλέφωνο και το επάγγελμά σας." });
-      return;
-    }
     if (!consent) {
-      setNotice({ ok: false, text: "Χρειάζεται να αποδεχτείτε τη χρήση των στοιχείων για τη συγκεκριμένη συμμετοχή." });
+      setNotice({ ok: false, text: "Χρειάζεται να αποδεχτείς τη χρήση των στοιχείων για τη συγκεκριμένη συμμετοχή." });
       return;
     }
-
     setSubmitting(true);
     try {
       const response = await fetch("/api/register-event", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          eventId: booking.booking_date,
-          ...values,
-          consent,
-          website,
-        }),
+        body: JSON.stringify({ eventId: booking.booking_date, ...values, consent, website }),
       });
       const payload = await response.json().catch(() => ({}));
-
-      if (!response.ok) {
-        if (payload.code === "ALREADY_REGISTERED") {
-          throw Object.assign(new Error("ALREADY_REGISTERED"), { code: "ALREADY_REGISTERED" });
-        }
-        if (payload.code === "EVENT_NOT_OPEN") {
-          throw Object.assign(new Error("EVENT_NOT_OPEN"), { code: "EVENT_NOT_OPEN" });
-        }
-        throw Object.assign(new Error("REQUEST_FAILED"), { code: payload.code || `HTTP_${response.status}` });
-      }
-
+      if (!response.ok) throw Object.assign(new Error(payload.code || "REQUEST_FAILED"), { code: payload.code || `HTTP_${response.status}` });
       setValues({ fullName: "", email: "", phone: "", profession: "", comment: "" });
       setConsent(false);
       setWebsite("");
-      setNotice({
-        ok: true,
-        text: payload.emailWarning
-          ? "Η θέση σας καταχωρίστηκε. Δεν ήταν δυνατή μόνο η αποστολή του email επιβεβαίωσης."
-          : "Η θέση σας καταχωρίστηκε και στάλθηκε επιβεβαίωση στο email σας.",
-      });
+      setNotice({ ok: true, text: payload.emailWarning ? "Η συμμετοχή σου καταχωρίστηκε. Δεν στάλθηκε μόνο το email επιβεβαίωσης." : "Η συμμετοχή σου καταχωρίστηκε και στάλθηκε επιβεβαίωση στο email σου." });
     } catch (error) {
       const code = (error as { code?: string } | null)?.code;
-      if (code === "ALREADY_REGISTERED") {
-        setNotice({ ok: false, text: "Υπάρχει ήδη συμμετοχή με αυτό το email για τη συγκεκριμένη δράση." });
-      } else if (code === "EVENT_NOT_OPEN") {
-        setNotice({ ok: false, text: "Η συγκεκριμένη δράση δεν δέχεται πλέον συμμετοχές." });
-      } else {
-        setNotice({ ok: false, text: `Δεν ήταν δυνατή η καταχώριση${code ? ` (${code})` : ""}. Δοκιμάστε ξανά.` });
-      }
-    } finally {
-      setSubmitting(false);
-    }
+      if (code === "ALREADY_REGISTERED") setNotice({ ok: false, text: "Υπάρχει ήδη συμμετοχή με αυτό το email για τη συγκεκριμένη δράση." });
+      else if (code === "EVENT_NOT_OPEN") setNotice({ ok: false, text: "Η συγκεκριμένη δράση δεν δέχεται πλέον συμμετοχές." });
+      else setNotice({ ok: false, text: `Δεν ήταν δυνατή η καταχώριση${code ? ` (${code})` : ""}. Δοκίμασε ξανά.` });
+    } finally { setSubmitting(false); }
   }
 
-  const fieldClass = "w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:border-sky-500 focus:outline-none disabled:bg-slate-100";
-
   return (
-    <Modal onClose={submitting ? undefined : onClose}>
-      <p className={`text-xs font-semibold uppercase tracking-wide ${isCompleted ? "text-violet-700" : "text-sky-700"}`}>
-        {isCompleted ? "Πραγματοποιημένη δράση" : "Προσεχής δράση"}
-      </p>
-      <h3 className="mt-2 text-xl font-semibold leading-7">{booking.topic || "Δράση συλλόγου"}</h3>
-      <p className="mt-2 text-sm capitalize text-slate-600">{formatDateGreek(booking.booking_date)}</p>
+    <Modal onClose={submitting ? undefined : onClose} wide>
+      <div className="overflow-hidden rounded-[26px] bg-[#FFF9F3]">
+        {booking.image_url ? (
+          <div className="h-56 overflow-hidden bg-[#DCE4DE] sm:h-72">
+            <img
+              src={booking.image_url}
+              alt={booking.topic || "Δράση Συλλόγου"}
+              className="h-full w-full object-cover"
+            />
+          </div>
+        ) : (
+          <div className="h-28 bg-gradient-to-br from-[#9EB2A6] to-[#E1AF85]" />
+        )}
 
-      <dl className="mt-6 space-y-4 text-sm">
-        <DetailRow label="Ώρα" value={booking.action_time} />
-        <DetailRow label="Συντονιστές" value={booking.therapist_name} />
-        <DetailRow label="Περιγραφή" value={booking.description} />
-      </dl>
-
-      {!isCompleted && !showForm && (
-        <div className="mt-6 rounded-xl border border-sky-200 bg-sky-50 p-4">
-          <p className="text-sm leading-6 text-sky-950">Θέλεις να κρατήσεις θέση στη συγκεκριμένη δράση;</p>
-          <button
-            type="button"
-            onClick={() => setShowForm(true)}
-            className="mt-3 w-full rounded-lg bg-sky-700 px-4 py-3 text-sm font-semibold text-white hover:bg-sky-800"
-          >
-            Θέλω να παρακολουθήσω
-          </button>
-        </div>
-      )}
-
-      {!isCompleted && showForm && (
-        <form onSubmit={handleRegistration} className="mt-6 space-y-4 border-t border-slate-200 pt-5">
-          <div>
-            <h4 className="text-lg font-semibold">Κράτηση θέσης</h4>
-            <p className="mt-1 text-xs leading-5 text-slate-500">Συμπλήρωσε τα στοιχεία σου. Η συμμετοχή θα συνδεθεί αυτόματα με αυτή τη δράση.</p>
+        <div className="px-5 py-6 sm:px-8 sm:py-8">
+          <div className="flex flex-wrap gap-2">
+            <span className="rounded-full bg-[#174B49] px-3 py-1.5 text-xs font-bold text-white">
+              {isCompleted ? "Πραγματοποιημένη δράση" : booking.event_type || "Δράση"}
+            </span>
+            {booking.mode && (
+              <span className="rounded-full bg-[#008D8B]/10 px-3 py-1.5 text-xs font-bold text-[#006B68]">
+                {booking.mode}
+              </span>
+            )}
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
+          <h3 className="mt-4 font-serif text-3xl font-medium leading-tight text-[#174B49] sm:text-4xl">
+            {booking.topic || "Δράση Συλλόγου"}
+          </h3>
+
+          {booking.description && (
+            <p className="mt-4 text-[15px] leading-7 text-[#627472]">
+              {booking.description}
+            </p>
+          )}
+
+          <div className="mt-6 grid gap-3 rounded-2xl border border-[#174B49]/10 bg-white p-5 sm:grid-cols-2">
             <div>
-              <label htmlFor="registration-name" className="mb-1.5 block text-sm font-medium">Ονοματεπώνυμο</label>
-              <input id="registration-name" value={values.fullName} onChange={(event) => updateValue("fullName", event.target.value)} required maxLength={160} className={fieldClass} />
+              <span className="text-[11px] font-extrabold uppercase tracking-[.12em] text-[#008D8B]">Ημερομηνία</span>
+              <p className="mt-1 text-sm font-semibold text-[#263B39]">{formatDateGreek(booking.booking_date)}</p>
             </div>
             <div>
-              <label htmlFor="registration-email" className="mb-1.5 block text-sm font-medium">Email</label>
-              <input id="registration-email" type="email" value={values.email} onChange={(event) => updateValue("email", event.target.value)} required maxLength={220} className={fieldClass} />
+              <span className="text-[11px] font-extrabold uppercase tracking-[.12em] text-[#008D8B]">Ώρα</span>
+              <p className="mt-1 text-sm font-semibold text-[#263B39]">{booking.action_time || "Θα ανακοινωθεί"}</p>
             </div>
-            <div>
-              <label htmlFor="registration-phone" className="mb-1.5 block text-sm font-medium">Τηλέφωνο</label>
-              <input id="registration-phone" type="tel" value={values.phone} onChange={(event) => updateValue("phone", event.target.value)} required maxLength={60} className={fieldClass} />
-            </div>
-            <div>
-              <label htmlFor="registration-profession" className="mb-1.5 block text-sm font-medium">Επάγγελμα</label>
-              <input id="registration-profession" value={values.profession} onChange={(event) => updateValue("profession", event.target.value)} required maxLength={160} className={fieldClass} />
+            <div className="sm:col-span-2">
+              <span className="text-[11px] font-extrabold uppercase tracking-[.12em] text-[#008D8B]">Συντονιστές</span>
+              <p className="mt-1 text-sm font-semibold text-[#263B39]">{coordinatorsLabel(booking)}</p>
             </div>
           </div>
 
-          <div>
-            <label htmlFor="registration-comment" className="mb-1.5 block text-sm font-medium">Σχόλιο <span className="font-normal text-slate-400">(προαιρετικό)</span></label>
-            <textarea id="registration-comment" rows={3} value={values.comment} onChange={(event) => updateValue("comment", event.target.value)} maxLength={1000} className={fieldClass} />
-          </div>
+          {booking.long_description && (
+            <section className="mt-8">
+              <p className="text-[11px] font-extrabold uppercase tracking-[.14em] text-[#008D8B]">Η δράση</p>
+              <h4 className="mt-2 font-serif text-2xl font-medium text-[#174B49]">Περισσότερες πληροφορίες</h4>
+              <p className="mt-3 whitespace-pre-wrap text-[15px] leading-8 text-[#566966]">
+                {booking.long_description}
+              </p>
+            </section>
+          )}
 
-          <div aria-hidden="true" className="absolute -left-[10000px] h-px w-px overflow-hidden">
-            <label htmlFor="registration-website">Website</label>
-            <input id="registration-website" tabIndex={-1} autoComplete="off" value={website} onChange={(event) => setWebsite(event.target.value)} />
-          </div>
+          {booking.detail_image_url && (
+            <div className="mt-8 overflow-hidden rounded-2xl border border-[#174B49]/10 bg-white">
+              <img
+                src={booking.detail_image_url}
+                alt=""
+                className="max-h-[430px] w-full object-cover"
+              />
+            </div>
+          )}
 
-          <label className="flex cursor-pointer items-start gap-2 text-xs leading-5 text-slate-600">
-            <input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} className="mt-0.5 h-4 w-4 accent-sky-600" />
-            Αποδέχομαι τη χρήση των στοιχείων μου αποκλειστικά για τη διαχείριση της συμμετοχής μου στη συγκεκριμένη δράση και την επικοινωνία από τον Σύλλογο.
-          </label>
+          {booking.audience && (
+            <section className="mt-7 rounded-2xl bg-[#9EB2A6]/15 p-5 sm:p-6">
+              <p className="text-[11px] font-extrabold uppercase tracking-[.14em] text-[#008D8B]">Σε ποιους απευθύνεται</p>
+              <p className="mt-2 whitespace-pre-wrap text-[15px] leading-7 text-[#425754]">
+                {booking.audience}
+              </p>
+            </section>
+          )}
 
-          {notice && <p className={`rounded-lg px-3 py-2.5 text-sm ${notice.ok ? "bg-emerald-50 text-emerald-800" : "bg-red-50 text-red-700"}`}>{notice.text}</p>}
+          {booking.program_details && (
+            <section className="mt-5 rounded-2xl border border-[#174B49]/10 bg-white p-5 sm:p-6">
+              <p className="text-[11px] font-extrabold uppercase tracking-[.14em] text-[#008D8B]">Πρόγραμμα / Θεματικές</p>
+              <p className="mt-2 whitespace-pre-wrap text-[15px] leading-7 text-[#425754]">
+                {booking.program_details}
+              </p>
+            </section>
+          )}
 
-          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            <button type="button" disabled={submitting} onClick={() => setShowForm(false)} className="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium hover:bg-slate-50 disabled:opacity-60">Πίσω</button>
-            <button type="submit" disabled={submitting || notice?.ok === true} className="rounded-lg bg-sky-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-sky-800 disabled:opacity-60">
-              {submitting ? "Καταχώριση…" : notice?.ok ? "Η θέση καταχωρίστηκε" : "Ολοκλήρωση κράτησης"}
+          {!isCompleted && !showForm && (
+            <div className="mt-8 flex flex-col gap-3 border-t border-[#174B49]/10 pt-6 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm leading-6 text-[#627472]">Θέλεις να κρατήσεις θέση στη συγκεκριμένη δράση;</p>
+              <button
+                type="button"
+                onClick={() => setShowForm(true)}
+                className="rounded-full bg-[#008D8B] px-6 py-3 text-sm font-extrabold text-white shadow-lg shadow-[#008D8B]/15"
+              >
+                Δήλωσε συμμετοχή
+              </button>
+            </div>
+          )}
+
+          {!isCompleted && showForm && (
+            <form onSubmit={handleRegistration} className="sepsyg-registration-form mt-8">
+              <div className="form-intro">
+                <h4>Δήλωση συμμετοχής</h4>
+                <p>Συμπλήρωσε τα στοιχεία σου. Η φόρμα συνδέεται αυτόματα με αυτή τη δράση.</p>
+              </div>
+
+              <div className="sepsyg-form-grid">
+                <label>Ονοματεπώνυμο<input value={values.fullName} onChange={(event) => updateValue("fullName", event.target.value)} required maxLength={160} /></label>
+                <label>Email<input type="email" value={values.email} onChange={(event) => updateValue("email", event.target.value)} required maxLength={220} /></label>
+                <label>Τηλέφωνο<input type="tel" value={values.phone} onChange={(event) => updateValue("phone", event.target.value)} required maxLength={60} /></label>
+                <label>Επάγγελμα<input value={values.profession} onChange={(event) => updateValue("profession", event.target.value)} required maxLength={160} /></label>
+              </div>
+
+              <label className="sepsyg-full-field">
+                Σχόλιο <small>(προαιρετικό)</small>
+                <textarea rows={3} value={values.comment} onChange={(event) => updateValue("comment", event.target.value)} maxLength={1000} />
+              </label>
+
+              <div aria-hidden="true" className="absolute -left-[10000px] h-px w-px overflow-hidden">
+                <input tabIndex={-1} autoComplete="off" value={website} onChange={(event) => setWebsite(event.target.value)} />
+              </div>
+
+              <label className="sepsyg-consent">
+                <input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} />
+                <span>Αποδέχομαι τη χρήση των στοιχείων μου αποκλειστικά για τη διαχείριση της συμμετοχής μου και την επικοινωνία από τον Σύλλογο.</span>
+              </label>
+
+              {notice && <p className={`sepsyg-form-notice ${notice.ok ? "success" : "error"}`}>{notice.text}</p>}
+
+              <div className="sepsyg-form-actions">
+                <button type="button" className="secondary" disabled={submitting} onClick={() => setShowForm(false)}>Πίσω</button>
+                <button type="submit" disabled={submitting || notice?.ok === true}>
+                  {submitting ? "Καταχώριση…" : notice?.ok ? "Η συμμετοχή καταχωρίστηκε" : "Ολοκλήρωση συμμετοχής"}
+                </button>
+              </div>
+            </form>
+          )}
+
+          <div className="mt-7 border-t border-[#174B49]/10 pt-5 text-center">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={submitting}
+              className="text-sm font-bold text-[#627472] hover:text-[#174B49]"
+            >
+              Κλείσιμο
             </button>
           </div>
-        </form>
-      )}
-
-      <div className="mt-6 flex justify-end">
-        <button type="button" onClick={onClose} disabled={submitting} className="rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60">
-          Κλείσιμο
-        </button>
+        </div>
       </div>
     </Modal>
   );
 }
 
 export default function App() {
-  const path = typeof window === "undefined" ? "/manage" : window.location.pathname.replace(/\/+$/, "") || "/";
-  return path === "/events" ? <PublicEventsApp /> : <ManageAccess />;
+  const path = typeof window === "undefined" ? "/" : window.location.pathname.replace(/\/+$/, "") || "/";
+  return path === "/manage" ? <ManageAccess /> : <PublicEventsApp />;
 }
 
 function formatDateGreek(isoDate: string) {
@@ -1273,9 +1401,18 @@ function BookingForm({
   onSaved: (booking: Booking) => void;
 }) {
   const [name, setName] = useState(existing?.therapist_name ?? "");
+  const [additionalCoordinator, setAdditionalCoordinator] = useState(existing?.additional_coordinator_name ?? "");
   const [time, setTime] = useState(existing?.action_time ?? "");
   const [topic, setTopic] = useState(existing?.topic ?? "");
   const [description, setDescription] = useState(existing?.description ?? "");
+  const [eventType, setEventType] = useState(existing?.event_type ?? "Σεμινάριο");
+  const [mode, setMode] = useState(existing?.mode ?? "Διαδικτυακά");
+  const [imageUrl, setImageUrl] = useState(existing?.image_url ?? "");
+  const [coverImageFile, setCoverImageFile] = useState<File | null>(null);
+  const [detailImageFile, setDetailImageFile] = useState<File | null>(null);
+  const [longDescription, setLongDescription] = useState(existing?.long_description ?? "");
+  const [audience, setAudience] = useState(existing?.audience ?? "");
+  const [programDetails, setProgramDetails] = useState(existing?.program_details ?? "");
   const [laterTime, setLaterTime] = useState(existing ? existing.action_time === null : false);
   const [laterTopic, setLaterTopic] = useState(existing ? existing.topic === null : false);
   const [laterDescription, setLaterDescription] = useState(existing ? existing.description === null : false);
@@ -1302,12 +1439,28 @@ function BookingForm({
     try {
       const user = await ensureAnonymousUser();
       const bookingRef = doc(db, "bookings", date);
+      const uploadedCover = coverImageFile
+        ? await compressImageFile(coverImageFile)
+        : "";
+
+      const uploadedDetail = detailImageFile
+        ? await compressImageFile(detailImageFile)
+        : "";
+
       const values = {
         booking_date: date,
         therapist_name: name.trim(),
+        additional_coordinator_name: additionalCoordinator.trim() || null,
         action_time: laterTime ? null : time.trim() || null,
         topic: laterTopic ? null : topic.trim() || null,
         description: laterDescription ? null : description.trim() || null,
+        event_type: eventType.trim() || null,
+        mode: mode.trim() || null,
+        image_url: uploadedCover || imageUrl.trim() || existing?.image_url || null,
+        detail_image_url: uploadedDetail || existing?.detail_image_url || null,
+        long_description: longDescription.trim() || null,
+        audience: audience.trim() || null,
+        program_details: programDetails.trim() || null,
         status: "booked" as BookingStatus,
         is_public: isPublic,
       };
@@ -1372,7 +1525,7 @@ function BookingForm({
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label className="mb-1.5 block text-sm font-medium" htmlFor="name">
-            Ονοματεπώνυμο θεραπευτή <span className="text-red-600">*</span>
+            Βασικός συντονιστής / θεραπευτής <span className="text-red-600">*</span>
           </label>
           <input
             id="name"
@@ -1381,8 +1534,26 @@ function BookingForm({
             onChange={(event) => setName(event.target.value)}
             required
             autoFocus
+            placeholder="Ονοματεπώνυμο"
             className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:border-emerald-500 focus:outline-none"
           />
+        </div>
+
+        <div>
+          <label className="mb-1.5 block text-sm font-medium" htmlFor="additional-coordinator">
+            Επιπλέον συντονιστής <span className="font-normal text-slate-400">(προαιρετικό)</span>
+          </label>
+          <input
+            id="additional-coordinator"
+            type="text"
+            value={additionalCoordinator}
+            onChange={(event) => setAdditionalCoordinator(event.target.value)}
+            placeholder="Ονοματεπώνυμο δεύτερου συντονιστή"
+            className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:border-emerald-500 focus:outline-none"
+          />
+          <p className="mt-1.5 text-xs leading-5 text-slate-500">
+            Αν το ίδιο ονοματεπώνυμο υπάρχει στον χάρτη θεραπευτών, η δημόσια δράση θα μπορεί να εμφανίζεται αυτόματα και στο προφίλ του δεύτερου συντονιστή.
+          </p>
         </div>
 
         <OptionalField
@@ -1415,6 +1586,114 @@ function BookingForm({
           placeholder="Λίγες πληροφορίες για το περιεχόμενο της δράσης"
           textarea
         />
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label className="mb-1.5 block text-sm font-medium" htmlFor="event-type">Τύπος δράσης</label>
+            <select id="event-type" value={eventType} onChange={(event) => setEventType(event.target.value)} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm focus:border-emerald-500 focus:outline-none">
+              <option>Σεμινάριο</option>
+              <option>Βιωματικό εργαστήριο</option>
+              <option>Ημερίδα</option>
+              <option>Ομαδική θεραπεία</option>
+              <option>Συνάντηση</option>
+              <option>Άλλη δράση</option>
+            </select>
+          </div>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium" htmlFor="event-mode">Μορφή</label>
+            <select id="event-mode" value={mode} onChange={(event) => setMode(event.target.value)} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm focus:border-emerald-500 focus:outline-none">
+              <option>Διαδικτυακά</option>
+              <option>Δια ζώσης</option>
+              <option>Διαδικτυακά & δια ζώσης</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-emerald-100 bg-emerald-50/40 p-4">
+          <label className="mb-1.5 block text-sm font-semibold text-emerald-950" htmlFor="cover-file">
+            Κύρια φωτογραφία δράσης
+          </label>
+          <input
+            id="cover-file"
+            type="file"
+            accept="image/*"
+            onChange={(event) => setCoverImageFile(event.target.files?.[0] ?? null)}
+            className="w-full rounded-lg border border-emerald-200 bg-white px-3 py-2.5 text-sm"
+          />
+          <p className="mt-1.5 text-xs leading-5 text-slate-500">
+            Αυτή θα εμφανίζεται στην κάρτα και στην κορυφή του «Δείτε περισσότερα».
+          </p>
+
+          <label className="mb-1.5 mt-4 block text-sm font-medium" htmlFor="image-url">
+            Ή URL κύριας εικόνας <span className="font-normal text-slate-400">(προαιρετικό)</span>
+          </label>
+          <input
+            id="image-url"
+            type="url"
+            value={imageUrl}
+            onChange={(event) => setImageUrl(event.target.value)}
+            placeholder="https://..."
+            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm focus:border-emerald-500 focus:outline-none"
+          />
+        </div>
+
+        <div className="rounded-xl border border-emerald-100 bg-white p-4">
+          <label className="mb-1.5 block text-sm font-semibold text-emerald-950" htmlFor="detail-file">
+            Δεύτερη φωτογραφία
+          </label>
+          <input
+            id="detail-file"
+            type="file"
+            accept="image/*"
+            onChange={(event) => setDetailImageFile(event.target.files?.[0] ?? null)}
+            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm"
+          />
+          <p className="mt-1.5 text-xs leading-5 text-slate-500">
+            Θα εμφανίζεται μέσα στην αναλυτική παρουσίαση της δράσης.
+          </p>
+        </div>
+
+        <div>
+          <label className="mb-1.5 block text-sm font-medium" htmlFor="long-description">
+            Αναλυτική περιγραφή <span className="font-normal text-slate-400">(προαιρετικό)</span>
+          </label>
+          <textarea
+            id="long-description"
+            rows={7}
+            value={longDescription}
+            onChange={(event) => setLongDescription(event.target.value)}
+            placeholder="Γράψε το πλήρες κείμενο της δράσης όπως θέλεις να εμφανίζεται στο «Δείτε περισσότερα»."
+            className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm leading-6 focus:border-emerald-500 focus:outline-none"
+          />
+        </div>
+
+        <div>
+          <label className="mb-1.5 block text-sm font-medium" htmlFor="audience">
+            Σε ποιους απευθύνεται <span className="font-normal text-slate-400">(προαιρετικό)</span>
+          </label>
+          <textarea
+            id="audience"
+            rows={3}
+            value={audience}
+            onChange={(event) => setAudience(event.target.value)}
+            placeholder="π.χ. επαγγελματίες ψυχικής υγείας, εκπαιδευόμενοι, ευρύ κοινό..."
+            className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm leading-6 focus:border-emerald-500 focus:outline-none"
+          />
+        </div>
+
+        <div>
+          <label className="mb-1.5 block text-sm font-medium" htmlFor="program-details">
+            Πρόγραμμα / θεματικές ενότητες <span className="font-normal text-slate-400">(προαιρετικό)</span>
+          </label>
+          <textarea
+            id="program-details"
+            rows={4}
+            value={programDetails}
+            onChange={(event) => setProgramDetails(event.target.value)}
+            placeholder="Γράψε τις βασικές θεματικές, το πρόγραμμα ή τα σημεία που θα δουλευτούν."
+            className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm leading-6 focus:border-emerald-500 focus:outline-none"
+          />
+        </div>
 
         <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-sky-200 bg-sky-50 px-3 py-3 text-sm leading-5 text-sky-950">
           <input
@@ -1575,7 +1854,7 @@ function BookingDetails({
       </div>
 
       <dl className="mt-6 space-y-4 text-sm">
-        <DetailRow label="Θεραπευτής" value={booking.therapist_name} />
+        <DetailRow label="Συντονιστές" value={coordinatorsLabel(booking)} />
         <DetailRow label="Ώρα" value={booking.action_time} />
         <DetailRow label="Θέμα" value={booking.topic} />
         <DetailRow label="Περιγραφή" value={booking.description} />

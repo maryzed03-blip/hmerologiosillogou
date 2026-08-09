@@ -6,6 +6,20 @@ function clean(value, maxLength = 1000) {
   return typeof value === "string" ? value.trim().slice(0, maxLength) : "";
 }
 
+function todayInGreece() {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Athens",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const year = parts.find((part) => part.type === "year")?.value;
+  const month = parts.find((part) => part.type === "month")?.value;
+  const day = parts.find((part) => part.type === "day")?.value;
+  return year && month && day ? `${year}-${month}-${day}` : new Date().toISOString().slice(0, 10);
+}
+
+
 function escapeHtml(value) {
   return value
     .replaceAll("&", "&amp;")
@@ -70,7 +84,7 @@ export default async function handler(request, response) {
     }
 
     const event = eventDocument.data ?? {};
-    if (event.is_public !== true || event.status === "completed") {
+    if (event.is_public !== true || event.status === "completed" || eventId < todayInGreece()) {
       return response.status(409).json({ error: "Event is not open for registrations", code: "EVENT_NOT_OPEN" });
     }
 
