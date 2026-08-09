@@ -84,8 +84,8 @@ const STATIC_BOOKINGS: Booking[] = [
     long_description: null,
     audience: null,
     program_details: null,
-    activity_category: "association",
-    general_price: null,
+    activity_category: "association_free",
+    general_price: "0",
     offers_member_discount: false,
     member_price: null,
     requested_public: true,
@@ -230,9 +230,11 @@ function bookingFromSnapshot(snapshot: QueryDocumentSnapshot<DocumentData>): Boo
     audience: typeof data.audience === "string" ? data.audience : null,
     program_details: typeof data.program_details === "string" ? data.program_details : null,
     activity_category:
-      data.activity_category === "association_free" || data.activity_category === "therapist_independent"
+      data.activity_category === "association" ||
+      data.activity_category === "association_free" ||
+      data.activity_category === "therapist_independent"
         ? data.activity_category
-        : "association",
+        : "association_free",
     general_price: typeof data.general_price === "string" ? data.general_price : null,
     offers_member_discount: data.offers_member_discount === true,
     member_price: typeof data.member_price === "string" ? data.member_price : null,
