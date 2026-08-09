@@ -16,6 +16,7 @@ function serializeRegistration(document) {
     email: clean(data.email, 220),
     phone: clean(data.phone, 60),
     profession: clean(data.profession, 160),
+    membership_status: clean(data.membership_status, 60),
     comment: clean(data.comment, 1000),
     created_at: clean(data.created_at, 80) || document.createTime || null,
   };

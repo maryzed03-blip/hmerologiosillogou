@@ -371,3 +371,244 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
 .sepsyg-manage-page > header { background: rgba(255,249,243,.96) !important; border-color: var(--sepsyg-line) !important; }
 .sepsyg-manage-page > header h1 { color: var(--sepsyg-teal-dark); font-family: Georgia,"Times New Roman",serif; font-weight: 500; }
 .sepsyg-manage-page main > section { border-radius: 22px !important; border-color: var(--sepsyg-line) !important; box-shadow: 0 14px 34px rgba(23,75,73,.055) !important; }
+
+
+/* ==========================================================
+   SEPSYG v1.4 — ΚΑΤΗΓΟΡΙΕΣ / ΤΙΜΕΣ / ΜΕΛΗ
+   ========================================================== */
+
+.sepsyg-event-card.category-free { border-bottom: 5px solid #63A97E; }
+.sepsyg-event-card.category-association { border-bottom: 5px solid #E39A55; }
+.sepsyg-event-card.category-independent { border-bottom: 5px solid #79B9D3; }
+
+.sepsyg-event-type.category-free,
+.category-free:not(.sepsyg-event-card):not(.sepsyg-day):not(.price-panel) {
+  background: rgba(233,248,238,.96);
+  color: #326B49;
+}
+.sepsyg-event-type.category-association,
+.category-association:not(.sepsyg-event-card):not(.sepsyg-day):not(.price-panel) {
+  background: rgba(255,244,233,.96);
+  color: #875226;
+}
+.sepsyg-event-type.category-independent,
+.category-independent:not(.sepsyg-event-card):not(.sepsyg-day):not(.price-panel) {
+  background: rgba(235,247,252,.97);
+  color: #356D85;
+}
+
+.sepsyg-event-type.category-free { box-shadow: inset 0 -3px 0 #63A97E; }
+.sepsyg-event-type.category-association { box-shadow: inset 0 -3px 0 #E39A55; }
+.sepsyg-event-type.category-independent { box-shadow: inset 0 -3px 0 #79B9D3; }
+
+.sepsyg-day.category-free { box-shadow: inset 0 -5px 0 #63A97E; }
+.sepsyg-day.category-association { box-shadow: inset 0 -5px 0 #E39A55; }
+.sepsyg-day.category-independent { box-shadow: inset 0 -5px 0 #79B9D3; }
+
+.price-panel.category-free {
+  border-color: rgba(99,169,126,.30);
+  background: rgba(99,169,126,.08);
+  color: #326B49;
+}
+.price-panel.category-association {
+  border-color: rgba(227,154,85,.32);
+  background: rgba(227,154,85,.09);
+  color: #7D4C25;
+}
+.price-panel.category-independent {
+  border-color: rgba(121,185,211,.36);
+  background: rgba(121,185,211,.10);
+  color: #356D85;
+}
+
+.sepsyg-registration-form select {
+  width: 100%;
+  margin-top: 7px;
+  border: 1px solid var(--sepsyg-line);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--sepsyg-ink);
+  padding: 11px 12px;
+  outline: none;
+  font: inherit;
+}
+.sepsyg-registration-form select:focus {
+  border-color: var(--sepsyg-teal);
+  box-shadow: 0 0 0 3px rgba(0,141,139,.09);
+}
+.sepsyg-discount-note {
+  display: block;
+  margin-top: 9px;
+  color: #7A8885;
+  font-size: .69rem;
+  line-height: 1.55;
+  font-weight: 500;
+}
+
+
+/* ==========================================================
+   SEPSYG v1.5 — ΔΙΑΚΡΙΤΙΚΗ ΕΙΣΟΔΟΣ & ΑΥΤΟΜΑΤΗ ΚΑΤΑΣΤΑΣΗ
+   ========================================================== */
+
+.sepsyg-discreet-access {
+  position: fixed;
+  top: 16px;
+  right: 18px;
+  z-index: 65;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid rgba(23,75,73,.16);
+  border-radius: 50%;
+  background: rgba(255,255,255,.72);
+  color: rgba(23,75,73,.58);
+  font-family: Georgia,"Times New Roman",serif;
+  font-size: 23px;
+  font-weight: 400;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 5px 16px rgba(23,75,73,.06);
+  backdrop-filter: blur(8px);
+  transition: .2s ease;
+}
+.sepsyg-discreet-access:hover {
+  border-color: rgba(0,141,139,.34);
+  background: rgba(255,255,255,.94);
+  color: var(--sepsyg-teal);
+  transform: translateY(-1px);
+}
+
+.sepsyg-access-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(17,42,40,.55);
+  backdrop-filter: blur(6px);
+}
+.sepsyg-access-card {
+  position: relative;
+  width: min(390px, 100%);
+  padding: 30px 28px 27px;
+  border: 1px solid rgba(23,75,73,.12);
+  border-radius: 24px;
+  background: #FFF9F3;
+  box-shadow: 0 26px 65px rgba(23,75,73,.20);
+}
+.sepsyg-access-close {
+  position: absolute;
+  top: 12px;
+  right: 13px;
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: #667875;
+  font-size: 24px;
+  cursor: pointer;
+}
+.sepsyg-access-kicker {
+  margin: 0 0 7px;
+  color: var(--sepsyg-teal);
+  font-size: .65rem;
+  font-weight: 800;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+}
+.sepsyg-access-card h2 {
+  margin: 0;
+  color: var(--sepsyg-teal-dark);
+  font-family: Georgia,"Times New Roman",serif;
+  font-size: 2rem;
+  font-weight: 500;
+}
+.sepsyg-access-copy {
+  margin: 10px 0 20px;
+  color: var(--sepsyg-muted);
+  font-size: .82rem;
+  line-height: 1.6;
+}
+.sepsyg-access-card form label {
+  display: block;
+  margin-bottom: 7px;
+  color: var(--sepsyg-ink);
+  font-size: .78rem;
+  font-weight: 700;
+}
+.sepsyg-access-card form input {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--sepsyg-line);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--sepsyg-ink);
+  text-align: center;
+  font-size: 1.15rem;
+  letter-spacing: .32em;
+}
+.sepsyg-access-submit {
+  width: 100%;
+  min-height: 44px;
+  margin-top: 14px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--sepsyg-teal);
+  color: #fff;
+  font-size: .82rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+.sepsyg-access-submit:disabled { opacity: .6; cursor: wait; }
+.sepsyg-access-error {
+  margin: 10px 0 0;
+  padding: 9px 11px;
+  border-radius: 10px;
+  background: #fff0f0;
+  color: #9b4444;
+  font-size: .76rem;
+}
+
+.sepsyg-event-topline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.sepsyg-auto-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 5px 9px;
+  border-radius: 999px;
+  font-size: .65rem;
+  font-weight: 900;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+.sepsyg-auto-status.future {
+  background: rgba(0,141,139,.09);
+  color: #006B68;
+}
+.sepsyg-auto-status.past {
+  background: rgba(112,102,125,.10);
+  color: #665b70;
+}
+.sepsyg-event-topline .sepsyg-event-mode {
+  margin: 0;
+}
+
+@media(max-width:600px) {
+  .sepsyg-discreet-access {
+    top: 11px;
+    right: 11px;
+    width: 31px;
+    height: 31px;
+    font-size: 21px;
+  }
+}

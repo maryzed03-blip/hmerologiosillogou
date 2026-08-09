@@ -67,6 +67,12 @@ export default async function handler(request, response) {
   const actionTime = clean(body.action_time, 100) || "Δεν έχει συμπληρωθεί";
   const topic = clean(body.topic, 500) || "Δεν έχει συμπληρωθεί";
   const description = clean(body.description, 3000) || "Δεν έχει συμπληρωθεί";
+  const activityCategory = clean(body.activity_category, 80);
+  const generalPrice = clean(body.general_price, 40);
+  const offersMemberDiscount = body.offers_member_discount === true;
+  const memberPrice = clean(body.member_price, 40);
+  const requestedPublic = body.requested_public === true;
+  const approvalStatus = clean(body.approval_status, 30);
   const publicStatus = body.is_public === true ? "Ναι" : "Όχι";
 
   if (!bookingDate || therapistName.length < 2) {
@@ -92,7 +98,17 @@ export default async function handler(request, response) {
     socketTimeout: 20000,
   });
 
-  const subject = `${actionLabel} — ${formattedDate}`;
+  const categoryLabel =
+    activityCategory === "association_free"
+      ? "Δωρεάν Δράση Συλλόγου"
+      : activityCategory === "therapist_independent"
+        ? "Ανεξάρτητη Δράση Θεραπευτή Συλλόγου"
+        : "Δράση Συλλόγου";
+
+  const pendingApproval = requestedPublic && approvalStatus === "pending";
+  const subject = pendingApproval
+    ? `ΠΡΟΣ ΕΓΚΡΙΣΗ — ${topic} — ${formattedDate}`
+    : `${actionLabel} — ${formattedDate}`;
   const text = [
     `Ενέργεια: ${actionLabel}`,
     `Ημερομηνία δράσης: ${formattedDate}`,
@@ -100,6 +116,11 @@ export default async function handler(request, response) {
     `Ώρα: ${actionTime}`,
     `Θέμα: ${topic}`,
     `Περιγραφή: ${description}`,
+    `Κατηγορία: ${categoryLabel}`,
+    `Γενική τιμή: ${activityCategory === "association_free" ? "Δωρεάν" : (generalPrice ? `${generalPrice} €` : "Δεν ορίστηκε")}`,
+    `Ειδική τιμή Μελών/Φίλων: ${offersMemberDiscount && memberPrice ? `${memberPrice} €` : "Όχι"}`,
+    `Αίτημα δημόσιας εμφάνισης: ${requestedPublic ? "Ναι" : "Όχι"}`,
+    `Κατάσταση έγκρισης: ${approvalStatus || "draft"}`,
     `Εμφάνιση στο δημόσιο πρόγραμμα: ${publicStatus}`,
     `Η αλλαγή καταγράφηκε: ${changedAt}`,
   ].join("\n");
@@ -113,8 +134,20 @@ export default async function handler(request, response) {
         <tr><td style="padding:8px 0;font-weight:700">Ώρα</td><td>${escapeHtml(actionTime)}</td></tr>
         <tr><td style="padding:8px 0;font-weight:700">Θέμα</td><td>${escapeHtml(topic)}</td></tr>
         <tr><td style="padding:8px 0;font-weight:700;vertical-align:top">Περιγραφή</td><td>${escapeHtml(description).replaceAll("\n", "<br>")}</td></tr>
+        <tr><td style="padding:8px 0;font-weight:700">Κατηγορία</td><td>${escapeHtml(categoryLabel)}</td></tr>
+        <tr><td style="padding:8px 0;font-weight:700">Γενική τιμή</td><td>${escapeHtml(activityCategory === "association_free" ? "Δωρεάν" : (generalPrice ? `${generalPrice} €` : "Δεν ορίστηκε"))}</td></tr>
+        <tr><td style="padding:8px 0;font-weight:700">Τιμή Μελών / Φίλων</td><td>${escapeHtml(offersMemberDiscount && memberPrice ? `${memberPrice} €` : "Δεν προσφέρεται")}</td></tr>
+        <tr><td style="padding:8px 0;font-weight:700">Αίτημα δημοσίευσης</td><td>${requestedPublic ? "Ναι" : "Όχι"}</td></tr>
+        <tr><td style="padding:8px 0;font-weight:700">Κατάσταση έγκρισης</td><td>${escapeHtml(approvalStatus || "draft")}</td></tr>
         <tr><td style="padding:8px 0;font-weight:700">Δημόσιο πρόγραμμα</td><td>${escapeHtml(publicStatus)}</td></tr>
       </table>
+      ${pendingApproval ? `
+        <div style="margin-top:22px;padding:16px;border-radius:12px;background:#ecfdf5;border:1px solid #a7f3d0">
+          <strong>Η δράση περιμένει έγκριση.</strong><br>
+          <a href="https://hmerologiosillogou.vercel.app/manage" style="display:inline-block;margin-top:10px;color:#047857;font-weight:700">
+            Άνοιγμα διαχείρισης για έγκριση →
+          </a>
+        </div>` : ""}
       <p style="margin-top:20px;color:#667085;font-size:13px">Η αλλαγή καταγράφηκε: ${escapeHtml(changedAt)}</p>
     </div>`;
 

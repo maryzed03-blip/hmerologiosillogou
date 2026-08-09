@@ -47,6 +47,13 @@ function makeRegistrationId(eventId, email) {
   return `${eventId}_${digest}`;
 }
 
+function membershipLabel(value) {
+  if (value === "friend") return "Φίλος του Συλλόγου";
+  if (value === "member") return "Μέλος του Συλλόγου";
+  if (value === "want_member") return "Θέλει να γίνει Μέλος του Συλλόγου";
+  return "Δεν είναι Μέλος ή Φίλος";
+}
+
 export default async function handler(request, response) {
   if (request.method !== "POST") {
     response.setHeader("Allow", "POST");
@@ -62,6 +69,7 @@ export default async function handler(request, response) {
   const email = clean(body.email, 220).toLowerCase();
   const phone = clean(body.phone, 60);
   const profession = clean(body.profession, 160);
+  const membershipStatus = clean(body.membershipStatus, 60);
   const comment = clean(body.comment, 1000);
   const consent = body.consent === true;
 
@@ -71,6 +79,7 @@ export default async function handler(request, response) {
     !/^\S+@\S+\.\S+$/.test(email) ||
     phone.length < 6 ||
     profession.length < 2 ||
+    !["none", "friend", "member", "want_member"].includes(membershipStatus) ||
     !consent
   ) {
     return response.status(400).json({ error: "Invalid form data", code: "INVALID_PAYLOAD" });
@@ -103,6 +112,7 @@ export default async function handler(request, response) {
       email,
       phone,
       profession,
+      membership_status: membershipStatus,
       comment,
       consent: true,
       created_at: new Date(),
@@ -139,6 +149,7 @@ export default async function handler(request, response) {
           <p><strong>Email:</strong> <a href="mailto:${escapeHtml(email)}">${escapeHtml(email)}</a></p>
           <p><strong>Τηλέφωνο:</strong> ${escapeHtml(phone)}</p>
           <p><strong>Επάγγελμα:</strong> ${escapeHtml(profession)}</p>
+          <p><strong>Σχέση με Σύλλογο:</strong> ${escapeHtml(membershipLabel(membershipStatus))}</p>
           <p><strong>Σχόλιο:</strong> ${comment ? escapeHtml(comment).replaceAll("\n", "<br>") : "—"}</p>
         </div>`;
 

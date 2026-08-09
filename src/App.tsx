@@ -14,6 +14,8 @@ import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "re
 import { db, ensureAnonymousUser } from "./firebase";
 
 type BookingStatus = "booked" | "completed";
+type ActivityCategory = "association" | "association_free" | "therapist_independent";
+type ApprovalStatus = "draft" | "pending" | "approved";
 
 type Booking = {
   id: string;
@@ -30,6 +32,12 @@ type Booking = {
   long_description: string | null;
   audience: string | null;
   program_details: string | null;
+  activity_category: ActivityCategory;
+  general_price: string | null;
+  offers_member_discount: boolean;
+  member_price: string | null;
+  requested_public: boolean;
+  approval_status: ApprovalStatus;
   owner_uid: string;
   status: BookingStatus;
   is_public: boolean;
@@ -45,6 +53,7 @@ type EventRegistration = {
   email: string;
   phone: string;
   profession: string;
+  membership_status: string;
   comment: string;
   created_at: string | null;
 };
@@ -75,6 +84,12 @@ const STATIC_BOOKINGS: Booking[] = [
     long_description: null,
     audience: null,
     program_details: null,
+    activity_category: "association",
+    general_price: null,
+    offers_member_discount: false,
+    member_price: null,
+    requested_public: true,
+    approval_status: "approved",
     owner_uid: "static-completed-event",
     status: "completed",
     is_public: true,
@@ -139,6 +154,44 @@ function getTodayKeyInGreece() {
   return year && month && day ? `${year}-${month}-${day}` : new Date().toISOString().slice(0, 10);
 }
 
+function getCurrentMinutesInGreece() {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/Athens",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date());
+
+  const hour = Number(parts.find((part) => part.type === "hour")?.value ?? "0");
+  const minute = Number(parts.find((part) => part.type === "minute")?.value ?? "0");
+  return hour * 60 + minute;
+}
+
+function getEventEndMinutes(actionTime: string | null) {
+  if (!actionTime) return null;
+
+  const matches = Array.from(actionTime.matchAll(/(?:^|\D)(\d{1,2})[:.](\d{2})(?=\D|$)/g));
+  if (matches.length < 2) return null;
+
+  const last = matches[matches.length - 1];
+  const hour = Number(last[1]);
+  const minute = Number(last[2]);
+
+  if (!Number.isFinite(hour) || !Number.isFinite(minute) || hour > 23 || minute > 59) return null;
+  return hour * 60 + minute;
+}
+
+function isBookingCompleted(booking: Booking) {
+  if (booking.status === "completed") return true;
+
+  const today = getTodayKeyInGreece();
+  if (booking.booking_date < today) return true;
+  if (booking.booking_date > today) return false;
+
+  const endMinutes = getEventEndMinutes(booking.action_time);
+  return endMinutes !== null ? getCurrentMinutesInGreece() >= endMinutes : false;
+}
+
 function getInitialMonthKey() {
   const currentKey = getCurrentMonthKeyInGreece();
   const firstKey = MONTHS[0].key;
@@ -176,6 +229,18 @@ function bookingFromSnapshot(snapshot: QueryDocumentSnapshot<DocumentData>): Boo
     long_description: typeof data.long_description === "string" ? data.long_description : null,
     audience: typeof data.audience === "string" ? data.audience : null,
     program_details: typeof data.program_details === "string" ? data.program_details : null,
+    activity_category:
+      data.activity_category === "association_free" || data.activity_category === "therapist_independent"
+        ? data.activity_category
+        : "association",
+    general_price: typeof data.general_price === "string" ? data.general_price : null,
+    offers_member_discount: data.offers_member_discount === true,
+    member_price: typeof data.member_price === "string" ? data.member_price : null,
+    requested_public: data.requested_public === true || data.is_public === true,
+    approval_status:
+      data.approval_status === "pending" || data.approval_status === "draft"
+        ? data.approval_status
+        : data.is_public === true ? "approved" : "draft",
     owner_uid: String(data.owner_uid ?? ""),
     status: data.status === "completed" ? "completed" : "booked",
     is_public: data.is_public === true,
@@ -265,6 +330,29 @@ function coordinatorsLabel(booking: Booking) {
     .join(" & ");
 }
 
+function activityCategoryLabel(booking: Booking) {
+  if (booking.activity_category === "association_free") return "Δωρεάν Δράση Συλλόγου";
+  if (booking.activity_category === "therapist_independent") return "Ανεξάρτητη Δράση Θεραπευτή Συλλόγου";
+  return "Δράση Συλλόγου";
+}
+
+function activityCategoryClass(booking: Booking) {
+  if (booking.activity_category === "association_free") return "category-free";
+  if (booking.activity_category === "therapist_independent") return "category-independent";
+  return "category-association";
+}
+
+function activityCategoryUnderline(booking: Booking) {
+  if (booking.activity_category === "association_free") return "inset 0 -5px 0 #63A97E";
+  if (booking.activity_category === "therapist_independent") return "inset 0 -5px 0 #79B9D3";
+  return "inset 0 -5px 0 #E39A55";
+}
+
+function activityPriceLabel(booking: Booking) {
+  if (booking.activity_category === "association_free") return "Δωρεάν";
+  return booking.general_price ? `${booking.general_price} €` : "Δεν έχει οριστεί";
+}
+
 
 type NotificationAction = "create" | "update" | "delete";
 
@@ -281,6 +369,12 @@ async function notifyAdmin(action: NotificationAction, booking: Booking) {
         action_time: booking.action_time,
         topic: booking.topic,
         description: booking.description,
+        activity_category: booking.activity_category,
+        general_price: booking.general_price,
+        offers_member_discount: booking.offers_member_discount,
+        member_price: booking.member_price,
+        requested_public: booking.requested_public,
+        approval_status: booking.approval_status,
         is_public: booking.is_public,
       }),
     });
@@ -641,7 +735,7 @@ function ManageApp({ role }: { role: ManageRole }) {
 
                   const date = toDateString(month.year, month.month, day);
                   const booking = bookingsByDate.get(date);
-                  const status = booking?.status ?? null;
+                  const status = booking ? (isBookingCompleted(booking) ? "completed" : "booked") : null;
 
                   const buttonClass =
                     status === "completed"
@@ -656,6 +750,7 @@ function ManageApp({ role }: { role: ManageRole }) {
                       type="button"
                       onClick={() => booking ? setViewBooking(booking) : setSelectedDate(date)}
                       className={`flex h-14 min-w-0 flex-col items-center justify-start rounded-md border p-1.5 text-center transition sm:h-28 sm:items-start sm:rounded-lg sm:p-2.5 sm:text-left ${buttonClass}`}
+                      style={booking ? { boxShadow: activityCategoryUnderline(booking) } : undefined}
                     >
                       <span className={`text-xs font-bold sm:text-sm ${status === "completed" ? "text-violet-950" : status === "booked" ? "text-emerald-950" : "text-slate-700"}`}>
                         {day}
@@ -673,6 +768,11 @@ function ManageApp({ role }: { role: ManageRole }) {
                           {booking.topic && (
                             <span className={`mt-1 hidden line-clamp-2 text-[11px] leading-4 sm:block ${status === "completed" ? "text-violet-800" : "text-slate-700"}`}>
                               {booking.topic}
+                            </span>
+                          )}
+                          {booking.approval_status === "pending" && (
+                            <span className="mt-1 rounded-full bg-amber-500 px-1.5 py-0.5 text-[9px] font-bold text-white sm:text-[10px]">
+                              Αναμονή έγκρισης
                             </span>
                           )}
                           {booking.is_public && (registrationCounts[date] || 0) > 0 && (
@@ -711,6 +811,7 @@ function ManageApp({ role }: { role: ManageRole }) {
       {selectedDate && (
         <BookingForm
           date={selectedDate}
+          manageRole={role}
           connectionError={connectionError}
           onEmailStatus={reportEmailStatus}
           onClose={() => setSelectedDate(null)}
@@ -733,6 +834,14 @@ function ManageApp({ role }: { role: ManageRole }) {
             setRegistrationsBooking(booking);
           }}
           onClose={() => setViewBooking(null)}
+          canApprove={role === "admin" && viewBooking.approval_status === "pending"}
+          onApproved={(approvedBooking) => {
+            setBookings((previous) => mergeBookings([
+              ...previous.filter((item) => item.id !== approvedBooking.id),
+              approvedBooking,
+            ]));
+            setViewBooking(approvedBooking);
+          }}
           onEdit={() => {
             if (viewBooking.status === "completed") return;
             const booking = viewBooking;
@@ -751,6 +860,7 @@ function ManageApp({ role }: { role: ManageRole }) {
         <BookingForm
           date={editBooking.booking_date}
           existing={editBooking}
+          manageRole={role}
           connectionError={connectionError}
           onEmailStatus={reportEmailStatus}
           onClose={() => setEditBooking(null)}
@@ -777,26 +887,33 @@ function ManageApp({ role }: { role: ManageRole }) {
 
 
 function ActivityCard({ booking, onOpen }: { booking: Booking; onOpen: () => void }) {
-  const completed = booking.status === "completed" || booking.booking_date < getTodayKeyInGreece();
+  const completed = isBookingCompleted(booking);
   const canRegister = !completed;
   return (
-    <article className="sepsyg-event-card">
+    <article className={`sepsyg-event-card ${activityCategoryClass(booking)}`}>
       <div className="sepsyg-event-image">
         {booking.image_url ? (
           <img src={booking.image_url} alt={booking.topic || "Δράση Συλλόγου"} loading="lazy" />
         ) : (
           <div className="sepsyg-event-placeholder"><img src="/logo.png" alt="" /></div>
         )}
-        <span className="sepsyg-event-type">{booking.event_type || "Δράση"}</span>
+        <span className={`sepsyg-event-type ${activityCategoryClass(booking)}`}>{activityCategoryLabel(booking)}</span>
       </div>
       <div className="sepsyg-event-body">
-        <span className="sepsyg-event-mode">{booking.mode || (completed ? "Ολοκληρωμένη δράση" : "Προσεχής δράση")}</span>
+        <div className="sepsyg-event-topline">
+          <span className={`sepsyg-auto-status ${completed ? "past" : "future"}`}>
+            {completed ? "Ολοκληρώθηκε" : "Προσεχώς"}
+          </span>
+          {booking.mode && <span className="sepsyg-event-mode">{booking.mode}</span>}
+        </div>
         <h3>{booking.topic || "Δράση Συλλόγου"}</h3>
         {booking.description && <p className="sepsyg-event-desc">{booking.description}</p>}
         <div className="sepsyg-event-meta">
           <span>📅 {formatDateGreek(booking.booking_date)}</span>
           <span>🕒 {booking.action_time || "Η ώρα θα ανακοινωθεί"}</span>
           {booking.therapist_name && <span>◦ {coordinatorsLabel(booking)}</span>}
+          <span>💶 {activityPriceLabel(booking)}</span>
+          {booking.offers_member_discount && booking.member_price && <span>★ Μέλη / Φίλοι: {booking.member_price} €</span>}
         </div>
         <button type="button" className="sepsyg-event-action" onClick={onOpen}>
           Δείτε περισσότερα
@@ -815,6 +932,10 @@ function PublicEventsApp() {
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [viewBooking, setViewBooking] = useState<Booking | null>(null);
   const [deepLinkHandled, setDeepLinkHandled] = useState(false);
+  const [accessOpen, setAccessOpen] = useState(false);
+  const [accessCode, setAccessCode] = useState("");
+  const [accessChecking, setAccessChecking] = useState(false);
+  const [accessError, setAccessError] = useState<string | null>(null);
 
   useEffect(() => {
     setActiveMonth(getInitialMonthKey());
@@ -876,7 +997,7 @@ function PublicEventsApp() {
       if (linkedBooking) {
         setViewBooking(linkedBooking);
         if (!requestedView) {
-          setActiveView(linkedBooking.booking_date < getTodayKeyInGreece() ? "all" : "upcoming");
+          setActiveView(isBookingCompleted(linkedBooking) ? "all" : "upcoming");
         }
       }
     }
@@ -896,13 +1017,13 @@ function PublicEventsApp() {
   }, [publicBookings]);
 
   const upcomingBookings = useMemo(
-    () => publicBookings.filter((booking) => booking.status !== "completed" && booking.booking_date >= today),
+    () => publicBookings.filter((booking) => !isBookingCompleted(booking)),
     [publicBookings, today],
   );
 
   const allCards = useMemo(() => {
-    const upcoming = publicBookings.filter((booking) => booking.status !== "completed" && booking.booking_date >= today);
-    const past = publicBookings.filter((booking) => booking.status === "completed" || booking.booking_date < today).reverse();
+    const upcoming = publicBookings.filter((booking) => !isBookingCompleted(booking));
+    const past = publicBookings.filter((booking) => isBookingCompleted(booking)).reverse();
     return [...upcoming, ...past];
   }, [publicBookings, today]);
 
@@ -921,8 +1042,50 @@ function PublicEventsApp() {
   const monthEvents = publicBookings.filter((booking) => booking.booking_date.startsWith(month.key));
   const visibleCards = activeView === "upcoming" ? upcomingBookings : allCards;
 
+  async function handlePublicAccess(event: FormEvent) {
+    event.preventDefault();
+    setAccessChecking(true);
+    setAccessError(null);
+
+    try {
+      const response = await fetch("/api/verify-manage-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: accessCode.trim() }),
+      });
+
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || (payload.role !== "member" && payload.role !== "admin")) {
+        throw new Error("INVALID_CODE");
+      }
+
+      window.sessionStorage.setItem(MANAGE_ACCESS_KEY, accessCode.trim());
+      window.sessionStorage.setItem(MANAGE_ROLE_KEY, payload.role);
+      window.location.href = "/manage";
+    } catch {
+      setAccessError("Ο κωδικός δεν είναι σωστός.");
+      setAccessCode("");
+    } finally {
+      setAccessChecking(false);
+    }
+  }
+
   return (
     <div className="sepsyg-public-page">
+      <button
+        type="button"
+        className="sepsyg-discreet-access"
+        onClick={() => {
+          setAccessError(null);
+          setAccessCode("");
+          setAccessOpen(true);
+        }}
+        aria-label="Είσοδος στη διαχείριση"
+        title="Είσοδος στη διαχείριση"
+      >
+        +
+      </button>
+
       <header className="sepsyg-public-hero">
         <div className="sepsyg-public-wrap sepsyg-hero-inner">
           <AssociationLogo size="sm" centered />
@@ -972,9 +1135,15 @@ function PublicEventsApp() {
                     if (day === null) return <div key={`empty-${index}`} className="sepsyg-day empty" />;
                     const date = toDateString(month.year, month.month, day);
                     const booking = publicBookingsByDate.get(date);
-                    const isCompleted = booking?.status === "completed";
+                    const isCompleted = booking ? isBookingCompleted(booking) : false;
                     return (
-                      <button key={date} type="button" disabled={!booking} onClick={() => booking && setViewBooking(booking)} className={`sepsyg-day ${booking ? (isCompleted ? "completed" : "upcoming") : ""}`}>
+                      <button
+                        key={date}
+                        type="button"
+                        disabled={!booking}
+                        onClick={() => booking && setViewBooking(booking)}
+                        className={`sepsyg-day ${booking ? (isCompleted ? "completed" : "upcoming") : ""} ${booking ? activityCategoryClass(booking) : ""}`}
+                      >
                         <span className="day-number">{day}</span>
                         {booking && (
                           <>
@@ -1016,9 +1185,54 @@ function PublicEventsApp() {
 
         <div className="sepsyg-public-links">
           <a href="https://eusyllogossepshyg.carrd.co/" target="_blank" rel="noreferrer">Ιστοσελίδα Συλλόγου</a>
-          <a href="/manage">Διαχείριση ημερολογίου</a>
         </div>
       </main>
+
+      {accessOpen && (
+        <div className="sepsyg-access-overlay" onMouseDown={(event) => {
+          if (event.target === event.currentTarget && !accessChecking) setAccessOpen(false);
+        }}>
+          <div className="sepsyg-access-card" role="dialog" aria-modal="true" aria-labelledby="sepsyg-access-title">
+            <button
+              type="button"
+              className="sepsyg-access-close"
+              onClick={() => !accessChecking && setAccessOpen(false)}
+              aria-label="Κλείσιμο"
+            >
+              ×
+            </button>
+
+            <p className="sepsyg-access-kicker">Περιοχή διαχείρισης</p>
+            <h2 id="sepsyg-access-title">Είσοδος</h2>
+            <p className="sepsyg-access-copy">
+              Η πρόσβαση θεραπευτή επιτρέπει διαχείριση δράσεων.
+              Η διοικητική πρόσβαση εμφανίζει επιπλέον τις λίστες και τα στοιχεία συμμετεχόντων.
+            </p>
+
+            <form onSubmit={handlePublicAccess}>
+              <label htmlFor="public-manage-code">Κωδικός πρόσβασης</label>
+              <input
+                id="public-manage-code"
+                type="password"
+                inputMode="numeric"
+                autoComplete="current-password"
+                value={accessCode}
+                onChange={(event) => setAccessCode(event.target.value)}
+                placeholder="••••"
+                autoFocus
+                required
+                disabled={accessChecking}
+              />
+
+              {accessError && <p className="sepsyg-access-error">{accessError}</p>}
+
+              <button type="submit" className="sepsyg-access-submit" disabled={accessChecking}>
+                {accessChecking ? "Έλεγχος…" : "Σύνδεση"}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
 
       {viewBooking && <PublicBookingDetails booking={viewBooking} onClose={() => setViewBooking(null)} />}
     </div>
@@ -1166,13 +1380,14 @@ type EventRegistrationFormValues = {
   email: string;
   phone: string;
   profession: string;
+  membershipStatus: string;
   comment: string;
 };
 
 function PublicBookingDetails({ booking, onClose }: { booking: Booking; onClose: () => void }) {
-  const isCompleted = booking.status === "completed" || booking.booking_date < getTodayKeyInGreece();
+  const isCompleted = isBookingCompleted(booking);
   const [showForm, setShowForm] = useState(false);
-  const [values, setValues] = useState<EventRegistrationFormValues>({ fullName: "", email: "", phone: "", profession: "", comment: "" });
+  const [values, setValues] = useState<EventRegistrationFormValues>({ fullName: "", email: "", phone: "", profession: "", membershipStatus: "", comment: "" });
   const [website, setWebsite] = useState("");
   const [consent, setConsent] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -1198,7 +1413,7 @@ function PublicBookingDetails({ booking, onClose }: { booking: Booking; onClose:
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw Object.assign(new Error(payload.code || "REQUEST_FAILED"), { code: payload.code || `HTTP_${response.status}` });
-      setValues({ fullName: "", email: "", phone: "", profession: "", comment: "" });
+      setValues({ fullName: "", email: "", phone: "", profession: "", membershipStatus: "", comment: "" });
       setConsent(false);
       setWebsite("");
       setNotice({ ok: true, text: payload.emailWarning ? "Η συμμετοχή σου καταχωρίστηκε. Δεν στάλθηκε μόνο το email επιβεβαίωσης." : "Η συμμετοχή σου καταχωρίστηκε και στάλθηκε επιβεβαίωση στο email σου." });
@@ -1227,9 +1442,14 @@ function PublicBookingDetails({ booking, onClose }: { booking: Booking; onClose:
 
         <div className="px-5 py-6 sm:px-8 sm:py-8">
           <div className="flex flex-wrap gap-2">
-            <span className="rounded-full bg-[#174B49] px-3 py-1.5 text-xs font-bold text-white">
-              {isCompleted ? "Πραγματοποιημένη δράση" : booking.event_type || "Δράση"}
+            <span className={`rounded-full px-3 py-1.5 text-xs font-bold ${activityCategoryClass(booking)}`}>
+              {activityCategoryLabel(booking)}
             </span>
+            {booking.event_type && (
+              <span className="rounded-full bg-[#174B49] px-3 py-1.5 text-xs font-bold text-white">
+                {booking.event_type}
+              </span>
+            )}
             {booking.mode && (
               <span className="rounded-full bg-[#008D8B]/10 px-3 py-1.5 text-xs font-bold text-[#006B68]">
                 {booking.mode}
@@ -1261,6 +1481,16 @@ function PublicBookingDetails({ booking, onClose }: { booking: Booking; onClose:
               <p className="mt-1 text-sm font-semibold text-[#263B39]">{coordinatorsLabel(booking)}</p>
             </div>
           </div>
+
+          <section className={`mt-5 rounded-2xl border p-5 ${activityCategoryClass(booking)} price-panel`}>
+            <div className="text-[11px] font-extrabold uppercase tracking-[.13em]">Κόστος συμμετοχής</div>
+            <div className="mt-2 flex flex-wrap items-end gap-x-6 gap-y-2">
+              <p className="m-0 text-2xl font-bold">{activityPriceLabel(booking)}</p>
+              {booking.offers_member_discount && booking.member_price && (
+                <p className="m-0 text-sm font-bold">Μέλη &amp; Φίλοι: {booking.member_price} €</p>
+              )}
+            </div>
+          </section>
 
           {booking.long_description && (
             <section className="mt-8">
@@ -1328,6 +1558,25 @@ function PublicBookingDetails({ booking, onClose }: { booking: Booking; onClose:
               </div>
 
               <label className="sepsyg-full-field">
+                Σχέση με τον Σύλλογο
+                <select
+                  value={values.membershipStatus}
+                  onChange={(event) => updateValue("membershipStatus", event.target.value)}
+                  required
+                >
+                  <option value="" disabled>Επίλεξε</option>
+                  <option value="none">Δεν είμαι Μέλος ή Φίλος του Συλλόγου</option>
+                  <option value="friend">Είμαι Φίλος του Συλλόγου</option>
+                  <option value="member">Είμαι Μέλος του Συλλόγου</option>
+                  <option value="want_member">Θέλω να γίνω Μέλος του Συλλόγου</option>
+                </select>
+                <small className="sepsyg-discount-note">
+                  * Οι Φίλοι και τα Μέλη έχουν έκπτωση σε όλες τις δράσεις του Συλλόγου.
+                  Η έκπτωση διαμορφώνεται σε συνεννόηση με τον θεραπευτή που διοργανώνει το Σεμινάριο / Εργαστήριο.
+                </small>
+              </label>
+
+              <label className="sepsyg-full-field">
                 Σχόλιο <small>(προαιρετικό)</small>
                 <textarea rows={3} value={values.comment} onChange={(event) => updateValue("comment", event.target.value)} maxLength={1000} />
               </label>
@@ -1389,6 +1638,7 @@ function BookingForm({
   date,
   existing,
   connectionError,
+  manageRole,
   onEmailStatus,
   onClose,
   onSaved,
@@ -1396,6 +1646,7 @@ function BookingForm({
   date: string;
   existing?: Booking;
   connectionError?: string | null;
+  manageRole: ManageRole;
   onEmailStatus: (result: { ok: boolean; code: string }) => void;
   onClose: () => void;
   onSaved: (booking: Booking) => void;
@@ -1413,10 +1664,14 @@ function BookingForm({
   const [longDescription, setLongDescription] = useState(existing?.long_description ?? "");
   const [audience, setAudience] = useState(existing?.audience ?? "");
   const [programDetails, setProgramDetails] = useState(existing?.program_details ?? "");
+  const [activityCategory, setActivityCategory] = useState<ActivityCategory>(existing?.activity_category ?? "association");
+  const [generalPrice, setGeneralPrice] = useState(existing?.general_price ?? "");
+  const [offersMemberDiscount, setOffersMemberDiscount] = useState(existing?.offers_member_discount ?? false);
+  const [memberPrice, setMemberPrice] = useState(existing?.member_price ?? "");
   const [laterTime, setLaterTime] = useState(existing ? existing.action_time === null : false);
   const [laterTopic, setLaterTopic] = useState(existing ? existing.topic === null : false);
   const [laterDescription, setLaterDescription] = useState(existing ? existing.description === null : false);
-  const [isPublic, setIsPublic] = useState(existing?.is_public ?? false);
+  const [isPublic, setIsPublic] = useState(existing ? (existing.is_public || existing.requested_public) : false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -1430,6 +1685,16 @@ function BookingForm({
 
     if (isPublic && (laterTime || !time.trim() || laterTopic || !topic.trim())) {
       setError("Για να εμφανιστεί η δράση στο δημόσιο πρόγραμμα, συμπληρώστε τουλάχιστον την ώρα και το θέμα.");
+      return;
+    }
+
+    if (isPublic && activityCategory !== "association_free" && !generalPrice.trim()) {
+      setError("Για δημοσίευση πληρωμένης δράσης, συμπλήρωσε τη γενική τιμή.");
+      return;
+    }
+
+    if (isPublic && offersMemberDiscount && !memberPrice.trim()) {
+      setError("Συμπλήρωσε την ειδική τιμή για Μέλη και Φίλους του Συλλόγου.");
       return;
     }
 
@@ -1461,8 +1726,14 @@ function BookingForm({
         long_description: longDescription.trim() || null,
         audience: audience.trim() || null,
         program_details: programDetails.trim() || null,
+        activity_category: activityCategory,
+        general_price: activityCategory === "association_free" ? "0" : generalPrice.trim() || null,
+        offers_member_discount: activityCategory === "association_free" ? false : (isPublic && offersMemberDiscount),
+        member_price: activityCategory === "association_free" || !isPublic || !offersMemberDiscount ? null : memberPrice.trim() || null,
+        requested_public: isPublic,
+        approval_status: isPublic ? (manageRole === "admin" ? "approved" : "pending") : "draft",
         status: "booked" as BookingStatus,
-        is_public: isPublic,
+        is_public: isPublic && manageRole === "admin",
       };
 
       if (existing) {
@@ -1587,6 +1858,54 @@ function BookingForm({
           textarea
         />
 
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+          <label className="mb-1.5 block text-sm font-semibold text-slate-900" htmlFor="activity-category">
+            Κατηγορία δράσης
+          </label>
+          <select
+            id="activity-category"
+            value={activityCategory}
+            onChange={(event) => {
+              const next = event.target.value as ActivityCategory;
+              setActivityCategory(next);
+              if (next === "association_free") {
+                setGeneralPrice("");
+                setOffersMemberDiscount(false);
+                setMemberPrice("");
+              }
+            }}
+            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm focus:border-emerald-500 focus:outline-none"
+          >
+            <option value="association">Δράση Συλλόγου</option>
+            <option value="association_free">Δωρεάν Δράση Συλλόγου</option>
+            <option value="therapist_independent">Ανεξάρτητη Δράση Θεραπευτή Συλλόγου</option>
+          </select>
+
+          <div className="mt-3 flex flex-wrap gap-3 text-[11px] font-semibold text-slate-600">
+            <span className="border-b-4 border-[#63A97E] pb-1">Πράσινο · Δωρεάν</span>
+            <span className="border-b-4 border-[#E39A55] pb-1">Πορτοκαλί · Δράση Συλλόγου</span>
+            <span className="border-b-4 border-[#79B9D3] pb-1">Γαλάζιο · Ανεξάρτητη</span>
+          </div>
+        </div>
+
+        {activityCategory !== "association_free" && (
+          <div>
+            <label className="mb-1.5 block text-sm font-medium" htmlFor="general-price">
+              Γενική τιμή (€)
+            </label>
+            <input
+              id="general-price"
+              type="number"
+              min="0"
+              step="0.01"
+              value={generalPrice}
+              onChange={(event) => setGeneralPrice(event.target.value)}
+              placeholder="π.χ. 30"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:border-emerald-500 focus:outline-none"
+            />
+          </div>
+        )}
+
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <label className="mb-1.5 block text-sm font-medium" htmlFor="event-type">Τύπος δράσης</label>
@@ -1695,18 +2014,67 @@ function BookingForm({
           />
         </div>
 
-        <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-sky-200 bg-sky-50 px-3 py-3 text-sm leading-5 text-sky-950">
-          <input
-            type="checkbox"
-            checked={isPublic}
-            onChange={(event) => setIsPublic(event.target.checked)}
-            className="mt-0.5 h-4 w-4 accent-sky-600"
-          />
-          <span>
-            <strong className="block font-semibold">Να εμφανίζεται στο δημόσιο πρόγραμμα</strong>
-            <span className="mt-0.5 block text-xs text-sky-800">Η δράση θα εμφανίζεται στον σύνδεσμο /events. Για δημοσίευση χρειάζονται ώρα και θέμα.</span>
-          </span>
-        </label>
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50/45 p-4">
+          <label className="flex cursor-pointer items-start gap-3">
+            <input
+              type="checkbox"
+              checked={isPublic}
+              onChange={(event) => {
+                setIsPublic(event.target.checked);
+                if (!event.target.checked) {
+                  setOffersMemberDiscount(false);
+                  setMemberPrice("");
+                }
+              }}
+              className="mt-1 h-4 w-4 accent-emerald-600"
+            />
+            <span>
+              <strong className="block text-sm text-emerald-950">Εμφάνιση στο Ημερολόγιο του Συλλόγου</strong>
+              <span className="mt-1 block text-xs leading-5 text-slate-600">
+                {manageRole === "admin"
+                  ? "Ως διαχειριστής, η δράση δημοσιεύεται άμεσα."
+                  : "Το αίτημα θα σταλεί με email στο Διοικητικό για έγκριση. Η δράση θα εμφανιστεί δημόσια μόνο μετά την έγκριση."}
+              </span>
+            </span>
+          </label>
+
+          {isPublic && activityCategory !== "association_free" && (
+            <div className="mt-4 border-t border-emerald-200 pt-4">
+              <label className="flex cursor-pointer items-start gap-3">
+                <input
+                  type="checkbox"
+                  checked={offersMemberDiscount}
+                  onChange={(event) => {
+                    setOffersMemberDiscount(event.target.checked);
+                    if (!event.target.checked) setMemberPrice("");
+                  }}
+                  className="mt-1 h-4 w-4 accent-emerald-600"
+                />
+                <span className="text-sm font-semibold text-emerald-950">
+                  Διατίθεμαι να κάνω ειδική τιμή για Μέλη και Φίλους του Συλλόγου
+                </span>
+              </label>
+
+              {offersMemberDiscount && (
+                <div className="mt-3">
+                  <label className="mb-1.5 block text-sm font-medium" htmlFor="member-price">
+                    Ειδική τιμή Μελών / Φίλων (€)
+                  </label>
+                  <input
+                    id="member-price"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={memberPrice}
+                    onChange={(event) => setMemberPrice(event.target.value)}
+                    placeholder="π.χ. 20"
+                    className="w-full rounded-lg border border-emerald-200 bg-white px-3 py-2.5 text-sm focus:border-emerald-500 focus:outline-none"
+                  />
+                </div>
+              )}
+            </div>
+          )}
+        </div>
 
         {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
 
@@ -1803,6 +2171,8 @@ function BookingDetails({
   onViewRegistrations,
   onClose,
   onEdit,
+  canApprove,
+  onApproved,
   onEmailStatus,
   onDeleted,
 }: {
@@ -1813,11 +2183,49 @@ function BookingDetails({
   onViewRegistrations: () => void;
   onClose: () => void;
   onEdit: () => void;
+  canApprove: boolean;
+  onApproved: (booking: Booking) => void;
   onEmailStatus: (result: { ok: boolean; code: string }) => void;
   onDeleted: (id: string) => void;
 }) {
   const [deleting, setDeleting] = useState(false);
+  const [approving, setApproving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  async function handleApprove() {
+    setApproving(true);
+    setError(null);
+
+    try {
+      const response = await fetch("/api/approve-event", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code: getManageCode(),
+          eventId: booking.booking_date,
+        }),
+      });
+
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw Object.assign(new Error("APPROVAL_FAILED"), {
+          code: payload.code || `HTTP_${response.status}`,
+        });
+      }
+
+      onApproved({
+        ...booking,
+        requested_public: true,
+        approval_status: "approved",
+        is_public: true,
+      });
+    } catch (caughtError) {
+      const code = (caughtError as { code?: string } | null)?.code;
+      setError(`Δεν ήταν δυνατή η έγκριση${code ? ` (${code})` : ""}.`);
+    } finally {
+      setApproving(false);
+    }
+  }
 
   async function handleDelete() {
     if (!window.confirm("Θέλετε σίγουρα να ακυρώσετε αυτή τη δέσμευση;")) return;
@@ -1858,7 +2266,21 @@ function BookingDetails({
         <DetailRow label="Ώρα" value={booking.action_time} />
         <DetailRow label="Θέμα" value={booking.topic} />
         <DetailRow label="Περιγραφή" value={booking.description} />
-        {!isCompleted && <DetailRow label="Δημόσιο πρόγραμμα" value={booking.is_public ? "Εμφανίζεται δημόσια" : "Δεν εμφανίζεται δημόσια"} />}
+        <DetailRow label="Κατηγορία" value={activityCategoryLabel(booking)} />
+        <DetailRow label="Γενική τιμή" value={activityPriceLabel(booking)} />
+        {booking.offers_member_discount && (
+          <DetailRow label="Τιμή Μελών / Φίλων" value={booking.member_price ? `${booking.member_price} €` : null} />
+        )}
+        {!isCompleted && (
+          <DetailRow
+            label="Δημόσιο πρόγραμμα"
+            value={
+              booking.approval_status === "pending"
+                ? "Αναμονή έγκρισης"
+                : booking.is_public ? "Εμφανίζεται δημόσια" : "Δεν εμφανίζεται δημόσια"
+            }
+          />
+        )}
       </dl>
 
       {booking.is_public && canViewRegistrationDetails && (
@@ -1888,6 +2310,17 @@ function BookingDetails({
       {error && <p className="mt-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
 
       <div className="mt-6 flex flex-wrap justify-end gap-2">
+        {canApprove && !isCompleted && (
+          <button
+            type="button"
+            onClick={() => void handleApprove()}
+            disabled={approving || deleting}
+            className="rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
+          >
+            {approving ? "Έγκριση…" : "Έγκριση & δημοσίευση"}
+          </button>
+        )}
+
         {canManage && !isCompleted && (
           <>
             <button
@@ -1985,12 +2418,13 @@ function RegistrationsModal({
   function exportCsv() {
     const quote = (value: string) => `"${value.replaceAll('"', '""')}"`;
     const rows = [
-      ["Ονοματεπώνυμο", "Email", "Τηλέφωνο", "Επάγγελμα", "Σχόλιο", "Ημερομηνία υποβολής"],
+      ["Ονοματεπώνυμο", "Email", "Τηλέφωνο", "Επάγγελμα", "Σχέση με Σύλλογο", "Σχόλιο", "Ημερομηνία υποβολής"],
       ...registrations.map((item) => [
         item.full_name,
         item.email,
         item.phone,
         item.profession,
+        item.membership_status,
         item.comment,
         item.created_at ? new Date(item.created_at).toLocaleString("el-GR") : "",
       ]),
@@ -2038,6 +2472,7 @@ function RegistrationsModal({
                     <p><strong>Email:</strong> <a href={`mailto:${registration.email}`} className="break-all text-sky-700 underline">{registration.email}</a></p>
                     <p><strong>Τηλέφωνο:</strong> <a href={`tel:${registration.phone}`} className="text-sky-700 underline">{registration.phone}</a></p>
                     <p><strong>Επάγγελμα:</strong> {registration.profession}</p>
+                    <p><strong>Σχέση με Σύλλογο:</strong> {registration.membership_status || "—"}</p>
                     <p><strong>Υποβολή:</strong> {registration.created_at ? new Date(registration.created_at).toLocaleString("el-GR") : "—"}</p>
                   </div>
                   {registration.comment && <p className="mt-3 rounded-lg bg-white px-3 py-2 text-sm leading-6 text-slate-600"><strong>Σχόλιο:</strong> {registration.comment}</p>}
