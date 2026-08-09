@@ -22,6 +22,8 @@ type Booking = {
   booking_date: string;
   therapist_name: string;
   additional_coordinator_name: string | null;
+  coordinator_photo_url: string | null;
+  additional_coordinator_photo_url: string | null;
   action_time: string | null;
   topic: string | null;
   description: string | null;
@@ -41,6 +43,14 @@ type Booking = {
   owner_uid: string;
   status: BookingStatus;
   is_public: boolean;
+};
+
+type TherapistDirectoryItem = {
+  id: string;
+  name: string;
+  photo: string | null;
+  city: string | null;
+  profession: string | null;
 };
 
 type EventRegistration = {
@@ -74,6 +84,8 @@ const STATIC_BOOKINGS: Booking[] = [
     booking_date: "2026-07-05",
     therapist_name: "Ευαγγελία Ξανθοπούλου",
     additional_coordinator_name: "Μαρία Ζάχου",
+    coordinator_photo_url: null,
+    additional_coordinator_photo_url: null,
     action_time: "19:30 – 21:30",
     topic: "Από την εσωτερική ησυχία στην αυθεντική συνάντηση",
     description: "Πραγματοποιημένη δράση συλλόγου. Η ημερομηνία παραμένει ως ιστορική αναφορά.",
@@ -219,6 +231,14 @@ function bookingFromSnapshot(snapshot: QueryDocumentSnapshot<DocumentData>): Boo
       typeof data.additional_coordinator_name === "string" && data.additional_coordinator_name.trim()
         ? data.additional_coordinator_name.trim()
         : null,
+    coordinator_photo_url:
+      typeof data.coordinator_photo_url === "string" && data.coordinator_photo_url.trim()
+        ? data.coordinator_photo_url
+        : null,
+    additional_coordinator_photo_url:
+      typeof data.additional_coordinator_photo_url === "string" && data.additional_coordinator_photo_url.trim()
+        ? data.additional_coordinator_photo_url
+        : null,
     action_time: typeof data.action_time === "string" ? data.action_time : null,
     topic: typeof data.topic === "string" ? data.topic : null,
     description: typeof data.description === "string" ? data.description : null,
@@ -324,6 +344,73 @@ function mergeBookings(liveBookings: Booking[]) {
   for (const item of STATIC_BOOKINGS) map.set(item.booking_date, item);
   for (const item of liveBookings) map.set(item.booking_date, item);
   return Array.from(map.values()).sort((a, b) => a.booking_date.localeCompare(b.booking_date));
+}
+
+function normalizeTherapistName(value: string | null | undefined) {
+  return String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[.,;:()"'’`´\-_/\\]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function findTherapistByName(
+  name: string | null | undefined,
+  therapists: TherapistDirectoryItem[],
+) {
+  const target = normalizeTherapistName(name);
+  if (!target) return null;
+
+  return therapists.find(
+    (therapist) => normalizeTherapistName(therapist.name) === target,
+  ) ?? null;
+}
+
+function coordinatorPhotoFor(
+  name: string | null | undefined,
+  therapists: TherapistDirectoryItem[],
+  fallback?: string | null,
+) {
+  return findTherapistByName(name, therapists)?.photo || fallback || null;
+}
+
+async function loadTherapistDirectory(): Promise<TherapistDirectoryItem[]> {
+  const url =
+    "https://firestore.googleapis.com/v1/projects/syllogos-map/databases/(default)/documents/therapists?pageSize=500";
+
+  try {
+    const response = await fetch(url);
+    if (!response.ok) return [];
+
+    const payload = await response.json();
+    const documents = Array.isArray(payload.documents) ? payload.documents : [];
+
+    return documents
+      .map((document: any) => {
+        const fields = document.fields ?? {};
+
+        function stringField(name: string) {
+          const field = fields[name];
+          return field && typeof field.stringValue === "string"
+            ? field.stringValue
+            : null;
+        }
+
+        return {
+          id: String(document.name ?? "").split("/").pop() ?? "",
+          name: stringField("name") ?? "",
+          photo: stringField("photo"),
+          city: stringField("city"),
+          profession: stringField("profession"),
+        };
+      })
+      .filter((item: TherapistDirectoryItem) => Boolean(item.name));
+  } catch {
+    return [];
+  }
 }
 
 function coordinatorsLabel(booking: Booking) {
@@ -537,6 +624,10 @@ function ManageApp({ role }: { role: ManageRole }) {
 
   useEffect(() => {
     setActiveMonth(getInitialMonthKey());
+  }, []);
+
+  useEffect(() => {
+    void loadTherapistDirectory().then(setTherapistDirectory);
   }, []);
 
   async function loadRegistrationCounts() {
@@ -888,9 +979,21 @@ function ManageApp({ role }: { role: ManageRole }) {
 }
 
 
-function ActivityCard({ booking, onOpen }: { booking: Booking; onOpen: () => void }) {
+function ActivityCard({
+  booking,
+  therapistDirectory,
+  onOpen,
+}: {
+  booking: Booking;
+  therapistDirectory: TherapistDirectoryItem[];
+  onOpen: () => void;
+}) {
   const completed = isBookingCompleted(booking);
-  const canRegister = !completed;
+  const mainCoordinatorPhoto = coordinatorPhotoFor(
+    booking.therapist_name,
+    therapistDirectory,
+    booking.coordinator_photo_url,
+  );
   return (
     <article className={`sepsyg-event-card ${activityCategoryClass(booking)}`}>
       <div className="sepsyg-event-image">
@@ -913,7 +1016,18 @@ function ActivityCard({ booking, onOpen }: { booking: Booking; onOpen: () => voi
         <div className="sepsyg-event-meta">
           <span>📅 {formatDateGreek(booking.booking_date)}</span>
           <span>🕒 {booking.action_time || "Η ώρα θα ανακοινωθεί"}</span>
-          {booking.therapist_name && <span>◦ {coordinatorsLabel(booking)}</span>}
+          {booking.therapist_name && (
+            <span className="sepsyg-card-coordinator">
+              <span className="sepsyg-card-coordinator-photo">
+                {mainCoordinatorPhoto ? (
+                  <img src={mainCoordinatorPhoto} alt="" loading="lazy" />
+                ) : (
+                  booking.therapist_name.charAt(0)
+                )}
+              </span>
+              <span>{coordinatorsLabel(booking)}</span>
+            </span>
+          )}
           <span>💶 {activityPriceLabel(booking)}</span>
           {booking.offers_member_discount && booking.member_price && <span>★ Μέλη / Φίλοι: {booking.member_price} €</span>}
         </div>
@@ -938,6 +1052,7 @@ function PublicEventsApp() {
   const [accessCode, setAccessCode] = useState("");
   const [accessChecking, setAccessChecking] = useState(false);
   const [accessError, setAccessError] = useState<string | null>(null);
+  const [therapistDirectory, setTherapistDirectory] = useState<TherapistDirectoryItem[]>([]);
 
   useEffect(() => {
     setActiveMonth(getInitialMonthKey());
@@ -1150,6 +1265,17 @@ function PublicEventsApp() {
                         {booking && (
                           <>
                             <span className="day-status">{isCompleted ? "Πραγματοποιήθηκε" : "Προσεχώς"}</span>
+                            <span className="sepsyg-day-coordinator-photo">
+                              {coordinatorPhotoFor(booking.therapist_name, therapistDirectory, booking.coordinator_photo_url) ? (
+                                <img
+                                  src={coordinatorPhotoFor(booking.therapist_name, therapistDirectory, booking.coordinator_photo_url) || ""}
+                                  alt=""
+                                  loading="lazy"
+                                />
+                              ) : (
+                                booking.therapist_name.charAt(0)
+                              )}
+                            </span>
                             <strong>{booking.topic || "Δράση Συλλόγου"}</strong>
                             {booking.action_time && <small>{booking.action_time}</small>}
                           </>
@@ -1165,7 +1291,12 @@ function PublicEventsApp() {
               <div className="sepsyg-section-heading"><span>Αναλυτικά</span><h2>Δράσεις του μήνα</h2></div>
               {monthEvents.length ? (
                 <div className="sepsyg-events-grid">
-                  {monthEvents.map((booking) => <ActivityCard key={booking.id} booking={booking} onOpen={() => setViewBooking(booking)} />)}
+                  {monthEvents.map((booking) => <ActivityCard
+                    key={booking.id}
+                    booking={booking}
+                    therapistDirectory={therapistDirectory}
+                    onOpen={() => setViewBooking(booking)}
+                  />)}
                 </div>
               ) : <div className="sepsyg-empty-state">Δεν υπάρχουν δημοσιευμένες δράσεις για αυτόν τον μήνα.</div>}
             </section>
@@ -1179,7 +1310,12 @@ function PublicEventsApp() {
             </div>
             {visibleCards.length ? (
               <div className="sepsyg-events-grid">
-                {visibleCards.map((booking) => <ActivityCard key={booking.id} booking={booking} onOpen={() => setViewBooking(booking)} />)}
+                {visibleCards.map((booking) => <ActivityCard
+                    key={booking.id}
+                    booking={booking}
+                    therapistDirectory={therapistDirectory}
+                    onOpen={() => setViewBooking(booking)}
+                  />)}
               </div>
             ) : <div className="sepsyg-empty-state">Δεν υπάρχουν διαθέσιμες δράσεις αυτή τη στιγμή.</div>}
           </section>
@@ -1236,7 +1372,13 @@ function PublicEventsApp() {
         </div>
       )}
 
-      {viewBooking && <PublicBookingDetails booking={viewBooking} onClose={() => setViewBooking(null)} />}
+      {viewBooking && (
+        <PublicBookingDetails
+          booking={viewBooking}
+          therapistDirectory={therapistDirectory}
+          onClose={() => setViewBooking(null)}
+        />
+      )}
     </div>
   );
 }
@@ -1386,8 +1528,21 @@ type EventRegistrationFormValues = {
   comment: string;
 };
 
-function PublicBookingDetails({ booking, onClose }: { booking: Booking; onClose: () => void }) {
+function PublicBookingDetails({
+  booking,
+  therapistDirectory,
+  onClose,
+}: {
+  booking: Booking;
+  therapistDirectory: TherapistDirectoryItem[];
+  onClose: () => void;
+}) {
   const isCompleted = isBookingCompleted(booking);
+  const mainTherapist = findTherapistByName(booking.therapist_name, therapistDirectory);
+  const additionalTherapist = findTherapistByName(booking.additional_coordinator_name, therapistDirectory);
+  const mainCoordinatorPhoto = mainTherapist?.photo || booking.coordinator_photo_url;
+  const additionalCoordinatorPhoto =
+    additionalTherapist?.photo || booking.additional_coordinator_photo_url;
   const [showForm, setShowForm] = useState(false);
   const [values, setValues] = useState<EventRegistrationFormValues>({ fullName: "", email: "", phone: "", profession: "", membershipStatus: "", comment: "" });
   const [website, setWebsite] = useState("");
@@ -1532,6 +1687,54 @@ function PublicBookingDetails({ booking, onClose }: { booking: Booking; onClose:
             </section>
           )}
 
+          {(booking.therapist_name || booking.additional_coordinator_name) && (
+            <section className="sepsyg-coordinator-section">
+              <h4>Συντονίζει:</h4>
+
+              <div className="sepsyg-coordinator-grid">
+                {booking.therapist_name && (
+                  <div className="sepsyg-coordinator-card">
+                    <div className="sepsyg-coordinator-avatar">
+                      {mainCoordinatorPhoto ? (
+                        <img src={mainCoordinatorPhoto} alt={booking.therapist_name} />
+                      ) : (
+                        <span>{booking.therapist_name.charAt(0)}</span>
+                      )}
+                    </div>
+                    <div className="sepsyg-coordinator-copy">
+                      <strong>{booking.therapist_name}</strong>
+                      {mainTherapist && (
+                        <small>
+                          {[mainTherapist.profession, mainTherapist.city].filter(Boolean).join(" · ")}
+                        </small>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {booking.additional_coordinator_name && (
+                  <div className="sepsyg-coordinator-card">
+                    <div className="sepsyg-coordinator-avatar">
+                      {additionalCoordinatorPhoto ? (
+                        <img src={additionalCoordinatorPhoto} alt={booking.additional_coordinator_name} />
+                      ) : (
+                        <span>{booking.additional_coordinator_name.charAt(0)}</span>
+                      )}
+                    </div>
+                    <div className="sepsyg-coordinator-copy">
+                      <strong>{booking.additional_coordinator_name}</strong>
+                      {additionalTherapist && (
+                        <small>
+                          {[additionalTherapist.profession, additionalTherapist.city].filter(Boolean).join(" · ")}
+                        </small>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </section>
+          )}
+
           {!isCompleted && !showForm && (
             <div className="mt-8 flex flex-col gap-3 border-t border-[#174B49]/10 pt-6 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-sm leading-6 text-[#627472]">Θέλεις να κρατήσεις θέση στη συγκεκριμένη δράση;</p>
@@ -1670,6 +1873,8 @@ function BookingForm({
   const [generalPrice, setGeneralPrice] = useState(existing?.general_price ?? "");
   const [offersMemberDiscount, setOffersMemberDiscount] = useState(existing?.offers_member_discount ?? false);
   const [memberPrice, setMemberPrice] = useState(existing?.member_price ?? "");
+  const [coordinatorPhotoFile, setCoordinatorPhotoFile] = useState<File | null>(null);
+  const [additionalCoordinatorPhotoFile, setAdditionalCoordinatorPhotoFile] = useState<File | null>(null);
   const [laterTime, setLaterTime] = useState(existing ? existing.action_time === null : false);
   const [laterTopic, setLaterTopic] = useState(existing ? existing.topic === null : false);
   const [laterDescription, setLaterDescription] = useState(existing ? existing.description === null : false);
@@ -1714,10 +1919,22 @@ function BookingForm({
         ? await compressImageFile(detailImageFile)
         : "";
 
+      const uploadedCoordinatorPhoto = coordinatorPhotoFile
+        ? await compressImageFile(coordinatorPhotoFile)
+        : "";
+
+      const uploadedAdditionalCoordinatorPhoto = additionalCoordinatorPhotoFile
+        ? await compressImageFile(additionalCoordinatorPhotoFile)
+        : "";
+
       const values = {
         booking_date: date,
         therapist_name: name.trim(),
         additional_coordinator_name: additionalCoordinator.trim() || null,
+        coordinator_photo_url:
+          uploadedCoordinatorPhoto || existing?.coordinator_photo_url || null,
+        additional_coordinator_photo_url:
+          uploadedAdditionalCoordinatorPhoto || existing?.additional_coordinator_photo_url || null,
         action_time: laterTime ? null : time.trim() || null,
         topic: laterTopic ? null : topic.trim() || null,
         description: laterDescription ? null : description.trim() || null,
@@ -1828,6 +2045,42 @@ function BookingForm({
             Αν το ίδιο ονοματεπώνυμο υπάρχει στον χάρτη θεραπευτών, η δημόσια δράση θα μπορεί να εμφανίζεται αυτόματα και στο προφίλ του δεύτερου συντονιστή.
           </p>
         </div>
+        <div className="rounded-xl border border-emerald-100 bg-emerald-50/35 p-4">
+          <label className="mb-1.5 block text-sm font-semibold text-emerald-950" htmlFor="coordinator-photo">
+            Φωτογραφία βασικού συντονιστή <span className="font-normal text-slate-400">(προαιρετικό)</span>
+          </label>
+          <input
+            id="coordinator-photo"
+            type="file"
+            accept="image/*"
+            onChange={(event) => setCoordinatorPhotoFile(event.target.files?.[0] ?? null)}
+            className="w-full rounded-lg border border-emerald-200 bg-white px-3 py-2.5 text-sm"
+          />
+          <p className="mt-2 text-xs leading-5 text-slate-500">
+            * Αν είσαι στον Χάρτη Θεραπευτών Σ.Ε.ΨΥ.G., η φωτογραφία σου θα μπει αυτόματα.
+            Αν δεν είσαι καταχωρισμένος στον Χάρτη, μπορείς να ανεβάσεις εδώ τη φωτογραφία σου.
+          </p>
+        </div>
+
+        {additionalCoordinator.trim() && (
+          <div className="rounded-xl border border-slate-200 bg-white p-4">
+            <label className="mb-1.5 block text-sm font-semibold text-slate-900" htmlFor="additional-coordinator-photo">
+              Φωτογραφία επιπλέον συντονιστή <span className="font-normal text-slate-400">(προαιρετικό)</span>
+            </label>
+            <input
+              id="additional-coordinator-photo"
+              type="file"
+              accept="image/*"
+              onChange={(event) => setAdditionalCoordinatorPhotoFile(event.target.files?.[0] ?? null)}
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm"
+            />
+            <p className="mt-2 text-xs leading-5 text-slate-500">
+              * Αν ο επιπλέον συντονιστής βρίσκεται στον Χάρτη Θεραπευτών Σ.Ε.ΨΥ.G.,
+              η φωτογραφία του θα μπει αυτόματα.
+            </p>
+          </div>
+        )}
+
 
         <OptionalField
           id="time"

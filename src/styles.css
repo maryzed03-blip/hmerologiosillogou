@@ -612,3 +612,125 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
     font-size: 21px;
   }
 }
+
+
+/* ==========================================================
+   SEPSYG v1.7 — ΦΩΤΟΓΡΑΦΙΕΣ ΣΥΝΤΟΝΙΣΤΩΝ
+   ========================================================== */
+
+.sepsyg-card-coordinator {
+  display: flex !important;
+  align-items: center;
+  gap: 8px;
+}
+.sepsyg-card-coordinator-photo {
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: linear-gradient(145deg,#9EB2A6,#DBC1AB);
+  color: #fff;
+  font-family: Georgia,"Times New Roman",serif;
+  font-size: .78rem;
+  font-weight: 700;
+}
+.sepsyg-card-coordinator-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.sepsyg-day-coordinator-photo {
+  width: 28px;
+  height: 28px;
+  margin-top: 4px;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: linear-gradient(145deg,#9EB2A6,#DBC1AB);
+  color: #fff;
+  font-family: Georgia,"Times New Roman",serif;
+  font-size: .72rem;
+  font-weight: 700;
+}
+.sepsyg-day-coordinator-photo img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+.sepsyg-coordinator-section {
+  margin-top: 32px;
+  padding-top: 25px;
+  border-top: 1px solid rgba(23,75,73,.11);
+}
+.sepsyg-coordinator-section h4 {
+  margin: 0 0 14px;
+  color: #174B49;
+  font-family: Georgia,"Times New Roman",serif;
+  font-size: 1.45rem;
+  font-weight: 500;
+}
+.sepsyg-coordinator-grid {
+  display: grid;
+  grid-template-columns: repeat(2,minmax(0,1fr));
+  gap: 12px;
+}
+.sepsyg-coordinator-card {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  min-width: 0;
+  padding: 13px;
+  border: 1px solid rgba(23,75,73,.10);
+  border-radius: 17px;
+  background: #fff;
+}
+.sepsyg-coordinator-avatar {
+  width: 72px;
+  height: 72px;
+  flex: 0 0 72px;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  border-radius: 15px;
+  background: linear-gradient(145deg,#9EB2A6,#DBC1AB);
+  color: #fff;
+  font-family: Georgia,"Times New Roman",serif;
+  font-size: 1.6rem;
+  font-weight: 700;
+}
+.sepsyg-coordinator-avatar img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+.sepsyg-coordinator-copy {
+  min-width: 0;
+}
+.sepsyg-coordinator-copy strong {
+  display: block;
+  color: #174B49;
+  font-size: .95rem;
+  line-height: 1.35;
+}
+.sepsyg-coordinator-copy small {
+  display: block;
+  margin-top: 5px;
+  color: #72817E;
+  font-size: .7rem;
+  line-height: 1.45;
+}
+
+@media(max-width:680px) {
+  .sepsyg-coordinator-grid {
+    grid-template-columns: 1fr;
+  }
+}
