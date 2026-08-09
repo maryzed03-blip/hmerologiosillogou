@@ -1418,3 +1418,101 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
   }
   .sepsyg-popup-bottom-register button{width:100%;}
 }
+
+
+/* ==========================================================
+   SEPSYG v3 — μικρή δεύτερη εικόνα + CTA δίπλα
+   ========================================================== */
+.sepsyg-popup-secondary-visual{
+  display:grid;
+  grid-template-columns:150px minmax(0,1fr);
+  gap:18px;
+  align-items:stretch;
+  margin-top:16px;
+  padding:16px;
+  border:1px solid rgba(23,75,73,.10);
+  border-radius:20px;
+  background:#fff;
+}
+.sepsyg-popup-secondary-image{
+  width:150px;
+  height:150px;
+  overflow:hidden;
+  border-radius:15px;
+  background:linear-gradient(145deg,#9EB2A6,#DBC1AB);
+}
+.sepsyg-popup-secondary-image img{
+  width:100%;
+  height:100%;
+  display:block;
+  object-fit:cover;
+}
+.sepsyg-popup-secondary-cta,
+.sepsyg-popup-secondary-completed{
+  min-width:0;
+  min-height:150px;
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  justify-content:center;
+  padding:22px 26px;
+  border-radius:16px;
+}
+.sepsyg-popup-secondary-cta{
+  border:1px solid rgba(0,141,139,.20);
+  background:linear-gradient(135deg,rgba(0,141,139,.08),rgba(225,175,133,.12));
+  color:#174B49;
+  text-align:left;
+  cursor:pointer;
+  transition:.18s ease;
+}
+.sepsyg-popup-secondary-cta:hover{
+  border-color:rgba(0,141,139,.38);
+  transform:translateY(-1px);
+}
+.sepsyg-popup-secondary-cta span{
+  font-family:Georgia,"Times New Roman",serif;
+  font-size:clamp(1.45rem,3vw,2rem);
+  font-weight:500;
+  line-height:1.08;
+}
+.sepsyg-popup-secondary-cta strong{
+  display:block;
+  margin-top:7px;
+  color:#008D8B;
+  font-size:.9rem;
+  letter-spacing:.04em;
+}
+.sepsyg-popup-secondary-completed{
+  border:1px solid rgba(23,75,73,.10);
+  background:#F7F2EC;
+  color:#71807D;
+  font-family:Georgia,"Times New Roman",serif;
+  font-size:1.25rem;
+}
+
+/* Το URL παραμένει λειτουργικό στο address bar, αλλά δεν προβάλλεται στο event. */
+.sepsyg-popup-copy-link,
+.sepsyg-popup-share-url{
+  display:none !important;
+}
+
+@media(max-width:620px){
+  .sepsyg-popup-secondary-visual{
+    grid-template-columns:105px minmax(0,1fr);
+    gap:12px;
+    padding:12px;
+  }
+  .sepsyg-popup-secondary-image{
+    width:105px;
+    height:118px;
+  }
+  .sepsyg-popup-secondary-cta,
+  .sepsyg-popup-secondary-completed{
+    min-height:118px;
+    padding:14px 16px;
+  }
+  .sepsyg-popup-secondary-cta span{
+    font-size:1.25rem;
+  }
+}

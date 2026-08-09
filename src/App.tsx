@@ -21,7 +21,9 @@ type Booking = {
   id: string;
   booking_date: string;
   therapist_name: string;
+  therapist_role: string | null;
   additional_coordinator_name: string | null;
+  additional_coordinator_role: string | null;
   coordinator_photo_url: string | null;
   additional_coordinator_photo_url: string | null;
   action_time: string | null;
@@ -83,7 +85,9 @@ const STATIC_BOOKINGS: Booking[] = [
     id: "2026-07-05",
     booking_date: "2026-07-05",
     therapist_name: "Ευαγγελία Ξανθοπούλου",
+    therapist_role: "Κλινική Κοινωνική Λειτουργός · Συστημική Θεραπεία · Σ.Ε.ΨΥ.G.",
     additional_coordinator_name: "Μαρία Ζάχου",
+    additional_coordinator_role: "Τελειόφοιτη Σύμβουλος Ψυχικής Υγείας Σ.Ε.ΨΥ.G.",
     coordinator_photo_url: null,
     additional_coordinator_photo_url: null,
     action_time: "19:30 – 21:30",
@@ -92,6 +96,64 @@ const STATIC_BOOKINGS: Booking[] = [
     event_type: "Εργαστήριο",
     mode: "Διαδικτυακά",
     image_url: "https://demo.unityenergetics.org/wp-content/uploads/2026/08/Στιγμιότυπο-οθόνης-2026-08-06-194130.png",
+    detail_image_url: null,
+    long_description: null,
+    audience: null,
+    program_details: null,
+    activity_category: "association_free",
+    general_price: "0",
+    offers_member_discount: false,
+    member_price: null,
+    requested_public: true,
+    approval_status: "approved",
+    owner_uid: "static-completed-event",
+    status: "completed",
+    is_public: true,
+  },
+  {
+    id: "2026-07-19",
+    booking_date: "2026-07-19",
+    therapist_name: "",
+    therapist_role: null,
+    additional_coordinator_name: null,
+    additional_coordinator_role: null,
+    coordinator_photo_url: null,
+    additional_coordinator_photo_url: null,
+    action_time: "11:00 – 20:00",
+    topic: "Καλοκαιρινή Διατροφή και Εικόνα Σώματος",
+    description: "Εξειδικευμένη Ημερίδα Διατροφικών Διαταραχών και Σ.Ε.ΨΥ.G. για τη σχέση με το φαγητό, το σώμα, την εικόνα σώματος και τη σωματικά επικεντρωμένη θεραπευτική προσέγγιση.",
+    event_type: "Ημερίδα",
+    mode: "Διαδικτυακά μέσω Zoom",
+    image_url: "https://demo.unityenergetics.org/wp-content/uploads/2026/08/Στιγμιότυπο-οθόνης-2026-08-06-194156.png",
+    detail_image_url: null,
+    long_description: "Μια ημερίδα αφιερωμένη στη σχέση με το φαγητό και το σώμα, στην πίεση του “summer body”, στις διατροφικές διαταραχές, στην εικόνα σώματος και στη θεραπευτική κατανόηση μέσα από τη Σωματικά Επικεντρωμένη Ψυχοθεραπεία Gestalt και άλλες συμπληρωματικές οπτικές.",
+    audience: "Επαγγελματίες και εκπαιδευόμενοι ψυχικής υγείας, ψυχοθεραπείας, ψυχολογίας, διατροφής και διατροφικών διαταραχών, καθώς και άνθρωποι που θέλουν να κατανοήσουν βαθύτερα τη σχέση σώματος, φαγητού και ψυχικής υγείας.",
+    program_details: "Ομιλίες, σεμινάρια και βιωματικό εργαστήρι από τις 11:00 έως τις 20:00.",
+    activity_category: "association",
+    general_price: "15",
+    offers_member_discount: false,
+    member_price: null,
+    requested_public: true,
+    approval_status: "approved",
+    owner_uid: "static-completed-event",
+    status: "completed",
+    is_public: true,
+  },
+  {
+    id: "2026-02-28",
+    booking_date: "2026-02-28",
+    therapist_name: "",
+    therapist_role: null,
+    additional_coordinator_name: null,
+    additional_coordinator_role: null,
+    coordinator_photo_url: null,
+    additional_coordinator_photo_url: null,
+    action_time: null,
+    topic: "Γνωρίστε την Ομαδική Ψυχοθεραπεία",
+    description: "Με Σωματική Επικέντρωση σε πόλεις της Ελλάδας και της Κύπρου.",
+    event_type: "Ομαδική Ψυχοθεραπεία",
+    mode: "Διαδικτυακά & δια ζώσης",
+    image_url: "https://demo.unityenergetics.org/wp-content/uploads/2026/08/Στιγμιότυπο-οθόνης-2026-08-06-194048.png",
     detail_image_url: null,
     long_description: null,
     audience: null,
@@ -132,7 +194,7 @@ function buildMonths(startYear: number, startMonth: number, endYear: number, end
   return result;
 }
 
-const MONTHS = buildMonths(2026, 6, 2027, 7); // Ιούλιος 2026 έως Αύγουστος 2027
+const MONTHS = buildMonths(2026, 1, 2027, 7); // Φεβρουάριος 2026 έως Αύγουστος 2027
 
 function getCurrentMonthKeyInGreece() {
   const parts = new Intl.DateTimeFormat("en-CA", {
@@ -227,9 +289,17 @@ function bookingFromSnapshot(snapshot: QueryDocumentSnapshot<DocumentData>): Boo
     id: snapshot.id,
     booking_date: String(data.booking_date ?? snapshot.id),
     therapist_name: String(data.therapist_name ?? ""),
+    therapist_role:
+      typeof data.therapist_role === "string" && data.therapist_role.trim()
+        ? data.therapist_role.trim()
+        : null,
     additional_coordinator_name:
       typeof data.additional_coordinator_name === "string" && data.additional_coordinator_name.trim()
         ? data.additional_coordinator_name.trim()
+        : null,
+    additional_coordinator_role:
+      typeof data.additional_coordinator_role === "string" && data.additional_coordinator_role.trim()
+        ? data.additional_coordinator_role.trim()
         : null,
     coordinator_photo_url:
       typeof data.coordinator_photo_url === "string" && data.coordinator_photo_url.trim()
@@ -404,7 +474,7 @@ async function loadTherapistDirectory(): Promise<TherapistDirectoryItem[]> {
           name: stringField("name") ?? "",
           photo: stringField("photo"),
           city: stringField("city"),
-          profession: stringField("profession"),
+          profession: stringField("profession") ?? stringField("role"),
         };
       })
       .filter((item: TherapistDirectoryItem) => Boolean(item.name));
@@ -1649,19 +1719,16 @@ function PublicBookingDetails({
   const mainCoordinatorPhoto = mainTherapist?.photo || booking.coordinator_photo_url;
   const additionalCoordinatorPhoto =
     additionalTherapist?.photo || booking.additional_coordinator_photo_url;
+  const mainCoordinatorRole = booking.therapist_role || mainTherapist?.profession || "";
+  const additionalCoordinatorRole =
+    booking.additional_coordinator_role || additionalTherapist?.profession || "";
   const [showForm, setShowForm] = useState(false);
   const [values, setValues] = useState<EventRegistrationFormValues>({ fullName: "", email: "", phone: "", profession: "", membershipStatus: "", comment: "" });
   const [website, setWebsite] = useState("");
   const [consent, setConsent] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
-  const [linkCopied, setLinkCopied] = useState(false);
   const registrationRef = useRef<HTMLFormElement | null>(null);
-
-  const eventShareUrl =
-    typeof window === "undefined"
-      ? `https://hmerologiosillogou.vercel.app/?event=${encodeURIComponent(booking.booking_date)}`
-      : `${window.location.origin}/?event=${encodeURIComponent(booking.booking_date)}`;
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -1690,29 +1757,6 @@ function PublicBookingDetails({
     return () => window.clearTimeout(timeout);
   }, [showForm]);
 
-  async function copyEventLink() {
-    try {
-      if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(eventShareUrl);
-      } else {
-        throw new Error("CLIPBOARD_UNAVAILABLE");
-      }
-      setLinkCopied(true);
-      window.setTimeout(() => setLinkCopied(false), 1800);
-    } catch {
-      const input = document.createElement("textarea");
-      input.value = eventShareUrl;
-      input.setAttribute("readonly", "");
-      input.style.position = "fixed";
-      input.style.opacity = "0";
-      document.body.appendChild(input);
-      input.select();
-      document.execCommand("copy");
-      document.body.removeChild(input);
-      setLinkCopied(true);
-      window.setTimeout(() => setLinkCopied(false), 1800);
-    }
-  }
 
   function updateValue(field: keyof EventRegistrationFormValues, value: string) {
     setValues((previous) => ({ ...previous, [field]: value }));
@@ -1796,17 +1840,6 @@ function PublicBookingDetails({
                 </button>
               )}
 
-              <button
-                type="button"
-                className="sepsyg-popup-copy-link"
-                onClick={copyEventLink}
-              >
-                {linkCopied ? "Ο σύνδεσμος αντιγράφηκε" : "Αντιγραφή συνδέσμου"}
-              </button>
-            </div>
-
-            <div className="sepsyg-popup-share-url" title={eventShareUrl}>
-              {eventShareUrl}
             </div>
           </section>
 
@@ -1846,13 +1879,29 @@ function PublicBookingDetails({
           )}
 
           {booking.detail_image_url && (
-            <div className="mt-8 overflow-hidden rounded-2xl border border-[#174B49]/10 bg-white">
-              <img
-                src={booking.detail_image_url}
-                alt=""
-                className="max-h-[430px] w-full object-cover"
-              />
-            </div>
+            <section className="sepsyg-popup-secondary-visual">
+              <div className="sepsyg-popup-secondary-image">
+                <img
+                  src={booking.detail_image_url}
+                  alt=""
+                />
+              </div>
+
+              {!isCompleted ? (
+                <button
+                  type="button"
+                  className="sepsyg-popup-secondary-cta"
+                  onClick={() => setShowForm(true)}
+                >
+                  <span>Δήλωσε συμμετοχή</span>
+                  <strong>πατώντας εδώ</strong>
+                </button>
+              ) : (
+                <div className="sepsyg-popup-secondary-completed">
+                  Η δράση έχει ολοκληρωθεί
+                </div>
+              )}
+            </section>
           )}
 
           {booking.audience && (
@@ -1889,11 +1938,7 @@ function PublicBookingDetails({
                     </div>
                     <div className="sepsyg-coordinator-copy">
                       <strong>{booking.therapist_name}</strong>
-                      {mainTherapist && (
-                        <small>
-                          {[mainTherapist.profession, mainTherapist.city].filter(Boolean).join(" · ")}
-                        </small>
-                      )}
+                      {mainCoordinatorRole && <small>{mainCoordinatorRole}</small>}
                     </div>
                   </div>
                 )}
@@ -1909,11 +1954,7 @@ function PublicBookingDetails({
                     </div>
                     <div className="sepsyg-coordinator-copy">
                       <strong>{booking.additional_coordinator_name}</strong>
-                      {additionalTherapist && (
-                        <small>
-                          {[additionalTherapist.profession, additionalTherapist.city].filter(Boolean).join(" · ")}
-                        </small>
-                      )}
+                      {additionalCoordinatorRole && <small>{additionalCoordinatorRole}</small>}
                     </div>
                   </div>
                 )}
@@ -2042,7 +2083,9 @@ function BookingForm({
   onSaved: (booking: Booking) => void;
 }) {
   const [name, setName] = useState(existing?.therapist_name ?? "");
+  const [coordinatorRole, setCoordinatorRole] = useState(existing?.therapist_role ?? "");
   const [additionalCoordinator, setAdditionalCoordinator] = useState(existing?.additional_coordinator_name ?? "");
+  const [additionalCoordinatorRole, setAdditionalCoordinatorRole] = useState(existing?.additional_coordinator_role ?? "");
   const [time, setTime] = useState(existing?.action_time ?? "");
   const [topic, setTopic] = useState(existing?.topic ?? "");
   const [description, setDescription] = useState(existing?.description ?? "");
@@ -2115,7 +2158,9 @@ function BookingForm({
       const values = {
         booking_date: date,
         therapist_name: name.trim(),
+        therapist_role: coordinatorRole.trim() || null,
         additional_coordinator_name: additionalCoordinator.trim() || null,
+        additional_coordinator_role: additionalCoordinatorRole.trim() || null,
         coordinator_photo_url:
           uploadedCoordinatorPhoto || existing?.coordinator_photo_url || null,
         additional_coordinator_photo_url:
@@ -2213,6 +2258,19 @@ function BookingForm({
             className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:border-emerald-500 focus:outline-none"
           />
         </div>
+        <div>
+          <label className="mb-1.5 block text-sm font-medium" htmlFor="coordinator-role">
+            Ιδιότητα βασικού συντονιστή <span className="font-normal text-slate-400">(προαιρετικό)</span>
+          </label>
+          <input
+            id="coordinator-role"
+            type="text"
+            value={coordinatorRole}
+            onChange={(event) => setCoordinatorRole(event.target.value)}
+            placeholder="π.χ. Ψυχολόγος – Ψυχοθεραπευτής"
+            className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:border-emerald-500 focus:outline-none"
+          />
+        </div>
 
         <div>
           <label className="mb-1.5 block text-sm font-medium" htmlFor="additional-coordinator">
@@ -2230,6 +2288,21 @@ function BookingForm({
             Αν το ίδιο ονοματεπώνυμο υπάρχει στον χάρτη θεραπευτών, η δημόσια δράση θα μπορεί να εμφανίζεται αυτόματα και στο προφίλ του δεύτερου συντονιστή.
           </p>
         </div>
+        {additionalCoordinator.trim() && (
+          <div>
+            <label className="mb-1.5 block text-sm font-medium" htmlFor="additional-coordinator-role">
+              Ιδιότητα επιπλέον συντονιστή <span className="font-normal text-slate-400">(προαιρετικό)</span>
+            </label>
+            <input
+              id="additional-coordinator-role"
+              type="text"
+              value={additionalCoordinatorRole}
+              onChange={(event) => setAdditionalCoordinatorRole(event.target.value)}
+              placeholder="π.χ. Σύμβουλος Ψυχικής Υγείας"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:border-emerald-500 focus:outline-none"
+            />
+          </div>
+        )}
         <div className="rounded-xl border border-emerald-100 bg-emerald-50/35 p-4">
           <label className="mb-1.5 block text-sm font-semibold text-emerald-950" htmlFor="coordinator-photo">
             Φωτογραφία βασικού συντονιστή <span className="font-normal text-slate-400">(προαιρετικό)</span>
@@ -2703,6 +2776,10 @@ function BookingDetails({
 
       <dl className="mt-6 space-y-4 text-sm">
         <DetailRow label="Συντονιστές" value={coordinatorsLabel(booking)} />
+        <DetailRow label="Ιδιότητα βασικού συντονιστή" value={booking.therapist_role || "—"} />
+        {booking.additional_coordinator_name && (
+          <DetailRow label="Ιδιότητα επιπλέον συντονιστή" value={booking.additional_coordinator_role || "—"} />
+        )}
         <DetailRow label="Ώρα" value={booking.action_time} />
         <DetailRow label="Θέμα" value={booking.topic} />
         <DetailRow label="Περιγραφή" value={booking.description} />
