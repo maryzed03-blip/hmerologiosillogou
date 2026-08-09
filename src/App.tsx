@@ -626,10 +626,6 @@ function ManageApp({ role }: { role: ManageRole }) {
     setActiveMonth(getInitialMonthKey());
   }, []);
 
-  useEffect(() => {
-    void loadTherapistDirectory().then(setTherapistDirectory);
-  }, []);
-
   async function loadRegistrationCounts() {
     const code = getManageCode();
     if (!code) return;
@@ -1056,6 +1052,18 @@ function PublicEventsApp() {
 
   useEffect(() => {
     setActiveMonth(getInitialMonthKey());
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void loadTherapistDirectory().then((items) => {
+      if (!cancelled) setTherapistDirectory(items);
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
