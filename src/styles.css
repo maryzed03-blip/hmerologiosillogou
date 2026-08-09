@@ -1238,3 +1238,183 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
     font-size: .78rem;
   }
 }
+
+
+/* ==========================================================
+   SEPSYG — SHAREABLE ACTIVITY POPUP
+   ========================================================== */
+.sepsyg-activity-popup-shell{
+  overflow:hidden;
+  border:1px solid rgba(23,75,73,.10);
+  border-radius:28px;
+  background:#F7EFE8;
+  box-shadow:0 22px 56px rgba(23,75,73,.12);
+}
+
+.sepsyg-popup-cover{
+  height:clamp(220px,34vw,340px);
+  overflow:hidden;
+  background:linear-gradient(145deg,#9EB2A6,#E1AF85);
+}
+.sepsyg-popup-cover img{
+  width:100%;
+  height:100%;
+  display:block;
+  object-fit:cover;
+}
+.sepsyg-popup-cover-empty{height:116px;}
+
+.sepsyg-popup-content{padding:24px;}
+
+.sepsyg-popup-heading-card{
+  margin-top:17px;
+  padding:24px;
+  border:1px solid rgba(23,75,73,.10);
+  border-radius:22px;
+  background:rgba(255,255,255,.94);
+  box-shadow:0 10px 24px rgba(23,75,73,.05);
+}
+.sepsyg-popup-heading-card h3{
+  margin:0;
+  color:#174B49;
+  font-family:Georgia,"Times New Roman",serif;
+  font-size:clamp(1.7rem,4vw,2.5rem);
+  font-weight:500;
+  line-height:1.12;
+}
+.sepsyg-popup-lead{
+  margin:13px 0 0;
+  color:#627472;
+  font-size:.94rem;
+  line-height:1.75;
+}
+
+.sepsyg-popup-top-actions{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  margin-top:20px;
+}
+.sepsyg-popup-register-primary,
+.sepsyg-popup-copy-link{
+  min-height:43px;
+  padding:10px 18px;
+  border-radius:999px;
+  font-size:.78rem;
+  font-weight:800;
+  cursor:pointer;
+  transition:.18s ease;
+}
+.sepsyg-popup-register-primary{
+  border:1px solid #008D8B;
+  background:#008D8B;
+  color:#fff;
+  box-shadow:0 9px 19px rgba(0,141,139,.15);
+}
+.sepsyg-popup-register-primary:hover{
+  background:#006B68;
+  border-color:#006B68;
+}
+.sepsyg-popup-copy-link{
+  border:1px solid rgba(23,75,73,.14);
+  background:#FFF9F3;
+  color:#174B49;
+}
+.sepsyg-popup-copy-link:hover{border-color:rgba(0,141,139,.35);}
+
+.sepsyg-popup-share-url{
+  margin-top:10px;
+  padding:9px 11px;
+  overflow:hidden;
+  border:1px dashed rgba(23,75,73,.14);
+  border-radius:11px;
+  background:#FBF6F0;
+  color:#75827F;
+  font-size:.65rem;
+  line-height:1.35;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+
+.sepsyg-popup-meta-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:10px;
+  margin-top:14px;
+}
+.sepsyg-popup-meta-card{
+  min-width:0;
+  padding:15px 16px;
+  border:1px solid rgba(23,75,73,.10);
+  border-radius:17px;
+  background:#fff;
+}
+.sepsyg-popup-meta-card p{margin-bottom:0;}
+
+.sepsyg-popup-info-card{
+  margin-top:16px;
+  padding:20px;
+  border:1px solid rgba(23,75,73,.10);
+  border-radius:20px;
+  background:#fff;
+}
+.sepsyg-popup-info-card-sage{background:rgba(158,178,166,.13);}
+.sepsyg-popup-info-card h4{margin-top:5px;}
+.sepsyg-popup-info-card p:last-child{margin-bottom:0;}
+
+.sepsyg-popup-bottom-register{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:18px;
+  margin-top:20px;
+  padding:18px 20px;
+  border:1px solid rgba(0,141,139,.18);
+  border-radius:20px;
+  background:linear-gradient(135deg,rgba(0,141,139,.07),rgba(225,175,133,.10));
+}
+.sepsyg-popup-bottom-register strong{
+  display:block;
+  color:#174B49;
+  font-family:Georgia,"Times New Roman",serif;
+  font-size:1.08rem;
+  font-weight:500;
+}
+.sepsyg-popup-bottom-register p{
+  margin:4px 0 0;
+  color:#627472;
+  font-size:.76rem;
+  line-height:1.45;
+}
+.sepsyg-popup-bottom-register button{
+  flex:0 0 auto;
+  min-height:43px;
+  padding:10px 19px;
+  border:1px solid #008D8B;
+  border-radius:999px;
+  background:#008D8B;
+  color:#fff;
+  font-size:.78rem;
+  font-weight:800;
+  cursor:pointer;
+}
+
+.sepsyg-popup-registration-form{
+  scroll-margin-top:20px;
+  margin-top:20px !important;
+  padding:20px !important;
+  border:1px solid rgba(23,75,73,.11) !important;
+  border-radius:20px;
+  background:#fff;
+}
+
+@media(max-width:640px){
+  .sepsyg-popup-content{padding:16px;}
+  .sepsyg-popup-heading-card{padding:19px;}
+  .sepsyg-popup-meta-grid{grid-template-columns:1fr;}
+  .sepsyg-popup-bottom-register{
+    align-items:flex-start;
+    flex-direction:column;
+  }
+  .sepsyg-popup-bottom-register button{width:100%;}
+}

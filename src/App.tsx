@@ -10,7 +10,7 @@ import {
   type FirestoreError,
   type QueryDocumentSnapshot,
 } from "firebase/firestore";
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { db, ensureAnonymousUser } from "./firebase";
 
 type BookingStatus = "booked" | "completed";
@@ -1655,6 +1655,64 @@ function PublicBookingDetails({
   const [consent, setConsent] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
+  const [linkCopied, setLinkCopied] = useState(false);
+  const registrationRef = useRef<HTMLFormElement | null>(null);
+
+  const eventShareUrl =
+    typeof window === "undefined"
+      ? `https://hmerologiosillogou.vercel.app/?event=${encodeURIComponent(booking.booking_date)}`
+      : `${window.location.origin}/?event=${encodeURIComponent(booking.booking_date)}`;
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const previousUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    const nextUrl = `/?event=${encodeURIComponent(booking.booking_date)}`;
+
+    if (previousUrl !== nextUrl) {
+      window.history.replaceState({ event: booking.booking_date }, "", nextUrl);
+    }
+
+    return () => {
+      if (previousUrl !== nextUrl) {
+        window.history.replaceState({}, "", previousUrl);
+      }
+    };
+  }, [booking.booking_date]);
+
+  useEffect(() => {
+    if (!showForm) return;
+
+    const timeout = window.setTimeout(() => {
+      registrationRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 80);
+
+    return () => window.clearTimeout(timeout);
+  }, [showForm]);
+
+  async function copyEventLink() {
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(eventShareUrl);
+      } else {
+        throw new Error("CLIPBOARD_UNAVAILABLE");
+      }
+      setLinkCopied(true);
+      window.setTimeout(() => setLinkCopied(false), 1800);
+    } catch {
+      const input = document.createElement("textarea");
+      input.value = eventShareUrl;
+      input.setAttribute("readonly", "");
+      input.style.position = "fixed";
+      input.style.opacity = "0";
+      document.body.appendChild(input);
+      input.select();
+      document.execCommand("copy");
+      document.body.removeChild(input);
+      setLinkCopied(true);
+      window.setTimeout(() => setLinkCopied(false), 1800);
+    }
+  }
 
   function updateValue(field: keyof EventRegistrationFormValues, value: string) {
     setValues((previous) => ({ ...previous, [field]: value }));
@@ -1690,9 +1748,9 @@ function PublicBookingDetails({
 
   return (
     <Modal onClose={submitting ? undefined : onClose} wide>
-      <div className="overflow-hidden rounded-[26px] bg-[#FFF9F3]">
+      <div className="sepsyg-activity-popup-shell">
         {booking.image_url ? (
-          <div className="h-56 overflow-hidden bg-[#DCE4DE] sm:h-72">
+          <div className="sepsyg-popup-cover">
             <img
               src={booking.image_url}
               alt={booking.topic || "Δράση Συλλόγου"}
@@ -1700,10 +1758,10 @@ function PublicBookingDetails({
             />
           </div>
         ) : (
-          <div className="h-28 bg-gradient-to-br from-[#9EB2A6] to-[#E1AF85]" />
+          <div className="sepsyg-popup-cover sepsyg-popup-cover-empty" />
         )}
 
-        <div className="px-5 py-6 sm:px-8 sm:py-8">
+        <div className="sepsyg-popup-content">
           <div className="flex flex-wrap gap-2">
             <span className={`rounded-full px-3 py-1.5 text-xs font-bold ${activityCategoryClass(booking)}`}>
               {activityCategoryLabel(booking)}
@@ -1720,26 +1778,48 @@ function PublicBookingDetails({
             )}
           </div>
 
-          <h3 className="mt-4 font-serif text-3xl font-medium leading-tight text-[#174B49] sm:text-4xl">
-            {booking.topic || "Δράση Συλλόγου"}
-          </h3>
+          <section className="sepsyg-popup-heading-card">
+            <h3>{booking.topic || "Δράση Συλλόγου"}</h3>
 
-          {booking.description && (
-            <p className="mt-4 text-[15px] leading-7 text-[#627472]">
-              {booking.description}
-            </p>
-          )}
+            {booking.description && (
+              <p className="sepsyg-popup-lead">{booking.description}</p>
+            )}
 
-          <div className="mt-6 grid gap-3 rounded-2xl border border-[#174B49]/10 bg-white p-5 sm:grid-cols-2">
-            <div>
+            <div className="sepsyg-popup-top-actions">
+              {!isCompleted && (
+                <button
+                  type="button"
+                  className="sepsyg-popup-register-primary"
+                  onClick={() => setShowForm(true)}
+                >
+                  Δήλωσε συμμετοχή
+                </button>
+              )}
+
+              <button
+                type="button"
+                className="sepsyg-popup-copy-link"
+                onClick={copyEventLink}
+              >
+                {linkCopied ? "Ο σύνδεσμος αντιγράφηκε" : "Αντιγραφή συνδέσμου"}
+              </button>
+            </div>
+
+            <div className="sepsyg-popup-share-url" title={eventShareUrl}>
+              {eventShareUrl}
+            </div>
+          </section>
+
+          <div className="sepsyg-popup-meta-grid">
+            <div className="sepsyg-popup-meta-card">
               <span className="text-[11px] font-extrabold uppercase tracking-[.12em] text-[#008D8B]">Ημερομηνία</span>
               <p className="mt-1 text-sm font-semibold text-[#263B39]">{formatDateGreek(booking.booking_date)}</p>
             </div>
-            <div>
+            <div className="sepsyg-popup-meta-card">
               <span className="text-[11px] font-extrabold uppercase tracking-[.12em] text-[#008D8B]">Ώρα</span>
               <p className="mt-1 text-sm font-semibold text-[#263B39]">{booking.action_time || "Θα ανακοινωθεί"}</p>
             </div>
-            <div className="sm:col-span-2">
+            <div className="sepsyg-popup-meta-card sm:col-span-2">
               <span className="text-[11px] font-extrabold uppercase tracking-[.12em] text-[#008D8B]">Συντονιστές</span>
               <p className="mt-1 text-sm font-semibold text-[#263B39]">{coordinatorsLabel(booking)}</p>
             </div>
@@ -1756,7 +1836,7 @@ function PublicBookingDetails({
           </section>
 
           {booking.long_description && (
-            <section className="mt-8">
+            <section className="sepsyg-popup-info-card">
               <p className="text-[11px] font-extrabold uppercase tracking-[.14em] text-[#008D8B]">Η δράση</p>
               <h4 className="mt-2 font-serif text-2xl font-medium text-[#174B49]">Περισσότερες πληροφορίες</h4>
               <p className="mt-3 whitespace-pre-wrap text-[15px] leading-8 text-[#566966]">
@@ -1776,7 +1856,7 @@ function PublicBookingDetails({
           )}
 
           {booking.audience && (
-            <section className="mt-7 rounded-2xl bg-[#9EB2A6]/15 p-5 sm:p-6">
+            <section className="sepsyg-popup-info-card sepsyg-popup-info-card-sage">
               <p className="text-[11px] font-extrabold uppercase tracking-[.14em] text-[#008D8B]">Σε ποιους απευθύνεται</p>
               <p className="mt-2 whitespace-pre-wrap text-[15px] leading-7 text-[#425754]">
                 {booking.audience}
@@ -1785,7 +1865,7 @@ function PublicBookingDetails({
           )}
 
           {booking.program_details && (
-            <section className="mt-5 rounded-2xl border border-[#174B49]/10 bg-white p-5 sm:p-6">
+            <section className="sepsyg-popup-info-card">
               <p className="text-[11px] font-extrabold uppercase tracking-[.14em] text-[#008D8B]">Πρόγραμμα / Θεματικές</p>
               <p className="mt-2 whitespace-pre-wrap text-[15px] leading-7 text-[#425754]">
                 {booking.program_details}
@@ -1842,20 +1922,19 @@ function PublicBookingDetails({
           )}
 
           {!isCompleted && !showForm && (
-            <div className="mt-8 flex flex-col gap-3 border-t border-[#174B49]/10 pt-6 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-sm leading-6 text-[#627472]">Θέλεις να κρατήσεις θέση στη συγκεκριμένη δράση;</p>
-              <button
-                type="button"
-                onClick={() => setShowForm(true)}
-                className="rounded-full bg-[#008D8B] px-6 py-3 text-sm font-extrabold text-white shadow-lg shadow-[#008D8B]/15"
-              >
+            <div className="sepsyg-popup-bottom-register">
+              <div>
+                <strong>Θέλεις να συμμετέχεις;</strong>
+                <p>Συμπλήρωσε τη φόρμα της συγκεκριμένης δράσης.</p>
+              </div>
+              <button type="button" onClick={() => setShowForm(true)}>
                 Δήλωσε συμμετοχή
               </button>
             </div>
           )}
 
           {!isCompleted && showForm && (
-            <form onSubmit={handleRegistration} className="sepsyg-registration-form mt-8">
+            <form ref={registrationRef} onSubmit={handleRegistration} className="sepsyg-registration-form sepsyg-popup-registration-form">
               <div className="form-intro">
                 <h4>Δήλωση συμμετοχής</h4>
                 <p>Συμπλήρωσε τα στοιχεία σου. Η φόρμα συνδέεται αυτόματα με αυτή τη δράση.</p>
