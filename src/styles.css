@@ -1516,3 +1516,37 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
     font-size:1.25rem;
   }
 }
+
+
+/* ==========================================================
+   CARRD AUTO-HEIGHT EMBED BRIDGE
+   Δεν δημιουργεί δεύτερο page-scroll μέσα στο iframe.
+   ========================================================== */
+html.sepsyg-embedded-frame,
+html.sepsyg-embedded-frame body {
+  min-height: 0 !important;
+  height: auto !important;
+  overflow: visible !important;
+}
+
+/* Τα popups παραμένουν μπροστά στον επισκέπτη, ακόμη κι όταν
+   το iframe έχει ύψος πολλών χιλιάδων pixels. */
+html.sepsyg-embedded-frame .sepsyg-access-overlay,
+html.sepsyg-embedded-frame .sepsyg-calendar-overlay,
+html.sepsyg-embedded-frame .fixed.inset-0 {
+  position: absolute !important;
+  top: var(--sepsyg-embed-visible-top, 0px) !important;
+  right: 0 !important;
+  bottom: auto !important;
+  left: 0 !important;
+  height: var(--sepsyg-embed-visible-height, 100vh) !important;
+  min-height: 320px;
+}
+
+html.sepsyg-embedded-frame .sepsyg-calendar-expand-card {
+  max-height: calc(var(--sepsyg-embed-visible-height, 100vh) - 36px) !important;
+}
+
+html.sepsyg-embedded-frame .fixed.inset-0 > [role="dialog"] {
+  max-height: calc(var(--sepsyg-embed-visible-height, 100vh) - 24px) !important;
+}

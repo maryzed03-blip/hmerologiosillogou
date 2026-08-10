@@ -2048,7 +2048,102 @@ function PublicBookingDetails({
   );
 }
 
+function useCarrdEmbedBridge() {
+  useEffect(() => {
+    if (typeof window === "undefined" || window.parent === window) return;
+
+    const root = document.documentElement;
+    root.classList.add("sepsyg-embedded-frame");
+
+    let raf = 0;
+    let lastHeight = 0;
+
+    const sendHeight = () => {
+      window.cancelAnimationFrame(raf);
+      raf = window.requestAnimationFrame(() => {
+        const body = document.body;
+        const height = Math.ceil(
+          Math.max(
+            body?.scrollHeight ?? 0,
+            body?.offsetHeight ?? 0,
+            root.scrollHeight,
+            root.offsetHeight,
+          ),
+        );
+
+        if (Math.abs(height - lastHeight) < 2) return;
+        lastHeight = height;
+
+        window.parent.postMessage(
+          {
+            type: "SEPSYG_EMBED_HEIGHT",
+            source: "calendar",
+            height,
+          },
+          "*",
+        );
+      });
+    };
+
+    const handleParentMessage = (event: MessageEvent) => {
+      if (event.source !== window.parent) return;
+      const data = event.data;
+      if (!data || data.type !== "SEPSYG_PARENT_VIEWPORT") return;
+
+      const visibleTop = Math.max(0, Number(data.visibleTop) || 0);
+      const visibleHeight = Math.max(320, Number(data.visibleHeight) || window.innerHeight);
+
+      root.style.setProperty("--sepsyg-embed-visible-top", `${visibleTop}px`);
+      root.style.setProperty("--sepsyg-embed-visible-height", `${visibleHeight}px`);
+    };
+
+    const resizeObserver =
+      typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(sendHeight)
+        : null;
+
+    resizeObserver?.observe(root);
+    if (document.body) resizeObserver?.observe(document.body);
+
+    const mutationObserver = new MutationObserver(sendHeight);
+    if (document.body) {
+      mutationObserver.observe(document.body, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        characterData: true,
+      });
+    }
+
+    window.addEventListener("resize", sendHeight);
+    window.addEventListener("load", sendHeight, true);
+    window.addEventListener("message", handleParentMessage);
+
+    window.parent.postMessage(
+      { type: "SEPSYG_EMBED_READY", source: "calendar" },
+      "*",
+    );
+
+    sendHeight();
+    window.setTimeout(sendHeight, 80);
+    window.setTimeout(sendHeight, 300);
+    window.setTimeout(sendHeight, 900);
+
+    return () => {
+      window.cancelAnimationFrame(raf);
+      resizeObserver?.disconnect();
+      mutationObserver.disconnect();
+      window.removeEventListener("resize", sendHeight);
+      window.removeEventListener("load", sendHeight, true);
+      window.removeEventListener("message", handleParentMessage);
+      root.classList.remove("sepsyg-embedded-frame");
+    };
+  }, []);
+}
+
 export default function App() {
+  useCarrdEmbedBridge();
+
   const path = typeof window === "undefined" ? "/" : window.location.pathname.replace(/\/+$/, "") || "/";
   return path === "/manage" ? <ManageAccess /> : <PublicEventsApp />;
 }
