@@ -1550,3 +1550,64 @@ html.sepsyg-embedded-frame .sepsyg-calendar-expand-card {
 html.sepsyg-embedded-frame .fixed.inset-0 > [role="dialog"] {
   max-height: calc(var(--sepsyg-embed-visible-height, 100vh) - 24px) !important;
 }
+
+
+/* ==========================================================
+   SEPSYG v4.1 — WIDE CARRD LAYOUT
+   Δράσεις αριστερά / ημερολόγιο δεξιά
+   ========================================================== */
+
+.sepsyg-public-wrap{
+  width:min(1380px,calc(100% - 42px)) !important;
+  max-width:1380px !important;
+}
+
+.sepsyg-actions-calendar-layout{
+  display:grid !important;
+  grid-template-columns:minmax(0,1.7fr) minmax(310px,.78fr) !important;
+  gap:28px !important;
+  align-items:start !important;
+}
+
+.sepsyg-actions-column{
+  min-width:0 !important;
+}
+
+.sepsyg-events-grid-main{
+  grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+  gap:18px !important;
+}
+
+.sepsyg-mini-calendar-panel{
+  position:sticky !important;
+  top:18px !important;
+  width:100% !important;
+  max-width:none !important;
+}
+
+/* Κρατάμε το side-by-side και σε σχετικά μικρά desktop/tablet widths. */
+@media(max-width:900px){
+  .sepsyg-actions-calendar-layout{
+    grid-template-columns:minmax(0,1.45fr) minmax(280px,.85fr) !important;
+    gap:18px !important;
+  }
+
+  .sepsyg-events-grid-main{
+    grid-template-columns:1fr !important;
+  }
+}
+
+/* Μόνο σε πραγματικά μικρή οθόνη πέφτει το ημερολόγιο κάτω. */
+@media(max-width:700px){
+  .sepsyg-public-wrap{
+    width:min(100% - 24px,1380px) !important;
+  }
+
+  .sepsyg-actions-calendar-layout{
+    grid-template-columns:1fr !important;
+  }
+
+  .sepsyg-mini-calendar-panel{
+    position:static !important;
+  }
+}
