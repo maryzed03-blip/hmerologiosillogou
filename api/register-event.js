@@ -47,6 +47,22 @@ function makeRegistrationId(eventId, email) {
   return `${eventId}_${digest}`;
 }
 
+function paymentAmount(event, membershipStatus) {
+  if (event.activity_category === "association_free") return 0;
+  const general = Number(String(event.general_price || "0").replace(",", ".")) || 0;
+  const member = Number(String(event.member_price || "0").replace(",", ".")) || 0;
+  if (event.offers_member_discount === true && member > 0 && ["member", "friend"].includes(membershipStatus)) return member;
+  return general;
+}
+
+function publicBaseUrl(request) {
+  const configured = clean(process.env.PUBLIC_APP_URL, 500).replace(/\/$/, "");
+  if (configured) return configured;
+  const host = clean(request.headers?.["x-forwarded-host"] || request.headers?.host, 300);
+  const proto = clean(request.headers?.["x-forwarded-proto"], 20) || "https";
+  return host ? `${proto}://${host}` : "";
+}
+
 function membershipLabel(value) {
   if (value === "friend") return "Φίλος του Συλλόγου";
   if (value === "member") return "Μέλος του Συλλόγου";
@@ -103,6 +119,10 @@ export default async function handler(request, response) {
       return response.status(409).json({ error: "Already registered", code: "ALREADY_REGISTERED" });
     }
 
+    const amount = paymentAmount(event, membershipStatus);
+    const paymentToken = amount > 0 ? crypto.randomBytes(24).toString("hex") : "";
+    const paymentReference = amount > 0 ? `SEP-${eventId.replaceAll("-", "")}-${registrationId.slice(-8).toUpperCase()}` : "";
+
     const registration = {
       event_id: eventId,
       event_date: eventId,
@@ -115,6 +135,10 @@ export default async function handler(request, response) {
       membership_status: membershipStatus,
       comment,
       consent: true,
+      payment_amount: amount,
+      payment_token: paymentToken || null,
+      payment_reference: paymentReference || null,
+      payment_status: amount > 0 ? "awaiting_declaration" : "not_required",
       created_at: new Date(),
     };
 
@@ -154,12 +178,27 @@ export default async function handler(request, response) {
         </div>`;
 
       const confirmationSubject = `Επιβεβαίωση συμμετοχής — ${eventTopic}`;
+      const baseUrl = publicBaseUrl(request);
+      const declarationUrl = amount > 0 && paymentToken && baseUrl
+        ? `${baseUrl}/api/declare-payment?token=${encodeURIComponent(paymentToken)}`
+        : "";
+      const paymentInstructions = clean(process.env.PAYMENT_INSTRUCTIONS, 2000);
+      const paymentBlock = declarationUrl
+        ? `<div style="margin:24px 0;padding:20px;border:1px solid #d8d0c4;border-radius:12px;background:#f4efe7">
+            <p style="margin:0 0 10px"><strong>Ποσό συμμετοχής: ${escapeHtml(String(amount))} €</strong></p>
+            ${paymentInstructions ? `<p style="margin:0 0 10px">${escapeHtml(paymentInstructions).replaceAll("\n", "<br>")}</p>` : ""}
+            <p style="margin:0 0 16px"><strong>Αιτιολογία κατάθεσης:</strong> ${escapeHtml(paymentReference)}</p>
+            <p style="margin:0 0 16px">Αφού πραγματοποιήσετε την κατάθεση, πατήστε το παρακάτω κουμπί. Η δήλωση θα εμφανιστεί στον Ταμία για επιβεβαίωση.</p>
+            <a href="${escapeHtml(declarationUrl)}" style="display:inline-block;background:#244533;color:#fff;text-decoration:none;font-weight:bold;padding:12px 20px;border-radius:999px">Έκανα την κατάθεση</a>
+          </div>`
+        : "";
       const confirmationHtml = `
         <div style="font-family:Arial,sans-serif;line-height:1.6;color:#172033;max-width:700px;margin:auto">
           <h2>Η συμμετοχή σας καταχωρίστηκε</h2>
           <p>Αγαπητέ/ή ${escapeHtml(fullName)},</p>
           <p>Λάβαμε τη δήλωση συμμετοχής σας για τη δράση:</p>
           <p><strong>${escapeHtml(eventTopic)}</strong><br>${escapeHtml(formattedDate)}<br>${escapeHtml(eventTime)}</p>
+          ${paymentBlock}
           <p>Ο Σύλλογος θα επικοινωνήσει μαζί σας εφόσον χρειάζονται επιπλέον πληροφορίες.</p>
         </div>`;
 
