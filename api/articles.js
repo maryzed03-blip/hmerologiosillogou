@@ -36,7 +36,9 @@ function publicArticle(document) {
     author_role: clean(data.author_role, 260),
     author_photo_url: clean(data.author_photo_url, 700000),
     approval_status: data.approval_status === "approved" ? "approved" : "pending",
-    is_public: data.is_public === true,
+    // Backward compatibility: older approved articles did not always store is_public.
+    // An explicitly false value still keeps an article private; otherwise approved = public.
+    is_public: data.is_public === true || (data.is_public !== false && data.approval_status === "approved"),
     created_at: data.created_at || document?.createTime || null,
     updated_at: data.updated_at || document?.updateTime || null,
   };
@@ -74,7 +76,7 @@ export default async function handler(request, response) {
       const documents = await queryCollection(COLLECTION);
       const articles = documents
         .map(publicArticle)
-        .filter((item) => role ? true : item.is_public && item.approval_status === "approved")
+        .filter((item) => role ? true : item.approval_status === "approved" && item.is_public !== false)
         .sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")));
       return response.status(200).json({ ok: true, role, articles });
     }

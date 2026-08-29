@@ -2640,7 +2640,7 @@ function ArticlesManager({ role, memberName }: { role: ManageRole; memberName: s
   );
 }
 
-function PublicArticlesApp() {
+function PublicArticlesApp({ embedOnly = false }: { embedOnly?: boolean }) {
   const [articles, setArticles] = useState<ArticleItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<ArticleItem | null>(null);
@@ -2660,27 +2660,33 @@ function PublicArticlesApp() {
       .finally(() => setLoading(false));
   }, []);
 
+  const routeBase = embedOnly ? "/articles-embed" : "/articles";
+
   function openArticle(article: ArticleItem) {
     setSelected(article);
-    window.history.replaceState({}, "", `/articles?article=${encodeURIComponent(article.id)}`);
+    window.history.replaceState({}, "", `${routeBase}?article=${encodeURIComponent(article.id)}`);
   }
 
   function closeArticle() {
     setSelected(null);
-    window.history.replaceState({}, "", "/articles");
+    window.history.replaceState({}, "", routeBase);
   }
 
   return (
-    <div className="sepsyg-public-articles-page">
-      <header className="sepsyg-articles-public-hero">
-        <AssociationLogo size="sm" />
-        <span>Πανευρωπαϊκός Επιστημονικός Σύλλογος Σ.Ε.ΨΥ.G.</span>
-        <h1>Άρθρα Θεραπευτών</h1>
-        <p>Άρθρα και εκπαιδευτικό περιεχόμενο από θεραπευτές του Συλλόγου.</p>
-      </header>
+    <div className={`sepsyg-public-articles-page${embedOnly ? " embed-only" : ""}`}>
+      {!embedOnly && (
+        <header className="sepsyg-articles-public-hero">
+          <AssociationLogo size="sm" />
+          <span>Πανευρωπαϊκός Επιστημονικός Σύλλογος Σ.Ε.ΨΥ.G.</span>
+          <h1>Άρθρα Θεραπευτών</h1>
+          <p>Άρθρα και εκπαιδευτικό περιεχόμενο από θεραπευτές του Συλλόγου.</p>
+        </header>
+      )}
       <main className="sepsyg-public-articles-wrap">
         {error && <div className="sepsyg-portal-notice error">{error}</div>}
-        {loading ? <p>Φόρτωση…</p> : (
+        {loading ? <p>Φόρτωση…</p> : articles.length === 0 ? (
+          <div className="sepsyg-public-articles-empty">Δεν υπάρχουν ακόμη δημοσιευμένα άρθρα.</div>
+        ) : (
           <div className="sepsyg-public-article-grid">
             {articles.map((article) => (
               <button type="button" className="sepsyg-public-article-card" key={article.id} onClick={() => openArticle(article)}>
@@ -2819,6 +2825,7 @@ export default function App() {
   if (path === "/manage") return <ManageAccess />;
   if (path === "/portal") return <MemberPortal />;
   if (path === "/articles") return <PublicArticlesApp />;
+  if (path === "/articles-embed") return <PublicArticlesApp embedOnly />;
   return <PublicEventsApp />;
 }
 
