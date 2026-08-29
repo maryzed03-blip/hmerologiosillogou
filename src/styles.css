@@ -1491,12 +1491,6 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
   font-size:1.25rem;
 }
 
-/* Το URL παραμένει λειτουργικό στο address bar, αλλά δεν προβάλλεται στο event. */
-.sepsyg-popup-copy-link,
-.sepsyg-popup-share-url{
-  display:none !important;
-}
-
 @media(max-width:620px){
   .sepsyg-popup-secondary-visual{
     grid-template-columns:105px minmax(0,1fr);
@@ -1610,4 +1604,223 @@ html.sepsyg-embedded-frame .fixed.inset-0 > [role="dialog"] {
   .sepsyg-mini-calendar-panel{
     position:static !important;
   }
+}
+
+
+/* ==========================================================
+   SEPSYG v5 — MINI EDITOR / PREVIEW / LANDING POPUP
+   ========================================================== */
+.sepsyg-rich-editor{
+  overflow:hidden;
+  border:1px solid #cbd5e1;
+  border-radius:12px;
+  background:#fff;
+}
+.sepsyg-rich-editor.is-disabled{opacity:.62;background:#f1f5f9;}
+.sepsyg-rich-toolbar,
+.sepsyg-rich-emoji-row{
+  display:flex;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:6px;
+  padding:8px 9px;
+  border-bottom:1px solid #e2e8f0;
+  background:#f8fafc;
+}
+.sepsyg-rich-emoji-row{padding-top:6px;padding-bottom:6px;background:#fff;}
+.sepsyg-rich-toolbar button,
+.sepsyg-rich-emoji-row button{
+  min-width:32px;
+  height:30px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  border:1px solid #dbe3e8;
+  border-radius:8px;
+  background:#fff;
+  color:#334155;
+  cursor:pointer;
+  font-size:.78rem;
+  font-weight:700;
+}
+.sepsyg-rich-toolbar button:hover,
+.sepsyg-rich-emoji-row button:hover{border-color:#008D8B;background:#f0fdfa;}
+.sepsyg-rich-toolbar button:disabled,
+.sepsyg-rich-emoji-row button:disabled{cursor:not-allowed;opacity:.45;}
+.sepsyg-rich-toolbar-separator{width:1px;height:24px;background:#dbe3e8;margin:0 2px;}
+.sepsyg-rich-toolbar .sepsyg-rich-color{min-width:26px;width:26px;padding:0;}
+.sepsyg-rich-color span{width:14px;height:14px;border-radius:50%;border:1px solid rgba(0,0,0,.12);}
+.sepsyg-rich-editor-area{
+  min-height:128px;
+  padding:12px 13px;
+  color:#334155;
+  font-size:.9rem;
+  line-height:1.7;
+  outline:none;
+  white-space:normal;
+}
+.sepsyg-rich-editor-area:empty::before{
+  content:attr(data-placeholder);
+  color:#94a3b8;
+  pointer-events:none;
+}
+.sepsyg-rich-output p{margin:.45em 0;}
+.sepsyg-rich-output p:first-child{margin-top:0;}
+.sepsyg-rich-output p:last-child{margin-bottom:0;}
+.sepsyg-rich-output ul,.sepsyg-rich-output ol{padding-left:1.35rem;margin:.55rem 0;}
+.sepsyg-rich-output u{text-underline-offset:3px;}
+
+.sepsyg-popup-share-box{
+  margin-top:12px;
+  display:grid;
+  gap:6px;
+}
+.sepsyg-popup-share-box > span{
+  color:#627472;
+  font-size:.68rem;
+  font-weight:800;
+  text-transform:uppercase;
+  letter-spacing:.08em;
+}
+.sepsyg-popup-share-url{
+  display:block !important;
+  width:100%;
+  margin:0;
+  padding:10px 12px;
+  border:1px dashed rgba(23,75,73,.20);
+  border-radius:10px;
+  background:#FBF6F0;
+  color:#526562;
+  font-size:.74rem;
+  line-height:1.35;
+  white-space:normal;
+}
+.sepsyg-popup-share-box small{color:#008D8B;font-weight:700;}
+.sepsyg-popup-copy-link{display:inline-flex !important;align-items:center;justify-content:center;}
+.sepsyg-preview-badge{
+  display:inline-flex;
+  align-items:center;
+  min-height:38px;
+  padding:8px 13px;
+  border-radius:999px;
+  background:#fff7ed;
+  color:#9a3412;
+  font-size:.7rem;
+  font-weight:800;
+  letter-spacing:.05em;
+}
+
+/* Το αναλυτικό event λειτουργεί σαν μικρή landing page. */
+.sepsyg-activity-popup-shell{width:100%;}
+@media(min-width:768px){
+  .sepsyg-popup-content{padding:32px 38px 38px;}
+  .sepsyg-popup-cover{height:clamp(300px,35vw,430px);}
+  .sepsyg-popup-heading-card{padding:30px 32px;}
+  .sepsyg-popup-info-card{padding:26px 28px;}
+}
+
+/* ==========================================================
+   SEPSYG v5 — ΕΝΙΑΙΟ PORTAL ΘΕΡΑΠΕΥΤΩΝ
+   ========================================================== */
+.category-therapist { border-color:#79B9D3 !important; }
+.sepsyg-event-card.category-therapist,
+.sepsyg-mini-day.category-therapist,
+.sepsyg-calendar-expand-day.category-therapist { box-shadow: inset 0 -4px 0 #79B9D3; }
+
+.sepsyg-member-portal{
+  min-height:100dvh;
+  background:linear-gradient(180deg,#FFF9F3 0%,#F6EEE8 100%);
+  color:#243530;
+}
+.sepsyg-portal-header{
+  min-height:68px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  padding:9px clamp(14px,3vw,34px);
+  background:rgba(255,255,255,.9);
+  border-bottom:1px solid rgba(36,53,48,.12);
+  position:sticky;
+  top:0;
+  z-index:50;
+  backdrop-filter:blur(10px);
+}
+.sepsyg-portal-brand{display:flex;align-items:center;gap:10px;min-width:0;}
+.sepsyg-portal-brand .sepsyg-association-logo{margin:0 !important;}
+.sepsyg-portal-brand span{display:block;color:#008D8B;font-size:.62rem;font-weight:900;letter-spacing:.14em;}
+.sepsyg-portal-brand strong{display:block;color:#174B49;font-family:Georgia,"Times New Roman",serif;font-size:1.05rem;font-weight:500;white-space:nowrap;}
+.sepsyg-portal-user{display:flex;align-items:center;gap:10px;color:#66746F;font-size:.78rem;font-weight:700;}
+.sepsyg-portal-user button{border:1px solid rgba(23,75,73,.18);border-radius:999px;background:#fff;color:#174B49;padding:7px 11px;font-size:.72rem;font-weight:800;cursor:pointer;}
+.sepsyg-portal-tabs{
+  display:flex;
+  justify-content:center;
+  gap:7px;
+  padding:9px 14px;
+  background:#fff;
+  border-bottom:1px solid rgba(36,53,48,.1);
+  position:sticky;
+  top:68px;
+  z-index:45;
+}
+.sepsyg-portal-tabs button{min-width:112px;border:1px solid rgba(23,75,73,.14);border-radius:999px;background:#fff;color:#52645F;padding:8px 16px;font-size:.77rem;font-weight:800;cursor:pointer;}
+.sepsyg-portal-tabs button.active{background:#174B49;color:#fff;border-color:#174B49;}
+.sepsyg-portal-content{width:100%;min-height:calc(100dvh - 116px);}
+.sepsyg-portal-map{display:block;width:100%;height:calc(100dvh - 116px);min-height:560px;border:0;background:#FFF9F3;}
+
+.sepsyg-portal-login-page{min-height:100dvh;display:grid;place-items:center;padding:22px;background:linear-gradient(150deg,#FFF9F3,#F0E3DA);}
+.sepsyg-portal-login-card{width:min(410px,100%);padding:30px;border:1px solid rgba(23,75,73,.13);border-radius:26px;background:rgba(255,255,255,.92);box-shadow:0 26px 70px rgba(23,75,73,.12);}
+.sepsyg-portal-login-card>span{display:block;margin-top:14px;color:#008D8B;font-size:.67rem;font-weight:900;letter-spacing:.16em;text-transform:uppercase;}
+.sepsyg-portal-login-card h1{margin:5px 0 8px;color:#174B49;font-family:Georgia,"Times New Roman",serif;font-size:2.15rem;font-weight:500;}
+.sepsyg-portal-login-card p{margin:0 0 20px;color:#66746F;font-size:.82rem;line-height:1.65;}
+.sepsyg-portal-login-card label,.sepsyg-article-form label{display:block;margin:13px 0 6px;color:#243530;font-size:.76rem;font-weight:800;}
+.sepsyg-portal-login-card input,.sepsyg-article-form input,.sepsyg-article-form textarea{width:100%;border:1px solid rgba(36,53,48,.17);border-radius:12px;background:#fff;padding:11px 12px;color:#243530;outline:none;}
+.sepsyg-portal-login-card input:focus,.sepsyg-article-form input:focus,.sepsyg-article-form textarea:focus{border-color:#008D8B;box-shadow:0 0 0 3px rgba(0,141,139,.08);}
+.sepsyg-portal-login-card form>button{width:100%;margin-top:16px;border:0;border-radius:999px;background:#008D8B;color:#fff;padding:12px;font-weight:900;cursor:pointer;}
+.sepsyg-portal-login-error{margin-top:11px;padding:9px 11px;border-radius:10px;background:#fff0f0;color:#9b4444;font-size:.76rem;}
+
+.sepsyg-manage-embedded{min-height:0 !important;background:transparent !important;}
+.sepsyg-manage-embedded main{padding-bottom:18px !important;}
+.sepsyg-manage-embedded nav[aria-label="Επιλογή μήνα"] button{padding:6px 11px !important;font-size:.72rem !important;}
+.sepsyg-manage-embedded section{border-radius:15px !important;}
+
+.sepsyg-articles-manager{width:min(980px,calc(100% - 28px));margin:0 auto;padding:22px 0 42px;}
+.sepsyg-portal-section-head{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;margin-bottom:14px;}
+.sepsyg-portal-section-head>div span{display:block;color:#008D8B;font-size:.65rem;font-weight:900;letter-spacing:.14em;text-transform:uppercase;}
+.sepsyg-portal-section-head h2{margin:3px 0 0;color:#174B49;font-family:Georgia,"Times New Roman",serif;font-size:1.7rem;font-weight:500;}
+.sepsyg-portal-section-head>p{max-width:560px;margin:0;color:#66746F;font-size:.78rem;line-height:1.6;}
+.sepsyg-portal-section-head.compact{margin-top:26px;align-items:center;}
+.sepsyg-article-form,.sepsyg-article-list-panel{padding:20px;border:1px solid rgba(36,53,48,.12);border-radius:20px;background:#fff;box-shadow:0 10px 30px rgba(23,75,73,.04);}
+.sepsyg-article-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.sepsyg-article-form textarea{min-height:88px;resize:vertical;}
+.sepsyg-article-form label span{color:#8A9692;font-weight:500;}
+.sepsyg-match-note{display:block;margin-top:6px;color:#00706D;font-size:.7rem;line-height:1.45;}
+.sepsyg-article-author-preview{display:flex;align-items:center;gap:10px;margin:12px 0 4px;padding:10px 12px;border-radius:14px;background:#F6F1EC;}
+.sepsyg-article-author-preview>img,.sepsyg-article-author-preview>span{width:44px;height:44px;border-radius:50%;object-fit:cover;display:grid;place-items:center;background:#569691;color:#fff;font-family:Georgia,serif;font-size:1.2rem;}
+.sepsyg-article-author-preview strong,.sepsyg-article-author-preview small{display:block;}
+.sepsyg-article-author-preview strong{color:#174B49;font-size:.82rem;}.sepsyg-article-author-preview small{margin-top:2px;color:#66746F;font-size:.7rem;}
+.sepsyg-article-form-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px;}
+.sepsyg-article-form-actions button{border:0;border-radius:999px;background:#008D8B;color:#fff;padding:10px 17px;font-size:.76rem;font-weight:900;cursor:pointer;}
+.sepsyg-article-form-actions button.secondary{border:1px solid rgba(0,141,139,.28);background:#F0FAF8;color:#006B68;}
+.sepsyg-article-form-actions button:disabled{opacity:.55;cursor:wait;}
+.sepsyg-portal-notice{margin:0 0 13px;padding:10px 12px;border-radius:11px;font-size:.77rem;}.sepsyg-portal-notice.success{background:#ECF8F2;color:#176B4D}.sepsyg-portal-notice.error{background:#FFF0F0;color:#954343}
+.sepsyg-article-list-panel{margin-top:18px;}
+.sepsyg-article-admin-list{display:grid;gap:8px;}
+.sepsyg-article-admin-item{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:11px 12px;border:1px solid rgba(36,53,48,.1);border-radius:13px;}
+.sepsyg-article-admin-item strong,.sepsyg-article-admin-item small{display:block;}.sepsyg-article-admin-item strong{font-size:.8rem;color:#174B49;}.sepsyg-article-admin-item small{margin-top:3px;color:#77847F;font-size:.69rem;}
+.sepsyg-article-admin-item>div:last-child{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;}
+.sepsyg-article-admin-item button{border:1px solid rgba(23,75,73,.16);border-radius:999px;background:#fff;color:#174B49;padding:6px 10px;font-size:.68rem;font-weight:800;cursor:pointer;}.sepsyg-article-admin-item button.danger{color:#A44545;border-color:#E0BABA;}
+
+.sepsyg-article-overlay{position:fixed;inset:0;z-index:180;display:flex;align-items:center;justify-content:center;padding:18px;background:rgba(15,42,40,.66);backdrop-filter:blur(7px);}
+.sepsyg-article-reader{position:relative;width:min(900px,100%);max-height:92dvh;overflow:auto;border-radius:26px;background:#FFFDFB;box-shadow:0 34px 90px rgba(8,33,31,.32);}
+.sepsyg-article-close{position:sticky;float:right;top:13px;margin:13px 13px -50px 0;z-index:4;width:38px;height:38px;border:0;border-radius:50%;background:rgba(255,255,255,.92);color:#174B49;font-size:24px;cursor:pointer;box-shadow:0 5px 16px rgba(0,0,0,.08);}
+.sepsyg-article-cover{width:100%;height:min(360px,38dvh);object-fit:cover;display:block;}
+.sepsyg-article-reader-body{padding:clamp(24px,5vw,58px);}
+.sepsyg-article-author-row{display:flex;align-items:center;gap:11px;margin-bottom:22px;}.sepsyg-article-author-row>img,.sepsyg-article-author-row>span{width:48px;height:48px;border-radius:50%;object-fit:cover;display:grid;place-items:center;background:#569691;color:#fff;font-family:Georgia,serif;font-size:1.25rem;}.sepsyg-article-author-row strong,.sepsyg-article-author-row small{display:block;}.sepsyg-article-author-row strong{color:#174B49;font-size:.82rem;}.sepsyg-article-author-row small{margin-top:3px;color:#66746F;font-size:.72rem;}
+.sepsyg-article-reader h1{max-width:760px;margin:0;color:#174B49;font-family:Georgia,"Times New Roman",serif;font-size:clamp(2rem,5vw,3.25rem);font-weight:500;line-height:1.08;}.sepsyg-article-date{color:#7B8985;font-size:.72rem;margin:10px 0 0;}.sepsyg-article-lead{max-width:760px;margin:22px 0;color:#4F625C;font-size:1.05rem;line-height:1.75;font-weight:600;}.sepsyg-article-content{max-width:760px;color:#2E403A;font-size:1rem;line-height:1.9;}.sepsyg-article-content p{margin:0 0 1.2em;}.sepsyg-article-preview-badge{display:inline-flex;margin-bottom:12px;padding:5px 9px;border-radius:999px;background:#FEF3C7;color:#92400E;font-size:.64rem;font-weight:900;letter-spacing:.08em;}.sepsyg-article-share-row{margin-top:30px;padding-top:18px;border-top:1px solid rgba(36,53,48,.1);}.sepsyg-article-share-row button{border:1px solid rgba(0,141,139,.22);border-radius:999px;background:#F0FAF8;color:#006B68;padding:9px 14px;font-size:.74rem;font-weight:900;cursor:pointer;}
+
+.sepsyg-public-articles-page{min-height:100dvh;background:linear-gradient(180deg,#FFF9F3,#F6EEE8);}.sepsyg-articles-public-hero{text-align:center;padding:30px 16px 20px;}.sepsyg-articles-public-hero>span{display:block;margin-top:9px;color:#008D8B;font-size:.65rem;font-weight:900;letter-spacing:.12em;text-transform:uppercase;}.sepsyg-articles-public-hero h1{margin:6px 0 7px;color:#174B49;font-family:Georgia,"Times New Roman",serif;font-size:clamp(2rem,4vw,3rem);font-weight:500;}.sepsyg-articles-public-hero p{margin:0;color:#66746F;font-size:.86rem;}.sepsyg-public-articles-wrap{width:min(1100px,calc(100% - 28px));margin:0 auto;padding:12px 0 45px;}.sepsyg-public-article-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;}.sepsyg-public-article-card{padding:0;border:1px solid rgba(36,53,48,.11);border-radius:20px;background:#fff;overflow:hidden;text-align:left;cursor:pointer;box-shadow:0 10px 30px rgba(23,75,73,.04);}.sepsyg-public-article-card .cover{width:100%;height:190px;object-fit:cover;display:block;}.sepsyg-public-article-card .body{padding:17px;}.sepsyg-public-article-card .author{display:flex;align-items:center;gap:8px;margin-bottom:12px;}.sepsyg-public-article-card .author>img,.sepsyg-public-article-card .author>span{width:34px;height:34px;border-radius:50%;object-fit:cover;display:grid;place-items:center;background:#569691;color:#fff;}.sepsyg-public-article-card .author strong,.sepsyg-public-article-card .author small{display:block;}.sepsyg-public-article-card .author strong{font-size:.7rem;color:#174B49;}.sepsyg-public-article-card .author small{font-size:.62rem;color:#77847F;margin-top:2px;}.sepsyg-public-article-card h2{margin:0;color:#174B49;font-family:Georgia,"Times New Roman",serif;font-size:1.32rem;font-weight:500;line-height:1.2;}.sepsyg-public-article-card p{margin:9px 0 12px;color:#66746F;font-size:.76rem;line-height:1.55;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;}.sepsyg-public-article-card .read-more{color:#008D8B;font-size:.7rem;font-weight:900;}
+
+@media(max-width:760px){
+  .sepsyg-portal-header{min-height:60px;padding:7px 10px;}.sepsyg-portal-brand strong{font-size:.88rem;}.sepsyg-portal-user span{display:none;}.sepsyg-portal-tabs{top:60px;padding:7px 8px;gap:5px;overflow-x:auto;justify-content:flex-start;}.sepsyg-portal-tabs button{min-width:92px;padding:7px 12px;font-size:.7rem;}.sepsyg-portal-content{min-height:calc(100dvh - 104px);}.sepsyg-portal-map{height:calc(100dvh - 104px);min-height:500px;}.sepsyg-articles-manager{width:calc(100% - 18px);padding-top:12px;}.sepsyg-portal-section-head{display:block;}.sepsyg-portal-section-head>p{margin-top:7px;}.sepsyg-article-form{padding:14px;}.sepsyg-article-form-grid{grid-template-columns:1fr;gap:0;}.sepsyg-article-admin-item{align-items:flex-start;flex-direction:column;}.sepsyg-article-reader{max-height:96dvh;border-radius:18px;}.sepsyg-article-reader-body{padding:24px 19px 34px;}.sepsyg-article-cover{height:230px;}.sepsyg-public-article-grid{grid-template-columns:1fr;}.sepsyg-public-article-card .cover{height:210px;}
 }

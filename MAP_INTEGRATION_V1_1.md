@@ -5,7 +5,7 @@
 - `additional_coordinator_name`: δεύτερος συντονιστής (προαιρετικό)
 
 Deep link συγκεκριμένης δράσης:
-`https://hmerologiosillogou.vercel.app/?event=YYYY-MM-DD`
+`https://hmerologiosillogou.vercel.app/events?event=YYYY-MM-DD`
 
 Ο χάρτης v1.1 διαβάζει τις δημόσιες εγγραφές `bookings` από το Firebase
 του ημερολογίου και αντιστοιχίζει τα ονοματεπώνυμα με τα `name` των

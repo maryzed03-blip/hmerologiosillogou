@@ -101,8 +101,8 @@ export default async function handler(request, response) {
   const categoryLabel =
     activityCategory === "association_free"
       ? "Δωρεάν Δράση Συλλόγου"
-      : activityCategory === "therapist_independent"
-        ? "Ανεξάρτητη Δράση Θεραπευτή Συλλόγου"
+      : (activityCategory === "therapist_action" || activityCategory === "therapist_independent")
+        ? "Δράση Θεραπευτή Συλλόγου"
         : "Δράση Συλλόγου";
 
   const pendingApproval = requestedPublic && approvalStatus === "pending";

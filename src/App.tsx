@@ -14,7 +14,7 @@ import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } 
 import { db, ensureAnonymousUser } from "./firebase";
 
 type BookingStatus = "booked" | "completed";
-type ActivityCategory = "association" | "association_free" | "therapist_independent";
+type ActivityCategory = "association" | "association_free" | "therapist_action";
 type ApprovalStatus = "draft" | "pending" | "approved";
 
 type Booking = {
@@ -79,6 +79,187 @@ type MonthItem = {
 
 const PLACEHOLDER = "Θα συμπληρωθεί αργότερα";
 const WEEKDAYS = ["Δευ", "Τρί", "Τετ", "Πέμ", "Παρ", "Σάβ", "Κυρ"];
+
+
+const RICH_TEXT_EMOJIS = ["✨", "📌", "✅", "💬", "🌿", "🧠", "❤️", "🎯", "📅", "🙌"];
+const RICH_TEXT_COLORS = ["#174B49", "#008D8B", "#8B5E3C", "#7C3AED", "#B91C1C", "#111827"];
+
+function escapeRichText(value: string) {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function looksLikeHtml(value: string) {
+  return /<\/?[a-z][\s\S]*>/i.test(value);
+}
+
+function plainTextToRichHtml(value: string) {
+  return escapeRichText(value).replace(/\r?\n/g, "<br>");
+}
+
+function isSafeTextColor(value: string) {
+  return /^(#[0-9a-f]{3,8}|rgb(a)?\([0-9.,%\s]+\)|[a-z]+)$/i.test(value.trim());
+}
+
+function sanitizeRichHtml(value: string) {
+  const prepared = looksLikeHtml(value) ? value : plainTextToRichHtml(value);
+  if (!prepared.trim()) return "";
+  if (typeof DOMParser === "undefined") return prepared;
+
+  const documentValue = new DOMParser().parseFromString(`<div id="sepsyg-rich-root">${prepared}</div>`, "text/html");
+  const root = documentValue.getElementById("sepsyg-rich-root");
+  if (!root) return plainTextToRichHtml(value);
+
+  const allowed = new Set(["B", "STRONG", "U", "EM", "I", "BR", "P", "DIV", "SPAN", "UL", "OL", "LI", "FONT"]);
+
+  function cleanNode(node: Node): string {
+    if (node.nodeType === Node.TEXT_NODE) return escapeRichText(node.textContent ?? "");
+    if (node.nodeType !== Node.ELEMENT_NODE) return "";
+
+    const element = node as HTMLElement;
+    const tag = element.tagName.toUpperCase();
+    const children = Array.from(element.childNodes).map(cleanNode).join("");
+
+    if (!allowed.has(tag)) return children;
+    if (tag === "BR") return "<br>";
+
+    if (tag === "FONT") {
+      const color = element.getAttribute("color") ?? "";
+      return color && isSafeTextColor(color)
+        ? `<span style="color:${escapeRichText(color)}">${children}</span>`
+        : children;
+    }
+
+    if (tag === "SPAN") {
+      const color = element.style.color;
+      return color && isSafeTextColor(color)
+        ? `<span style="color:${escapeRichText(color)}">${children}</span>`
+        : `<span>${children}</span>`;
+    }
+
+    const safeTag = tag.toLowerCase();
+    return `<${safeTag}>${children}</${safeTag}>`;
+  }
+
+  return Array.from(root.childNodes).map(cleanNode).join("");
+}
+
+function richTextForDisplay(value: string | null | undefined) {
+  if (!value) return "";
+  return sanitizeRichHtml(value);
+}
+
+function richTextToPlainText(value: string | null | undefined) {
+  if (!value) return "";
+  if (typeof DOMParser === "undefined") return value.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  const documentValue = new DOMParser().parseFromString(richTextForDisplay(value), "text/html");
+  return (documentValue.body.textContent ?? "").replace(/\s+/g, " ").trim();
+}
+
+function RichTextDisplay({ value, className = "" }: { value: string | null | undefined; className?: string }) {
+  if (!value) return null;
+  return <div className={`sepsyg-rich-output ${className}`} dangerouslySetInnerHTML={{ __html: richTextForDisplay(value) }} />;
+}
+
+function RichTextEditor({
+  id,
+  value,
+  onChange,
+  disabled = false,
+  placeholder,
+}: {
+  id: string;
+  value: string;
+  onChange: (value: string) => void;
+  disabled?: boolean;
+  placeholder?: string;
+}) {
+  const editorRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (!editor || document.activeElement === editor) return;
+    const nextHtml = richTextForDisplay(value);
+    if (editor.innerHTML !== nextHtml) editor.innerHTML = nextHtml;
+  }, [value, disabled]);
+
+  function emitValue() {
+    const editor = editorRef.current;
+    if (!editor) return;
+    onChange(sanitizeRichHtml(editor.innerHTML));
+  }
+
+  function runCommand(command: string, argument?: string) {
+    if (disabled) return;
+    editorRef.current?.focus();
+    document.execCommand(command, false, argument);
+    emitValue();
+  }
+
+  function uppercaseSelection() {
+    if (disabled) return;
+    const editor = editorRef.current;
+    const selection = window.getSelection();
+    if (!editor || !selection || selection.rangeCount === 0) return;
+    const range = selection.getRangeAt(0);
+    if (!editor.contains(range.commonAncestorContainer) || selection.isCollapsed) return;
+    const selected = selection.toString();
+    document.execCommand("insertText", false, selected.toLocaleUpperCase("el-GR"));
+    emitValue();
+  }
+
+  return (
+    <div className={`sepsyg-rich-editor ${disabled ? "is-disabled" : ""}`}>
+      <div className="sepsyg-rich-toolbar" aria-label="Εργαλεία μορφοποίησης">
+        <button type="button" title="Έντονα" disabled={disabled} onMouseDown={(event) => event.preventDefault()} onClick={() => runCommand("bold")}><strong>B</strong></button>
+        <button type="button" title="Υπογράμμιση" disabled={disabled} onMouseDown={(event) => event.preventDefault()} onClick={() => runCommand("underline")}><u>U</u></button>
+        <button type="button" title="Μετατροπή του επιλεγμένου κειμένου σε κεφαλαία" disabled={disabled} onMouseDown={(event) => event.preventDefault()} onClick={uppercaseSelection}>ΑΑ</button>
+        <span className="sepsyg-rich-toolbar-separator" />
+        {RICH_TEXT_COLORS.map((color) => (
+          <button
+            key={color}
+            type="button"
+            className="sepsyg-rich-color"
+            title={`Χρώμα ${color}`}
+            disabled={disabled}
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => runCommand("foreColor", color)}
+          >
+            <span style={{ backgroundColor: color }} />
+          </button>
+        ))}
+      </div>
+      <div className="sepsyg-rich-emoji-row" aria-label="Έτοιμα emoji">
+        {RICH_TEXT_EMOJIS.map((emoji) => (
+          <button key={emoji} type="button" disabled={disabled} onMouseDown={(event) => event.preventDefault()} onClick={() => runCommand("insertText", emoji)}>{emoji}</button>
+        ))}
+      </div>
+      <div
+        id={id}
+        ref={editorRef}
+        className="sepsyg-rich-editor-area"
+        contentEditable={!disabled}
+        suppressContentEditableWarning
+        data-placeholder={placeholder ?? "Γράψε εδώ…"}
+        onInput={() => {
+          const editor = editorRef.current;
+          if (editor) onChange(editor.innerHTML);
+        }}
+        onBlur={emitValue}
+        onPaste={(event) => {
+          event.preventDefault();
+          const text = event.clipboardData.getData("text/plain");
+          document.execCommand("insertText", false, text);
+          emitValue();
+        }}
+      />
+    </div>
+  );
+}
 
 const STATIC_BOOKINGS: Booking[] = [
   {
@@ -320,11 +501,7 @@ function bookingFromSnapshot(snapshot: QueryDocumentSnapshot<DocumentData>): Boo
     audience: typeof data.audience === "string" ? data.audience : null,
     program_details: typeof data.program_details === "string" ? data.program_details : null,
     activity_category:
-      data.activity_category === "association" ||
-      data.activity_category === "association_free" ||
-      data.activity_category === "therapist_independent"
-        ? data.activity_category
-        : "association_free",
+      data.activity_category === "association_free" ? "association_free" : (data.activity_category === "therapist_action" || data.activity_category === "therapist_independent") ? "therapist_action" : "association",
     general_price: typeof data.general_price === "string" ? data.general_price : null,
     offers_member_discount: data.offers_member_discount === true,
     member_price: typeof data.member_price === "string" ? data.member_price : null,
@@ -491,19 +668,19 @@ function coordinatorsLabel(booking: Booking) {
 
 function activityCategoryLabel(booking: Booking) {
   if (booking.activity_category === "association_free") return "Δωρεάν Δράση Συλλόγου";
-  if (booking.activity_category === "therapist_independent") return "Ανεξάρτητη Δράση Θεραπευτή Συλλόγου";
+  if (booking.activity_category === "therapist_action") return "Δράση Θεραπευτή Συλλόγου";
   return "Δράση Συλλόγου";
 }
 
 function activityCategoryClass(booking: Booking) {
   if (booking.activity_category === "association_free") return "category-free";
-  if (booking.activity_category === "therapist_independent") return "category-independent";
+  if (booking.activity_category === "therapist_action") return "category-independent";
   return "category-association";
 }
 
 function activityCategoryUnderline(booking: Booking) {
   if (booking.activity_category === "association_free") return "inset 0 -5px 0 #63A97E";
-  if (booking.activity_category === "therapist_independent") return "inset 0 -5px 0 #79B9D3";
+  if (booking.activity_category === "therapist_action") return "inset 0 -5px 0 #79B9D3";
   return "inset 0 -5px 0 #E39A55";
 }
 
@@ -527,7 +704,7 @@ async function notifyAdmin(action: NotificationAction, booking: Booking) {
         additional_coordinator_name: booking.additional_coordinator_name,
         action_time: booking.action_time,
         topic: booking.topic,
-        description: booking.description,
+        description: richTextToPlainText(booking.description),
         activity_category: booking.activity_category,
         general_price: booking.general_price,
         offers_member_discount: booking.offers_member_discount,
@@ -564,6 +741,11 @@ function getManageRole(): ManageRole | null {
   if (typeof window === "undefined") return null;
   const role = window.sessionStorage.getItem(MANAGE_ROLE_KEY);
   return role === "admin" || role === "member" ? role : null;
+}
+
+function getPortalName() {
+  if (typeof window === "undefined") return "";
+  return window.sessionStorage.getItem("association-portal-name") || "";
 }
 
 
@@ -678,7 +860,7 @@ function ManageAccess() {
   );
 }
 
-function ManageApp({ role }: { role: ManageRole }) {
+function ManageApp({ role, embedded = false }: { role: ManageRole; embedded?: boolean }) {
   const [activeMonth, setActiveMonth] = useState(() => getInitialMonthKey());
   const [bookings, setBookings] = useState<Booking[]>(STATIC_BOOKINGS);
   const [loading, setLoading] = useState(true);
@@ -786,8 +968,8 @@ function ManageApp({ role }: { role: ManageRole }) {
   }, [month]);
 
   return (
-    <div className="sepsyg-manage-page min-h-screen bg-slate-50 text-slate-900">
-      <header className="border-b border-slate-200 bg-white">
+    <div className={`sepsyg-manage-page ${embedded ? "sepsyg-manage-embedded" : "min-h-screen"} bg-slate-50 text-slate-900`}>
+      {!embedded && <header className="border-b border-slate-200 bg-white">
         <div className="mx-auto max-w-6xl px-4 py-7 sm:px-6">
           <AssociationLogo size="sm" />
           <div className="mt-4 flex flex-wrap items-center gap-2">
@@ -820,9 +1002,9 @@ function ManageApp({ role }: { role: ManageRole }) {
             </a>
           </div>
         </div>
-      </header>
+      </header>}
 
-      <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
+      <main className={`mx-auto ${embedded ? "max-w-5xl px-2 py-3 sm:px-3" : "max-w-6xl px-4 py-6 sm:px-6"}`}>
         {emailNotice && (
           <div className={`mb-5 rounded-lg border px-4 py-3 text-sm ${emailNotice.ok ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-amber-200 bg-amber-50 text-amber-900"}`}>
             {emailNotice.text}
@@ -889,7 +1071,7 @@ function ManageApp({ role }: { role: ManageRole }) {
               <div className="grid grid-cols-7 gap-1.5">
                 {calendarCells.map((day, index) => {
                   if (day === null) {
-                    return <div key={`empty-${index}`} className="h-14 rounded-md bg-slate-50/70 sm:h-28 sm:rounded-lg" />;
+                    return <div key={`empty-${index}`} className={`h-14 rounded-md bg-slate-50/70 ${embedded ? "sm:h-20" : "sm:h-28"} sm:rounded-lg`} />;
                   }
 
                   const date = toDateString(month.year, month.month, day);
@@ -908,7 +1090,7 @@ function ManageApp({ role }: { role: ManageRole }) {
                       key={date}
                       type="button"
                       onClick={() => booking ? setViewBooking(booking) : setSelectedDate(date)}
-                      className={`flex h-14 min-w-0 flex-col items-center justify-start rounded-md border p-1.5 text-center transition sm:h-28 sm:items-start sm:rounded-lg sm:p-2.5 sm:text-left ${buttonClass}`}
+                      className={`flex h-14 min-w-0 flex-col items-center justify-start rounded-md border p-1.5 text-center transition ${embedded ? "sm:h-20 sm:p-2" : "sm:h-28 sm:p-2.5"} sm:items-start sm:rounded-lg sm:text-left ${buttonClass}`}
                       style={booking ? { boxShadow: activityCategoryUnderline(booking) } : undefined}
                     >
                       <span className={`text-xs font-bold sm:text-sm ${status === "completed" ? "text-violet-950" : status === "booked" ? "text-emerald-950" : "text-slate-700"}`}>
@@ -1078,7 +1260,7 @@ function ActivityCard({
           {booking.mode && <span className="sepsyg-event-mode">{booking.mode}</span>}
         </div>
         <h3>{booking.topic || "Δράση Συλλόγου"}</h3>
-        {booking.description && <p className="sepsyg-event-desc">{booking.description}</p>}
+        {booking.description && <p className="sepsyg-event-desc">{richTextToPlainText(booking.description)}</p>}
         <div className="sepsyg-event-meta">
           <span>📅 {formatDateGreek(booking.booking_date)}</span>
           <span>🕒 {booking.action_time || "Η ώρα θα ανακοινωθεί"}</span>
@@ -1282,20 +1464,6 @@ function PublicEventsApp() {
 
   return (
     <div className="sepsyg-public-page">
-      <button
-        type="button"
-        className="sepsyg-discreet-access"
-        onClick={() => {
-          setAccessError(null);
-          setAccessCode("");
-          setAccessOpen(true);
-        }}
-        aria-label="Είσοδος στη διαχείριση"
-        title="Είσοδος στη διαχείριση"
-      >
-        +
-      </button>
-
       <header className="sepsyg-public-hero sepsyg-public-hero-compact">
         <div className="sepsyg-public-wrap sepsyg-hero-inner sepsyg-hero-inner-compact">
           <div className="sepsyg-hero-brand-row">
@@ -1708,10 +1876,12 @@ function PublicBookingDetails({
   booking,
   therapistDirectory,
   onClose,
+  previewMode = false,
 }: {
   booking: Booking;
   therapistDirectory: TherapistDirectoryItem[];
   onClose: () => void;
+  previewMode?: boolean;
 }) {
   const isCompleted = isBookingCompleted(booking);
   const mainTherapist = findTherapistByName(booking.therapist_name, therapistDirectory);
@@ -1728,13 +1898,17 @@ function PublicBookingDetails({
   const [consent, setConsent] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
+  const [copyNotice, setCopyNotice] = useState("");
   const registrationRef = useRef<HTMLFormElement | null>(null);
+  const shareUrl = typeof window === "undefined"
+    ? `/events?event=${encodeURIComponent(booking.booking_date)}`
+    : `${window.location.origin}/events?event=${encodeURIComponent(booking.booking_date)}`;
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (previewMode || typeof window === "undefined") return;
 
     const previousUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-    const nextUrl = `/?event=${encodeURIComponent(booking.booking_date)}`;
+    const nextUrl = `/events?event=${encodeURIComponent(booking.booking_date)}`;
 
     if (previousUrl !== nextUrl) {
       window.history.replaceState({ event: booking.booking_date }, "", nextUrl);
@@ -1745,7 +1919,23 @@ function PublicBookingDetails({
         window.history.replaceState({}, "", previousUrl);
       }
     };
-  }, [booking.booking_date]);
+  }, [booking.booking_date, previewMode]);
+
+  async function copyShareLink() {
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopyNotice("Ο σύνδεσμος αντιγράφηκε.");
+    } catch {
+      const input = document.createElement("input");
+      input.value = shareUrl;
+      document.body.appendChild(input);
+      input.select();
+      document.execCommand("copy");
+      input.remove();
+      setCopyNotice("Ο σύνδεσμος αντιγράφηκε.");
+    }
+    window.setTimeout(() => setCopyNotice(""), 2200);
+  }
 
   useEffect(() => {
     if (!showForm) return;
@@ -1791,7 +1981,7 @@ function PublicBookingDetails({
   }
 
   return (
-    <Modal onClose={submitting ? undefined : onClose} wide>
+    <Modal onClose={submitting ? undefined : onClose} wide landing>
       <div className="sepsyg-activity-popup-shell">
         {booking.image_url ? (
           <div className="sepsyg-popup-cover">
@@ -1826,11 +2016,11 @@ function PublicBookingDetails({
             <h3>{booking.topic || "Δράση Συλλόγου"}</h3>
 
             {booking.description && (
-              <p className="sepsyg-popup-lead">{booking.description}</p>
+              <RichTextDisplay value={booking.description} className="sepsyg-popup-lead" />
             )}
 
             <div className="sepsyg-popup-top-actions">
-              {!isCompleted && (
+              {!isCompleted && !previewMode && (
                 <button
                   type="button"
                   className="sepsyg-popup-register-primary"
@@ -1840,6 +2030,20 @@ function PublicBookingDetails({
                 </button>
               )}
 
+              <button type="button" className="sepsyg-popup-copy-link" onClick={() => void copyShareLink()}>
+                🔗 Αντιγραφή συνδέσμου
+              </button>
+
+              {previewMode && (
+                <span className="sepsyg-preview-badge">ΠΡΟΕΠΙΣΚΟΠΗΣΗ — δεν έχει δημοσιευτεί ακόμη</span>
+              )}
+            </div>
+
+            <div className="sepsyg-popup-share-box">
+              <span>{previewMode ? "Ο σύνδεσμος θα είναι" : "Σύνδεσμος αυτής της δράσης"}</span>
+              <input className="sepsyg-popup-share-url" readOnly value={shareUrl} onFocus={(event) => event.currentTarget.select()} />
+              {previewMode && <small>Θα ενεργοποιηθεί μόλις αποθηκευτεί και δημοσιευτεί η δράση.</small>}
+              {copyNotice && <small>{copyNotice}</small>}
             </div>
           </section>
 
@@ -1872,9 +2076,7 @@ function PublicBookingDetails({
             <section className="sepsyg-popup-info-card">
               <p className="text-[11px] font-extrabold uppercase tracking-[.14em] text-[#008D8B]">Η δράση</p>
               <h4 className="mt-2 font-serif text-2xl font-medium text-[#174B49]">Περισσότερες πληροφορίες</h4>
-              <p className="mt-3 whitespace-pre-wrap text-[15px] leading-8 text-[#566966]">
-                {booking.long_description}
-              </p>
+              <RichTextDisplay value={booking.long_description} className="mt-3 text-[15px] leading-8 text-[#566966]" />
             </section>
           )}
 
@@ -1887,7 +2089,11 @@ function PublicBookingDetails({
                 />
               </div>
 
-              {!isCompleted ? (
+              {previewMode ? (
+                <div className="sepsyg-popup-secondary-completed">
+                  Προεπισκόπηση δεύτερης εικόνας
+                </div>
+              ) : !isCompleted ? (
                 <button
                   type="button"
                   className="sepsyg-popup-secondary-cta"
@@ -1907,18 +2113,14 @@ function PublicBookingDetails({
           {booking.audience && (
             <section className="sepsyg-popup-info-card sepsyg-popup-info-card-sage">
               <p className="text-[11px] font-extrabold uppercase tracking-[.14em] text-[#008D8B]">Σε ποιους απευθύνεται</p>
-              <p className="mt-2 whitespace-pre-wrap text-[15px] leading-7 text-[#425754]">
-                {booking.audience}
-              </p>
+              <RichTextDisplay value={booking.audience} className="mt-2 text-[15px] leading-7 text-[#425754]" />
             </section>
           )}
 
           {booking.program_details && (
             <section className="sepsyg-popup-info-card">
               <p className="text-[11px] font-extrabold uppercase tracking-[.14em] text-[#008D8B]">Πρόγραμμα / Θεματικές</p>
-              <p className="mt-2 whitespace-pre-wrap text-[15px] leading-7 text-[#425754]">
-                {booking.program_details}
-              </p>
+              <RichTextDisplay value={booking.program_details} className="mt-2 text-[15px] leading-7 text-[#425754]" />
             </section>
           )}
 
@@ -1962,7 +2164,7 @@ function PublicBookingDetails({
             </section>
           )}
 
-          {!isCompleted && !showForm && (
+          {!previewMode && !isCompleted && !showForm && (
             <div className="sepsyg-popup-bottom-register">
               <div>
                 <strong>Θέλεις να συμμετέχεις;</strong>
@@ -1974,7 +2176,7 @@ function PublicBookingDetails({
             </div>
           )}
 
-          {!isCompleted && showForm && (
+          {!previewMode && !isCompleted && showForm && (
             <form ref={registrationRef} onSubmit={handleRegistration} className="sepsyg-registration-form sepsyg-popup-registration-form">
               <div className="form-intro">
                 <h4>Δήλωση συμμετοχής</h4>
@@ -2141,11 +2343,483 @@ function useCarrdEmbedBridge() {
   }, []);
 }
 
+
+
+type ArticleApprovalStatus = "pending" | "approved";
+type ArticleItem = {
+  id: string;
+  title: string;
+  excerpt: string;
+  content: string;
+  cover_image_url: string;
+  author_name: string;
+  author_role: string;
+  author_photo_url: string;
+  approval_status: ArticleApprovalStatus;
+  is_public: boolean;
+  created_at: string | null;
+  updated_at: string | null;
+};
+
+function articleDateLabel(value: string | null | undefined) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleDateString("el-GR", { day: "numeric", month: "long", year: "numeric" });
+}
+
+function ArticleReaderModal({ article, preview = false, onClose }: { article: ArticleItem; preview?: boolean; onClose: () => void }) {
+  const shareUrl = typeof window === "undefined" ? "" : `${window.location.origin}/articles?article=${encodeURIComponent(article.id)}`;
+  const [copied, setCopied] = useState(false);
+
+  async function copyShareLink() {
+    if (!shareUrl || preview) return;
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1800);
+    } catch {
+      window.prompt("Αντέγραψε τον σύνδεσμο:", shareUrl);
+    }
+  }
+
+  return (
+    <div className="sepsyg-article-overlay" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+      <article className="sepsyg-article-reader" role="dialog" aria-modal="true" aria-label={article.title || "Άρθρο"}>
+        <button type="button" className="sepsyg-article-close" onClick={onClose} aria-label="Κλείσιμο">×</button>
+        {article.cover_image_url && <img className="sepsyg-article-cover" src={article.cover_image_url} alt="" />}
+        <div className="sepsyg-article-reader-body">
+          <div className="sepsyg-article-author-row">
+            {article.author_photo_url ? (
+              <img src={article.author_photo_url} alt={article.author_name} />
+            ) : (
+              <span>{article.author_name?.charAt(0) || "Σ"}</span>
+            )}
+            <div>
+              <strong>{article.author_name}</strong>
+              {article.author_role && <small>{article.author_role}</small>}
+            </div>
+          </div>
+
+          {preview && <div className="sepsyg-article-preview-badge">ΠΡΟΕΠΙΣΚΟΠΗΣΗ</div>}
+          <h1>{article.title || "Τίτλος άρθρου"}</h1>
+          {article.created_at && <p className="sepsyg-article-date">{articleDateLabel(article.created_at)}</p>}
+          {article.excerpt && <p className="sepsyg-article-lead">{article.excerpt}</p>}
+          <RichTextDisplay value={article.content} className="sepsyg-article-content" />
+
+          {!preview && article.is_public && (
+            <div className="sepsyg-article-share-row">
+              <button type="button" onClick={copyShareLink}>{copied ? "✓ Αντιγράφηκε" : "🔗 Αντιγραφή συνδέσμου άρθρου"}</button>
+            </div>
+          )}
+        </div>
+      </article>
+    </div>
+  );
+}
+
+function ArticlesManager({ role, memberName }: { role: ManageRole; memberName: string }) {
+  const [articles, setArticles] = useState<ArticleItem[]>([]);
+  const [therapists, setTherapists] = useState<TherapistDirectoryItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [title, setTitle] = useState("");
+  const [excerpt, setExcerpt] = useState("");
+  const [content, setContent] = useState("");
+  const [authorName, setAuthorName] = useState(memberName);
+  const [authorRole, setAuthorRole] = useState("");
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [authorPhotoFile, setAuthorPhotoFile] = useState<File | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [readerArticle, setReaderArticle] = useState<ArticleItem | null>(null);
+
+  const coverPreview = usePreviewFileUrl(coverFile, "");
+  const manualAuthorPreview = usePreviewFileUrl(authorPhotoFile, "");
+  const matchedTherapist = useMemo(() => findTherapistByName(authorName, therapists), [authorName, therapists]);
+  const authorPhoto = matchedTherapist?.photo || manualAuthorPreview || "";
+  const effectiveAuthorRole = authorRole.trim() || matchedTherapist?.profession || "";
+  const code = getManageCode();
+
+  async function loadArticles() {
+    if (!code) return;
+    try {
+      setLoading(true);
+      const response = await fetch(`/api/articles?code=${encodeURIComponent(code)}`);
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.code || "ARTICLES_LOAD_FAILED");
+      setArticles(Array.isArray(payload.articles) ? payload.articles : []);
+      setError(null);
+    } catch (caught) {
+      setError(`Δεν φορτώθηκαν τα άρθρα (${(caught as Error).message}).`);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    void loadArticles();
+    void loadTherapistDirectory().then(setTherapists);
+  }, []);
+
+  const previewArticle: ArticleItem = {
+    id: "preview",
+    title: title.trim(),
+    excerpt: excerpt.trim(),
+    content: sanitizeRichHtml(content),
+    cover_image_url: coverPreview,
+    author_name: authorName.trim(),
+    author_role: effectiveAuthorRole,
+    author_photo_url: authorPhoto,
+    approval_status: role === "admin" ? "approved" : "pending",
+    is_public: false,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+
+  async function submitArticle(event: FormEvent) {
+    event.preventDefault();
+    if (!code) return;
+    if (authorName.trim().length < 2 || title.trim().length < 3 || richTextToPlainText(content).length < 10) {
+      setError("Συμπλήρωσε ονοματεπώνυμο, τίτλο και το βασικό κείμενο του άρθρου.");
+      return;
+    }
+
+    setSaving(true);
+    setError(null);
+    try {
+      const cover = coverFile ? await compressImageFile(coverFile) : "";
+      const manualPhoto = authorPhotoFile ? await compressImageFile(authorPhotoFile) : "";
+      const response = await fetch("/api/articles", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code,
+          title: title.trim(),
+          excerpt: excerpt.trim(),
+          content: sanitizeRichHtml(content),
+          cover_image_url: cover,
+          author_name: authorName.trim(),
+          author_role: effectiveAuthorRole,
+          author_photo_url: matchedTherapist?.photo || manualPhoto || "",
+        }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.code || "ARTICLE_SAVE_FAILED");
+
+      setTitle("");
+      setExcerpt("");
+      setContent("");
+      setCoverFile(null);
+      setAuthorPhotoFile(null);
+      setNotice(role === "admin" ? "Το άρθρο δημοσιεύτηκε." : "Το άρθρο αποθηκεύτηκε και στάλθηκε για έγκριση στο Διοικητικό.");
+      window.setTimeout(() => setNotice(null), 6000);
+      await loadArticles();
+    } catch (caught) {
+      setError(`Δεν αποθηκεύτηκε το άρθρο (${(caught as Error).message}).`);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function approveArticle(article: ArticleItem) {
+    if (!code || role !== "admin") return;
+    try {
+      const response = await fetch("/api/articles", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code, id: article.id }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.code || "ARTICLE_APPROVE_FAILED");
+      await loadArticles();
+    } catch (caught) {
+      setError(`Δεν εγκρίθηκε το άρθρο (${(caught as Error).message}).`);
+    }
+  }
+
+  async function deleteArticle(article: ArticleItem) {
+    if (!code || role !== "admin" || !window.confirm("Να διαγραφεί οριστικά το άρθρο;")) return;
+    try {
+      const response = await fetch("/api/articles", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code, id: article.id }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.code || "ARTICLE_DELETE_FAILED");
+      await loadArticles();
+    } catch (caught) {
+      setError(`Δεν διαγράφηκε το άρθρο (${(caught as Error).message}).`);
+    }
+  }
+
+  return (
+    <div className="sepsyg-articles-manager">
+      <div className="sepsyg-portal-section-head">
+        <div><span>Άρθρα</span><h2>Νέο άρθρο θεραπευτή</h2></div>
+        <p>Γράψε το άρθρο, δες προεπισκόπηση και αποθήκευσέ το. Η φωτογραφία και η ιδιότητα συμπληρώνονται αυτόματα όταν το ονοματεπώνυμο υπάρχει στον Χάρτη Θεραπευτών.</p>
+      </div>
+
+      {notice && <div className="sepsyg-portal-notice success">{notice}</div>}
+      {error && <div className="sepsyg-portal-notice error">{error}</div>}
+
+      <form className="sepsyg-article-form" onSubmit={submitArticle}>
+        <div className="sepsyg-article-form-grid">
+          <div>
+            <label htmlFor="article-author">Ονοματεπώνυμο</label>
+            <input id="article-author" value={authorName} onChange={(e) => setAuthorName(e.target.value)} placeholder="Ονοματεπώνυμο θεραπευτή" required />
+            {matchedTherapist && <small className="sepsyg-match-note">✓ Βρέθηκε στον Χάρτη Θεραπευτών — φωτογραφία και ιδιότητα συνδέθηκαν αυτόματα.</small>}
+          </div>
+          <div>
+            <label htmlFor="article-role">Ιδιότητα / επάγγελμα</label>
+            <input id="article-role" value={authorRole} onChange={(e) => setAuthorRole(e.target.value)} placeholder={matchedTherapist?.profession || "π.χ. Σύμβουλος Ψυχικής Υγείας"} />
+          </div>
+        </div>
+
+        <div className="sepsyg-article-author-preview">
+          {authorPhoto ? <img src={authorPhoto} alt="" /> : <span>{authorName.charAt(0) || "Θ"}</span>}
+          <div><strong>{authorName || "Ονοματεπώνυμο"}</strong><small>{effectiveAuthorRole || "Ιδιότητα"}</small></div>
+        </div>
+
+        {!matchedTherapist?.photo && (
+          <div>
+            <label htmlFor="article-author-photo">Φωτογραφία συγγραφέα <span>(μόνο αν δεν υπάρχει ήδη στον χάρτη)</span></label>
+            <input id="article-author-photo" type="file" accept="image/*" onChange={(e) => setAuthorPhotoFile(e.target.files?.[0] || null)} />
+          </div>
+        )}
+
+        <div>
+          <label htmlFor="article-title">Τίτλος άρθρου</label>
+          <input id="article-title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Ένας καθαρός, ενδιαφέρων τίτλος" required />
+        </div>
+        <div>
+          <label htmlFor="article-excerpt">Σύντομη εισαγωγή</label>
+          <textarea id="article-excerpt" value={excerpt} onChange={(e) => setExcerpt(e.target.value)} placeholder="2–3 προτάσεις που θα φαίνονται στην κάρτα του άρθρου." />
+        </div>
+        <div>
+          <label htmlFor="article-cover">Κεντρική φωτογραφία άρθρου</label>
+          <input id="article-cover" type="file" accept="image/*" onChange={(e) => setCoverFile(e.target.files?.[0] || null)} />
+        </div>
+        <div>
+          <label>Κείμενο άρθρου</label>
+          <RichTextEditor id="article-content" value={content} onChange={setContent} placeholder="Γράψε εδώ το άρθρο. Μπορείς να χρησιμοποιήσεις bold, υπογράμμιση, χρώμα και emoji." />
+        </div>
+
+        <div className="sepsyg-article-form-actions">
+          <button type="button" className="secondary" onClick={() => setPreviewOpen(true)}>👁 Προεπισκόπηση</button>
+          <button type="submit" disabled={saving}>{saving ? "Αποθήκευση…" : role === "admin" ? "Δημοσίευση άρθρου" : "Υποβολή άρθρου"}</button>
+        </div>
+      </form>
+
+      <section className="sepsyg-article-list-panel">
+        <div className="sepsyg-portal-section-head compact"><div><span>Καταχωρίσεις</span><h2>Άρθρα</h2></div></div>
+        {loading ? <p>Φόρτωση…</p> : articles.length === 0 ? <p>Δεν υπάρχουν ακόμη άρθρα.</p> : (
+          <div className="sepsyg-article-admin-list">
+            {articles.map((article) => (
+              <div className="sepsyg-article-admin-item" key={article.id}>
+                <div>
+                  <strong>{article.title}</strong>
+                  <small>{article.author_name} · {article.approval_status === "approved" ? "Δημοσιευμένο" : "Αναμονή έγκρισης"}</small>
+                </div>
+                <div>
+                  <button type="button" onClick={() => setReaderArticle(article)}>Προβολή</button>
+                  {role === "admin" && article.approval_status !== "approved" && <button type="button" onClick={() => approveArticle(article)}>Έγκριση</button>}
+                  {role === "admin" && <button type="button" className="danger" onClick={() => deleteArticle(article)}>Διαγραφή</button>}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {previewOpen && <ArticleReaderModal article={previewArticle} preview onClose={() => setPreviewOpen(false)} />}
+      {readerArticle && <ArticleReaderModal article={readerArticle} onClose={() => setReaderArticle(null)} />}
+    </div>
+  );
+}
+
+function PublicArticlesApp() {
+  const [articles, setArticles] = useState<ArticleItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selected, setSelected] = useState<ArticleItem | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/articles")
+      .then(async (response) => {
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload.code || "ARTICLES_LOAD_FAILED");
+        const items = Array.isArray(payload.articles) ? payload.articles : [];
+        setArticles(items);
+        const requested = new URLSearchParams(window.location.search).get("article");
+        if (requested) setSelected(items.find((item: ArticleItem) => item.id === requested) || null);
+      })
+      .catch((caught) => setError(`Δεν φορτώθηκαν τα άρθρα (${(caught as Error).message}).`))
+      .finally(() => setLoading(false));
+  }, []);
+
+  function openArticle(article: ArticleItem) {
+    setSelected(article);
+    window.history.replaceState({}, "", `/articles?article=${encodeURIComponent(article.id)}`);
+  }
+
+  function closeArticle() {
+    setSelected(null);
+    window.history.replaceState({}, "", "/articles");
+  }
+
+  return (
+    <div className="sepsyg-public-articles-page">
+      <header className="sepsyg-articles-public-hero">
+        <AssociationLogo size="sm" />
+        <span>Πανευρωπαϊκός Επιστημονικός Σύλλογος Σ.Ε.ΨΥ.G.</span>
+        <h1>Άρθρα Θεραπευτών</h1>
+        <p>Άρθρα και εκπαιδευτικό περιεχόμενο από θεραπευτές του Συλλόγου.</p>
+      </header>
+      <main className="sepsyg-public-articles-wrap">
+        {error && <div className="sepsyg-portal-notice error">{error}</div>}
+        {loading ? <p>Φόρτωση…</p> : (
+          <div className="sepsyg-public-article-grid">
+            {articles.map((article) => (
+              <button type="button" className="sepsyg-public-article-card" key={article.id} onClick={() => openArticle(article)}>
+                {article.cover_image_url && <img className="cover" src={article.cover_image_url} alt="" />}
+                <div className="body">
+                  <div className="author">
+                    {article.author_photo_url ? <img src={article.author_photo_url} alt="" /> : <span>{article.author_name.charAt(0)}</span>}
+                    <div><strong>{article.author_name}</strong><small>{article.author_role}</small></div>
+                  </div>
+                  <h2>{article.title}</h2>
+                  {article.excerpt && <p>{article.excerpt}</p>}
+                  <span className="read-more">Διάβασε το άρθρο →</span>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+      </main>
+      {selected && <ArticleReaderModal article={selected} onClose={closeArticle} />}
+    </div>
+  );
+}
+
+function MemberPortal() {
+  const [role, setRole] = useState<ManageRole | null>(() => getManageRole());
+  const [memberName, setMemberName] = useState(() => {
+    try { return window.sessionStorage.getItem("association-portal-name") || ""; } catch { return ""; }
+  });
+  const [loginName, setLoginName] = useState("");
+  const [loginCode, setLoginCode] = useState("");
+  const [loginError, setLoginError] = useState<string | null>(null);
+  const [checking, setChecking] = useState(false);
+  const [activeTab, setActiveTab] = useState<"map" | "calendar" | "articles">("map");
+  const mapFrameRef = useRef<HTMLIFrameElement | null>(null);
+
+  function syncMapPortalAuth() {
+    mapFrameRef.current?.contentWindow?.postMessage(
+      { type: "sepsyg-portal-auth", role, name: memberName },
+      "https://syllogosmap.vercel.app",
+    );
+  }
+
+  useEffect(() => {
+    if (activeTab !== "map" || !role || !memberName) return;
+    const timer = window.setTimeout(syncMapPortalAuth, 350);
+    return () => window.clearTimeout(timer);
+  }, [activeTab, role, memberName]);
+
+  async function login(event: FormEvent) {
+    event.preventDefault();
+    if (loginName.trim().length < 2) {
+      setLoginError("Γράψε το ονοματεπώνυμό σου.");
+      return;
+    }
+    setChecking(true);
+    setLoginError(null);
+    try {
+      const response = await fetch("/api/verify-manage-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: loginCode.trim() }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || (payload.role !== "member" && payload.role !== "admin")) throw new Error("INVALID_CODE");
+      window.sessionStorage.setItem(MANAGE_ACCESS_KEY, loginCode.trim());
+      window.sessionStorage.setItem(MANAGE_ROLE_KEY, payload.role);
+      window.sessionStorage.setItem("association-portal-name", loginName.trim());
+      setRole(payload.role);
+      setMemberName(loginName.trim());
+      setActiveTab("map");
+    } catch {
+      setLoginError("Ο κωδικός δεν είναι σωστός.");
+      setLoginCode("");
+    } finally {
+      setChecking(false);
+    }
+  }
+
+  function logout() {
+    try {
+      window.sessionStorage.removeItem(MANAGE_ACCESS_KEY);
+      window.sessionStorage.removeItem(MANAGE_ROLE_KEY);
+      window.sessionStorage.removeItem("association-portal-name");
+    } catch { /* noop */ }
+    setRole(null);
+    setMemberName("");
+    setLoginName("");
+    setLoginCode("");
+  }
+
+  if (!role || !memberName) {
+    return (
+      <div className="sepsyg-portal-login-page">
+        <div className="sepsyg-portal-login-card">
+          <AssociationLogo size="sm" />
+          <span>Περιοχή θεραπευτών</span>
+          <h1>Login</h1>
+          <p>Γράψε το ονοματεπώνυμό σου και τον κωδικό πρόσβασης. Δεν χρειάζεται δημιουργία λογαριασμού.</p>
+          <form onSubmit={login}>
+            <label htmlFor="portal-name">Ονοματεπώνυμο</label>
+            <input id="portal-name" value={loginName} onChange={(e) => setLoginName(e.target.value)} placeholder="Ονοματεπώνυμο" autoFocus required />
+            <label htmlFor="portal-code">Κωδικός</label>
+            <input id="portal-code" type="password" inputMode="numeric" value={loginCode} onChange={(e) => setLoginCode(e.target.value)} placeholder="••••" required />
+            {loginError && <div className="sepsyg-portal-login-error">{loginError}</div>}
+            <button type="submit" disabled={checking}>{checking ? "Έλεγχος…" : "Είσοδος"}</button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="sepsyg-member-portal">
+      <header className="sepsyg-portal-header">
+        <div className="sepsyg-portal-brand"><AssociationLogo size="sm" centered={false} /><div><span>Σ.Ε.ΨΥ.G.</span><strong>Περιοχή θεραπευτών</strong></div></div>
+        <div className="sepsyg-portal-user"><span>{memberName}</span><button type="button" onClick={logout}>Έξοδος</button></div>
+      </header>
+      <nav className="sepsyg-portal-tabs" aria-label="Περιοχές διαχείρισης">
+        <button type="button" className={activeTab === "map" ? "active" : ""} onClick={() => setActiveTab("map")}>Χάρτης</button>
+        <button type="button" className={activeTab === "calendar" ? "active" : ""} onClick={() => setActiveTab("calendar")}>Ημερολόγιο</button>
+        <button type="button" className={activeTab === "articles" ? "active" : ""} onClick={() => setActiveTab("articles")}>Άρθρα</button>
+      </nav>
+      <main className="sepsyg-portal-content">
+        {activeTab === "map" && <iframe ref={mapFrameRef} onLoad={syncMapPortalAuth} className="sepsyg-portal-map" title="Χάρτης Θεραπευτών" src="https://syllogosmap.vercel.app/?portal=1" /> }
+        {activeTab === "calendar" && <ManageApp role={role} embedded />}
+        {activeTab === "articles" && <ArticlesManager role={role} memberName={memberName} />}
+      </main>
+    </div>
+  );
+}
+
 export default function App() {
   useCarrdEmbedBridge();
 
   const path = typeof window === "undefined" ? "/" : window.location.pathname.replace(/\/+$/, "") || "/";
-  return path === "/manage" ? <ManageAccess /> : <PublicEventsApp />;
+  if (path === "/manage") return <ManageAccess />;
+  if (path === "/portal") return <MemberPortal />;
+  if (path === "/articles") return <PublicArticlesApp />;
+  return <PublicEventsApp />;
 }
 
 function formatDateGreek(isoDate: string) {
@@ -2158,6 +2832,22 @@ function formatDateGreek(isoDate: string) {
     month: "long",
     year: "numeric",
   });
+}
+
+function usePreviewFileUrl(file: File | null, fallback?: string | null) {
+  const [url, setUrl] = useState(fallback ?? "");
+
+  useEffect(() => {
+    if (!file) {
+      setUrl(fallback ?? "");
+      return;
+    }
+    const objectUrl = URL.createObjectURL(file);
+    setUrl(objectUrl);
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [file, fallback]);
+
+  return url;
 }
 
 function BookingForm({
@@ -2177,10 +2867,11 @@ function BookingForm({
   onClose: () => void;
   onSaved: (booking: Booking) => void;
 }) {
-  const [name, setName] = useState(existing?.therapist_name ?? "");
+  const [name, setName] = useState(existing?.therapist_name ?? getPortalName());
   const [coordinatorRole, setCoordinatorRole] = useState(existing?.therapist_role ?? "");
   const [additionalCoordinator, setAdditionalCoordinator] = useState(existing?.additional_coordinator_name ?? "");
   const [additionalCoordinatorRole, setAdditionalCoordinatorRole] = useState(existing?.additional_coordinator_role ?? "");
+  const [hasAdditionalCoordinator, setHasAdditionalCoordinator] = useState(Boolean(existing?.additional_coordinator_name));
   const [time, setTime] = useState(existing?.action_time ?? "");
   const [topic, setTopic] = useState(existing?.topic ?? "");
   const [description, setDescription] = useState(existing?.description ?? "");
@@ -2204,12 +2895,53 @@ function BookingForm({
   const [isPublic, setIsPublic] = useState(existing ? (existing.is_public || existing.requested_public) : false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showPreview, setShowPreview] = useState(false);
+
+  const previewCoverUrl = usePreviewFileUrl(coverImageFile, imageUrl.trim() || existing?.image_url);
+  const previewDetailUrl = usePreviewFileUrl(detailImageFile, existing?.detail_image_url);
+  const previewCoordinatorPhoto = usePreviewFileUrl(coordinatorPhotoFile, existing?.coordinator_photo_url);
+  const previewAdditionalPhoto = usePreviewFileUrl(additionalCoordinatorPhotoFile, existing?.additional_coordinator_photo_url);
+
+  const previewBooking: Booking = {
+    id: date,
+    booking_date: date,
+    therapist_name: name.trim(),
+    therapist_role: coordinatorRole.trim() || null,
+    additional_coordinator_name: hasAdditionalCoordinator ? additionalCoordinator.trim() || null : null,
+    additional_coordinator_role: hasAdditionalCoordinator ? additionalCoordinatorRole.trim() || null : null,
+    coordinator_photo_url: previewCoordinatorPhoto || null,
+    additional_coordinator_photo_url: hasAdditionalCoordinator ? previewAdditionalPhoto || null : null,
+    action_time: laterTime ? null : time.trim() || null,
+    topic: laterTopic ? null : topic.trim() || null,
+    description: laterDescription ? null : sanitizeRichHtml(description) || null,
+    event_type: eventType.trim() || null,
+    mode: mode.trim() || null,
+    image_url: previewCoverUrl || null,
+    detail_image_url: previewDetailUrl || null,
+    long_description: sanitizeRichHtml(longDescription) || null,
+    audience: sanitizeRichHtml(audience) || null,
+    program_details: sanitizeRichHtml(programDetails) || null,
+    activity_category: activityCategory,
+    general_price: activityCategory === "association_free" ? "0" : generalPrice.trim() || null,
+    offers_member_discount: activityCategory === "association_free" ? false : offersMemberDiscount,
+    member_price: activityCategory === "association_free" || !offersMemberDiscount ? null : memberPrice.trim() || null,
+    requested_public: isPublic,
+    approval_status: "draft",
+    owner_uid: existing?.owner_uid || "preview",
+    status: existing?.status || "booked",
+    is_public: true,
+  };
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
 
     if (name.trim().length < 2) {
-      setError("Συμπληρώστε το ονοματεπώνυμο του θεραπευτή.");
+      setError("Συμπληρώστε το ονοματεπώνυμο του βασικού συντονιστή.");
+      return;
+    }
+
+    if (hasAdditionalCoordinator && additionalCoordinator.trim().length < 2) {
+      setError("Συμπληρώστε το ονοματεπώνυμο του επιπλέον συντονιστή.");
       return;
     }
 
@@ -2254,22 +2986,23 @@ function BookingForm({
         booking_date: date,
         therapist_name: name.trim(),
         therapist_role: coordinatorRole.trim() || null,
-        additional_coordinator_name: additionalCoordinator.trim() || null,
-        additional_coordinator_role: additionalCoordinatorRole.trim() || null,
+        additional_coordinator_name: hasAdditionalCoordinator ? additionalCoordinator.trim() || null : null,
+        additional_coordinator_role: hasAdditionalCoordinator ? additionalCoordinatorRole.trim() || null : null,
         coordinator_photo_url:
           uploadedCoordinatorPhoto || existing?.coordinator_photo_url || null,
-        additional_coordinator_photo_url:
-          uploadedAdditionalCoordinatorPhoto || existing?.additional_coordinator_photo_url || null,
+        additional_coordinator_photo_url: hasAdditionalCoordinator
+          ? uploadedAdditionalCoordinatorPhoto || existing?.additional_coordinator_photo_url || null
+          : null,
         action_time: laterTime ? null : time.trim() || null,
         topic: laterTopic ? null : topic.trim() || null,
-        description: laterDescription ? null : description.trim() || null,
+        description: laterDescription ? null : sanitizeRichHtml(description) || null,
         event_type: eventType.trim() || null,
         mode: mode.trim() || null,
         image_url: uploadedCover || imageUrl.trim() || existing?.image_url || null,
         detail_image_url: uploadedDetail || existing?.detail_image_url || null,
-        long_description: longDescription.trim() || null,
-        audience: audience.trim() || null,
-        program_details: programDetails.trim() || null,
+        long_description: sanitizeRichHtml(longDescription) || null,
+        audience: sanitizeRichHtml(audience) || null,
+        program_details: sanitizeRichHtml(programDetails) || null,
         activity_category: activityCategory,
         general_price: activityCategory === "association_free" ? "0" : generalPrice.trim() || null,
         offers_member_discount: activityCategory === "association_free" ? false : (isPublic && offersMemberDiscount),
@@ -2367,37 +3100,6 @@ function BookingForm({
           />
         </div>
 
-        <div>
-          <label className="mb-1.5 block text-sm font-medium" htmlFor="additional-coordinator">
-            Επιπλέον συντονιστής <span className="font-normal text-slate-400">(προαιρετικό)</span>
-          </label>
-          <input
-            id="additional-coordinator"
-            type="text"
-            value={additionalCoordinator}
-            onChange={(event) => setAdditionalCoordinator(event.target.value)}
-            placeholder="Ονοματεπώνυμο δεύτερου συντονιστή"
-            className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:border-emerald-500 focus:outline-none"
-          />
-          <p className="mt-1.5 text-xs leading-5 text-slate-500">
-            Αν το ίδιο ονοματεπώνυμο υπάρχει στον χάρτη θεραπευτών, η δημόσια δράση θα μπορεί να εμφανίζεται αυτόματα και στο προφίλ του δεύτερου συντονιστή.
-          </p>
-        </div>
-        {additionalCoordinator.trim() && (
-          <div>
-            <label className="mb-1.5 block text-sm font-medium" htmlFor="additional-coordinator-role">
-              Ιδιότητα επιπλέον συντονιστή <span className="font-normal text-slate-400">(προαιρετικό)</span>
-            </label>
-            <input
-              id="additional-coordinator-role"
-              type="text"
-              value={additionalCoordinatorRole}
-              onChange={(event) => setAdditionalCoordinatorRole(event.target.value)}
-              placeholder="π.χ. Σύμβουλος Ψυχικής Υγείας"
-              className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:border-emerald-500 focus:outline-none"
-            />
-          </div>
-        )}
         <div className="rounded-xl border border-emerald-100 bg-emerald-50/35 p-4">
           <label className="mb-1.5 block text-sm font-semibold text-emerald-950" htmlFor="coordinator-photo">
             Φωτογραφία βασικού συντονιστή <span className="font-normal text-slate-400">(προαιρετικό)</span>
@@ -2410,30 +3112,67 @@ function BookingForm({
             className="w-full rounded-lg border border-emerald-200 bg-white px-3 py-2.5 text-sm"
           />
           <p className="mt-2 text-xs leading-5 text-slate-500">
-            * Αν είσαι στον Χάρτη Θεραπευτών Σ.Ε.ΨΥ.G., η φωτογραφία σου θα μπει αυτόματα.
-            Αν δεν είσαι καταχωρισμένος στον Χάρτη, μπορείς να ανεβάσεις εδώ τη φωτογραφία σου.
+            Αν ο βασικός συντονιστής υπάρχει στον Χάρτη Θεραπευτών Σ.Ε.ΨΥ.G., η φωτογραφία του εμφανίζεται αυτόματα. Διαφορετικά μπορείς να ανεβάσεις φωτογραφία εδώ.
           </p>
         </div>
 
-        {additionalCoordinator.trim() && (
-          <div className="rounded-xl border border-slate-200 bg-white p-4">
-            <label className="mb-1.5 block text-sm font-semibold text-slate-900" htmlFor="additional-coordinator-photo">
-              Φωτογραφία επιπλέον συντονιστή <span className="font-normal text-slate-400">(προαιρετικό)</span>
-            </label>
+        <div className="rounded-xl border border-slate-200 bg-white p-4">
+          <label className="flex cursor-pointer items-center gap-3">
             <input
-              id="additional-coordinator-photo"
-              type="file"
-              accept="image/*"
-              onChange={(event) => setAdditionalCoordinatorPhotoFile(event.target.files?.[0] ?? null)}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm"
+              type="checkbox"
+              checked={hasAdditionalCoordinator}
+              onChange={(event) => {
+                const checked = event.target.checked;
+                setHasAdditionalCoordinator(checked);
+                if (!checked) {
+                  setAdditionalCoordinator("");
+                  setAdditionalCoordinatorRole("");
+                  setAdditionalCoordinatorPhotoFile(null);
+                }
+              }}
+              className="h-4 w-4 accent-emerald-600"
             />
-            <p className="mt-2 text-xs leading-5 text-slate-500">
-              * Αν ο επιπλέον συντονιστής βρίσκεται στον Χάρτη Θεραπευτών Σ.Ε.ΨΥ.G.,
-              η φωτογραφία του θα μπει αυτόματα.
-            </p>
-          </div>
-        )}
+            <span className="text-sm font-semibold text-slate-900">Υπάρχει επιπλέον συντονιστής;</span>
+          </label>
 
+          {hasAdditionalCoordinator && (
+            <div className="mt-4 space-y-4 border-t border-slate-200 pt-4">
+              <div>
+                <label className="mb-1.5 block text-sm font-medium" htmlFor="additional-coordinator">Όνομα επιπλέον συντονιστή</label>
+                <input
+                  id="additional-coordinator"
+                  type="text"
+                  value={additionalCoordinator}
+                  onChange={(event) => setAdditionalCoordinator(event.target.value)}
+                  placeholder="Ονοματεπώνυμο"
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:border-emerald-500 focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium" htmlFor="additional-coordinator-role">Ιδιότητα / επάγγελμα επιπλέον συντονιστή</label>
+                <input
+                  id="additional-coordinator-role"
+                  type="text"
+                  value={additionalCoordinatorRole}
+                  onChange={(event) => setAdditionalCoordinatorRole(event.target.value)}
+                  placeholder="π.χ. Σύμβουλος Ψυχικής Υγείας"
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:border-emerald-500 focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium" htmlFor="additional-coordinator-photo">Φωτογραφία επιπλέον συντονιστή</label>
+                <input
+                  id="additional-coordinator-photo"
+                  type="file"
+                  accept="image/*"
+                  onChange={(event) => setAdditionalCoordinatorPhotoFile(event.target.files?.[0] ?? null)}
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm"
+                />
+                <p className="mt-2 text-xs leading-5 text-slate-500">Αν υπάρχει στον Χάρτη Θεραπευτών με το ίδιο ονοματεπώνυμο, η φωτογραφία του μπορεί να εμφανιστεί αυτόματα.</p>
+              </div>
+            </div>
+          )}
+        </div>
 
         <OptionalField
           id="time"
@@ -2455,7 +3194,7 @@ function BookingForm({
           placeholder="Γράψτε έναν σύντομο τίτλο"
         />
 
-        <OptionalField
+        <RichOptionalField
           id="description"
           label="Σύντομη περιγραφή"
           value={description}
@@ -2463,7 +3202,6 @@ function BookingForm({
           later={laterDescription}
           onLaterChange={setLaterDescription}
           placeholder="Λίγες πληροφορίες για το περιεχόμενο της δράσης"
-          textarea
         />
 
         <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
@@ -2486,14 +3224,20 @@ function BookingForm({
           >
             <option value="association">Δράση Συλλόγου</option>
             <option value="association_free">Δωρεάν Δράση Συλλόγου</option>
-            <option value="therapist_independent">Ανεξάρτητη Δράση Θεραπευτή Συλλόγου</option>
+            <option value="therapist_action">Δράση Θεραπευτή Συλλόγου</option>
           </select>
 
           <div className="mt-3 flex flex-wrap gap-3 text-[11px] font-semibold text-slate-600">
             <span className="border-b-4 border-[#63A97E] pb-1">Πράσινο · Δωρεάν</span>
             <span className="border-b-4 border-[#E39A55] pb-1">Πορτοκαλί · Δράση Συλλόγου</span>
-            <span className="border-b-4 border-[#79B9D3] pb-1">Γαλάζιο · Ανεξάρτητη</span>
+            <span className="border-b-4 border-[#79B9D3] pb-1">Γαλάζιο · Δράση Θεραπευτή Συλλόγου</span>
           </div>
+
+          {activityCategory === "therapist_action" && (
+            <p className="mt-3 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2.5 text-xs leading-5 text-sky-900">
+              Η επιλογή αυτή αφορά δράση θεραπευτή του Συλλόγου και χρησιμοποιείται μόνο όταν το περιεχόμενο της δράσης σχετίζεται με την εκπαίδευση Σ.Ε.ΨΥ.G.
+            </p>
+          )}
         </div>
 
         {activityCategory !== "association_free" && (
@@ -2581,45 +3325,18 @@ function BookingForm({
         </div>
 
         <div>
-          <label className="mb-1.5 block text-sm font-medium" htmlFor="long-description">
-            Αναλυτική περιγραφή <span className="font-normal text-slate-400">(προαιρετικό)</span>
-          </label>
-          <textarea
-            id="long-description"
-            rows={7}
-            value={longDescription}
-            onChange={(event) => setLongDescription(event.target.value)}
-            placeholder="Γράψε το πλήρες κείμενο της δράσης όπως θέλεις να εμφανίζεται στο «Δείτε περισσότερα»."
-            className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm leading-6 focus:border-emerald-500 focus:outline-none"
-          />
+          <label className="mb-1.5 block text-sm font-medium" htmlFor="long-description">Αναλυτική περιγραφή <span className="font-normal text-slate-400">(προαιρετικό)</span></label>
+          <RichTextEditor id="long-description" value={longDescription} onChange={setLongDescription} placeholder="Γράψε το πλήρες κείμενο της δράσης όπως θέλεις να εμφανίζεται στο «Δείτε περισσότερα»." />
         </div>
 
         <div>
-          <label className="mb-1.5 block text-sm font-medium" htmlFor="audience">
-            Σε ποιους απευθύνεται <span className="font-normal text-slate-400">(προαιρετικό)</span>
-          </label>
-          <textarea
-            id="audience"
-            rows={3}
-            value={audience}
-            onChange={(event) => setAudience(event.target.value)}
-            placeholder="π.χ. επαγγελματίες ψυχικής υγείας, εκπαιδευόμενοι, ευρύ κοινό..."
-            className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm leading-6 focus:border-emerald-500 focus:outline-none"
-          />
+          <label className="mb-1.5 block text-sm font-medium" htmlFor="audience">Σε ποιους απευθύνεται <span className="font-normal text-slate-400">(προαιρετικό)</span></label>
+          <RichTextEditor id="audience" value={audience} onChange={setAudience} placeholder="π.χ. επαγγελματίες ψυχικής υγείας, εκπαιδευόμενοι, ευρύ κοινό..." />
         </div>
 
         <div>
-          <label className="mb-1.5 block text-sm font-medium" htmlFor="program-details">
-            Πρόγραμμα / θεματικές ενότητες <span className="font-normal text-slate-400">(προαιρετικό)</span>
-          </label>
-          <textarea
-            id="program-details"
-            rows={4}
-            value={programDetails}
-            onChange={(event) => setProgramDetails(event.target.value)}
-            placeholder="Γράψε τις βασικές θεματικές, το πρόγραμμα ή τα σημεία που θα δουλευτούν."
-            className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm leading-6 focus:border-emerald-500 focus:outline-none"
-          />
+          <label className="mb-1.5 block text-sm font-medium" htmlFor="program-details">Πρόγραμμα / θεματικές ενότητες <span className="font-normal text-slate-400">(προαιρετικό)</span></label>
+          <RichTextEditor id="program-details" value={programDetails} onChange={setProgramDetails} placeholder="Γράψε τις βασικές θεματικές, το πρόγραμμα ή τα σημεία που θα δουλευτούν." />
         </div>
 
         <div className="rounded-xl border border-emerald-200 bg-emerald-50/45 p-4">
@@ -2686,7 +3403,15 @@ function BookingForm({
 
         {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
 
-        <div className="flex justify-end gap-2 pt-2">
+        <div className="flex flex-wrap justify-end gap-2 pt-2">
+          <button
+            type="button"
+            onClick={() => setShowPreview(true)}
+            disabled={saving}
+            className="rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-800 hover:bg-emerald-100 disabled:opacity-60"
+          >
+            👁 Προεπισκόπηση
+          </button>
           <button
             type="button"
             onClick={onClose}
@@ -2704,7 +3429,45 @@ function BookingForm({
           </button>
         </div>
       </form>
+
+      {showPreview && (
+        <PublicBookingDetails
+          booking={previewBooking}
+          therapistDirectory={[]}
+          previewMode
+          onClose={() => setShowPreview(false)}
+        />
+      )}
     </Modal>
+  );
+}
+
+function RichOptionalField({
+  id,
+  label,
+  value,
+  onChange,
+  later,
+  onLaterChange,
+  placeholder,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  later: boolean;
+  onLaterChange: (value: boolean) => void;
+  placeholder?: string;
+}) {
+  return (
+    <div>
+      <label className="mb-1.5 block text-sm font-medium" htmlFor={id}>{label}</label>
+      <RichTextEditor id={id} value={later ? "" : value} onChange={onChange} disabled={later} placeholder={placeholder} />
+      <label className="mt-2 flex items-center gap-2 text-xs text-slate-600">
+        <input type="checkbox" checked={later} onChange={(event) => onLaterChange(event.target.checked)} className="h-4 w-4 accent-emerald-600" />
+        Θα επιστρέψω να το συμπληρώσω
+      </label>
+    </div>
   );
 }
 
@@ -2877,7 +3640,7 @@ function BookingDetails({
         )}
         <DetailRow label="Ώρα" value={booking.action_time} />
         <DetailRow label="Θέμα" value={booking.topic} />
-        <DetailRow label="Περιγραφή" value={booking.description} />
+        <DetailRow label="Περιγραφή" value={richTextToPlainText(booking.description)} />
         <DetailRow label="Κατηγορία" value={activityCategoryLabel(booking)} />
         <DetailRow label="Γενική τιμή" value={activityPriceLabel(booking)} />
         {booking.offers_member_discount && (
@@ -3123,7 +3886,8 @@ function DetailRow({ label, value }: { label: string; value: string | null }) {
   );
 }
 
-function Modal({ children, onClose, wide = false }: { children: ReactNode; onClose?: () => void; wide?: boolean }) {
+function Modal({ children, onClose, wide = false, landing = false }: { children: ReactNode; onClose?: () => void; wide?: boolean; landing?: boolean }) {
+  const sizeClass = landing ? "max-w-6xl sm:min-h-[86vh]" : wide ? "max-w-5xl" : "max-w-lg";
   return (
     <div
       className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/50 p-2 sm:items-center sm:p-4"
@@ -3133,7 +3897,7 @@ function Modal({ children, onClose, wide = false }: { children: ReactNode; onClo
       <div
         role="dialog"
         aria-modal="true"
-        className={`my-2 max-h-[calc(100vh-1rem)] w-full overflow-y-auto rounded-xl bg-white p-4 shadow-2xl sm:my-auto sm:max-h-[calc(100vh-2rem)] sm:p-6 ${wide ? "max-w-5xl" : "max-w-lg"}`}
+        className={`my-2 max-h-[calc(100vh-1rem)] w-full overflow-y-auto rounded-xl bg-white p-4 shadow-2xl sm:my-auto sm:max-h-[calc(100vh-2rem)] sm:p-6 ${sizeClass}`}
         onClick={(event) => event.stopPropagation()}
       >
         {children}
