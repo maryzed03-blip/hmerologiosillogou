@@ -23,6 +23,14 @@
     {
       "source": "/articles/:path*",
       "destination": "/index.html"
+    },
+    {
+      "source": "/article/:path*",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/articles-embed",
+      "destination": "/index.html"
     }
   ]
 }

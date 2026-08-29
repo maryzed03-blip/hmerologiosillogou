@@ -22,6 +22,7 @@ type Booking = {
   booking_date: string;
   therapist_name: string;
   therapist_role: string | null;
+  therapist_email?: string | null;
   additional_coordinator_name: string | null;
   additional_coordinator_role: string | null;
   coordinator_photo_url: string | null;
@@ -53,6 +54,7 @@ type TherapistDirectoryItem = {
   photo: string | null;
   city: string | null;
   profession: string | null;
+  email?: string | null;
 };
 
 type EventRegistration = {
@@ -105,6 +107,23 @@ function isSafeTextColor(value: string) {
   return /^(#[0-9a-f]{3,8}|rgb(a)?\([0-9.,%\s]+\)|[a-z]+)$/i.test(value.trim());
 }
 
+function isSafeFontSize(value: string) {
+  const normalized = value.trim().toLowerCase();
+  if (!/^(\d+(?:\.\d+)?)(px|rem|em|%)$/.test(normalized)) return false;
+  const amount = Number.parseFloat(normalized);
+  return Number.isFinite(amount) && amount > 0 && amount <= (normalized.endsWith("px") ? 72 : normalized.endsWith("%") ? 300 : 4);
+}
+
+const RICH_FONT_SIZE_MAP: Record<string, string> = {
+  "1": "0.75rem",
+  "2": "0.875rem",
+  "3": "1rem",
+  "4": "1.15rem",
+  "5": "1.35rem",
+  "6": "1.65rem",
+  "7": "2rem",
+};
+
 function sanitizeRichHtml(value: string) {
   const prepared = looksLikeHtml(value) ? value : plainTextToRichHtml(value);
   if (!prepared.trim()) return "";
@@ -129,16 +148,20 @@ function sanitizeRichHtml(value: string) {
 
     if (tag === "FONT") {
       const color = element.getAttribute("color") ?? "";
-      return color && isSafeTextColor(color)
-        ? `<span style="color:${escapeRichText(color)}">${children}</span>`
-        : children;
+      const size = element.getAttribute("size") ?? "";
+      const styles: string[] = [];
+      if (color && isSafeTextColor(color)) styles.push(`color:${escapeRichText(color)}`);
+      if (size && RICH_FONT_SIZE_MAP[size]) styles.push(`font-size:${RICH_FONT_SIZE_MAP[size]}`);
+      return styles.length ? `<span style="${styles.join(";")}">${children}</span>` : children;
     }
 
     if (tag === "SPAN") {
       const color = element.style.color;
-      return color && isSafeTextColor(color)
-        ? `<span style="color:${escapeRichText(color)}">${children}</span>`
-        : `<span>${children}</span>`;
+      const fontSize = element.style.fontSize;
+      const styles: string[] = [];
+      if (color && isSafeTextColor(color)) styles.push(`color:${escapeRichText(color)}`);
+      if (fontSize && isSafeFontSize(fontSize)) styles.push(`font-size:${escapeRichText(fontSize)}`);
+      return styles.length ? `<span style="${styles.join(";")}">${children}</span>` : `<span>${children}</span>`;
     }
 
     const safeTag = tag.toLowerCase();
@@ -218,6 +241,11 @@ function RichTextEditor({
         <button type="button" title="Έντονα" disabled={disabled} onMouseDown={(event) => event.preventDefault()} onClick={() => runCommand("bold")}><strong>B</strong></button>
         <button type="button" title="Υπογράμμιση" disabled={disabled} onMouseDown={(event) => event.preventDefault()} onClick={() => runCommand("underline")}><u>U</u></button>
         <button type="button" title="Μετατροπή του επιλεγμένου κειμένου σε κεφαλαία" disabled={disabled} onMouseDown={(event) => event.preventDefault()} onClick={uppercaseSelection}>ΑΑ</button>
+        <span className="sepsyg-rich-toolbar-separator" />
+        <button type="button" title="Μικρότερα γράμματα" disabled={disabled} onMouseDown={(event) => event.preventDefault()} onClick={() => runCommand("fontSize", "2")}>A−</button>
+        <button type="button" title="Κανονικό μέγεθος" disabled={disabled} onMouseDown={(event) => event.preventDefault()} onClick={() => runCommand("fontSize", "3")}>A</button>
+        <button type="button" title="Μεγαλύτερα γράμματα" disabled={disabled} onMouseDown={(event) => event.preventDefault()} onClick={() => runCommand("fontSize", "5")}>A+</button>
+        <button type="button" title="Πολύ μεγάλα γράμματα" disabled={disabled} onMouseDown={(event) => event.preventDefault()} onClick={() => runCommand("fontSize", "6")}>A++</button>
         <span className="sepsyg-rich-toolbar-separator" />
         {RICH_TEXT_COLORS.map((color) => (
           <button
@@ -474,6 +502,10 @@ function bookingFromSnapshot(snapshot: QueryDocumentSnapshot<DocumentData>): Boo
       typeof data.therapist_role === "string" && data.therapist_role.trim()
         ? data.therapist_role.trim()
         : null,
+    therapist_email:
+      typeof data.therapist_email === "string" && data.therapist_email.trim()
+        ? data.therapist_email.trim()
+        : null,
     additional_coordinator_name:
       typeof data.additional_coordinator_name === "string" && data.additional_coordinator_name.trim()
         ? data.additional_coordinator_name.trim()
@@ -652,6 +684,7 @@ async function loadTherapistDirectory(): Promise<TherapistDirectoryItem[]> {
           photo: stringField("photo"),
           city: stringField("city"),
           profession: stringField("profession") ?? stringField("role"),
+          email: stringField("email"),
         };
       })
       .filter((item: TherapistDirectoryItem) => Boolean(item.name));
@@ -730,22 +763,43 @@ async function notifyAdmin(action: NotificationAction, booking: Booking) {
 
 const MANAGE_ACCESS_KEY = "association-manage-code";
 const MANAGE_ROLE_KEY = "association-manage-role";
+const PORTAL_NAME_KEY = "association-portal-name";
+const PORTAL_REMEMBER_KEY = "association-portal-remember";
 type ManageRole = "member" | "admin";
+
+function shouldRememberPortal() {
+  if (typeof window === "undefined") return false;
+  try { return window.localStorage.getItem(PORTAL_REMEMBER_KEY) === "1"; } catch { return false; }
+}
 
 function getManageCode() {
   if (typeof window === "undefined") return "";
-  return window.sessionStorage.getItem(MANAGE_ACCESS_KEY) || "";
+  try {
+    return window.sessionStorage.getItem(MANAGE_ACCESS_KEY)
+      || (shouldRememberPortal() ? window.localStorage.getItem(MANAGE_ACCESS_KEY) || "" : "");
+  } catch { return ""; }
 }
 
 function getManageRole(): ManageRole | null {
   if (typeof window === "undefined") return null;
-  const role = window.sessionStorage.getItem(MANAGE_ROLE_KEY);
-  return role === "admin" || role === "member" ? role : null;
+  try {
+    const role = window.sessionStorage.getItem(MANAGE_ROLE_KEY)
+      || (shouldRememberPortal() ? window.localStorage.getItem(MANAGE_ROLE_KEY) : null);
+    return role === "admin" || role === "member" ? role : null;
+  } catch { return null; }
 }
 
 function getPortalName() {
   if (typeof window === "undefined") return "";
-  return window.sessionStorage.getItem("association-portal-name") || "";
+  try {
+    return window.sessionStorage.getItem(PORTAL_NAME_KEY)
+      || (shouldRememberPortal() ? window.localStorage.getItem(PORTAL_NAME_KEY) || "" : "");
+  } catch { return ""; }
+}
+
+function articlePublicUrl(articleId: string) {
+  if (typeof window === "undefined" || !articleId) return "";
+  return `${window.location.origin}/article/${encodeURIComponent(articleId)}`;
 }
 
 
@@ -2369,7 +2423,7 @@ function articleDateLabel(value: string | null | undefined) {
 }
 
 function ArticleReaderModal({ article, preview = false, onClose }: { article: ArticleItem; preview?: boolean; onClose: () => void }) {
-  const shareUrl = typeof window === "undefined" ? "" : `${window.location.origin}/articles?article=${encodeURIComponent(article.id)}`;
+  const shareUrl = preview ? "" : articlePublicUrl(article.id);
   const [copied, setCopied] = useState(false);
 
   async function copyShareLink() {
@@ -2434,6 +2488,7 @@ function ArticlesManager({ role, memberName }: { role: ManageRole; memberName: s
   const [saving, setSaving] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [readerArticle, setReaderArticle] = useState<ArticleItem | null>(null);
+  const [copiedArticleId, setCopiedArticleId] = useState<string | null>(null);
 
   const coverPreview = usePreviewFileUrl(coverFile, "");
   const manualAuthorPreview = usePreviewFileUrl(authorPhotoFile, "");
@@ -2555,6 +2610,18 @@ function ArticlesManager({ role, memberName }: { role: ManageRole; memberName: s
     }
   }
 
+  async function copyArticleUrl(article: ArticleItem) {
+    const url = articlePublicUrl(article.id);
+    if (!url || article.approval_status !== "approved") return;
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopiedArticleId(article.id);
+      window.setTimeout(() => setCopiedArticleId(null), 1800);
+    } catch {
+      window.prompt("Αντέγραψε τον σύνδεσμο του άρθρου:", url);
+    }
+  }
+
   return (
     <div className="sepsyg-articles-manager">
       <div className="sepsyg-portal-section-head">
@@ -2619,9 +2686,17 @@ function ArticlesManager({ role, memberName }: { role: ManageRole; memberName: s
           <div className="sepsyg-article-admin-list">
             {articles.map((article) => (
               <div className="sepsyg-article-admin-item" key={article.id}>
-                <div>
+                <div className="sepsyg-article-admin-copy">
                   <strong>{article.title}</strong>
                   <small>{article.author_name} · {article.approval_status === "approved" ? "Δημοσιευμένο" : "Αναμονή έγκρισης"}</small>
+                  {article.approval_status === "approved" ? (
+                    <div className="sepsyg-article-public-url">
+                      <code>{articlePublicUrl(article.id)}</code>
+                      <button type="button" onClick={() => copyArticleUrl(article)}>{copiedArticleId === article.id ? "✓ Αντιγράφηκε" : "Αντιγραφή URL"}</button>
+                    </div>
+                  ) : (
+                    <small className="sepsyg-url-pending">Το ξεχωριστό URL δημιουργείται μόλις εγκριθεί το άρθρο.</small>
+                  )}
                 </div>
                 <div>
                   <button type="button" onClick={() => setReaderArticle(article)}>Προβολή</button>
@@ -2710,15 +2785,92 @@ function PublicArticlesApp({ embedOnly = false }: { embedOnly?: boolean }) {
   );
 }
 
+function PublicSingleArticleApp({ articleId }: { articleId: string }) {
+  const [article, setArticle] = useState<ArticleItem | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/articles")
+      .then(async (response) => {
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload.code || "ARTICLES_LOAD_FAILED");
+        const items = Array.isArray(payload.articles) ? payload.articles : [];
+        const found = items.find((item: ArticleItem) => item.id === articleId) || null;
+        setArticle(found);
+        if (!found) setError("Το άρθρο δεν βρέθηκε ή δεν είναι ακόμη δημοσιευμένο.");
+      })
+      .catch((caught) => setError(`Δεν φορτώθηκε το άρθρο (${(caught as Error).message}).`))
+      .finally(() => setLoading(false));
+  }, [articleId]);
+
+  if (loading) return <div className="sepsyg-single-article-state">Φόρτωση άρθρου…</div>;
+  if (!article) return <div className="sepsyg-single-article-state"><strong>{error || "Το άρθρο δεν βρέθηκε."}</strong><a href="/articles">Επιστροφή στα άρθρα</a></div>;
+
+  return (
+    <div className="sepsyg-single-article-page">
+      <ArticleReaderModal article={article} onClose={() => { window.location.href = "/articles"; }} />
+    </div>
+  );
+}
+
+function PortalHelpModal({ tab, onClose }: { tab: "map" | "calendar" | "articles"; onClose: () => void }) {
+  const content = tab === "map" ? {
+    title: "Βοήθεια · Χάρτης",
+    intro: "Πώς προσθέτεις ή αλλάζεις το προφίλ σου στον Χάρτη Θεραπευτών.",
+    steps: [
+      "Βρες την περιοχή σου στον χάρτη και πάτησε στο σημείο όπου θέλεις να εμφανίζεται η πινέζα σου.",
+      "Συμπλήρωσε τα στοιχεία του θεραπευτή, την ιδιότητα, τα στοιχεία επικοινωνίας και τη φωτογραφία.",
+      "Πάτησε «Αποθήκευση θεραπευτή» για να ολοκληρωθεί η καταχώριση.",
+      "Για αλλαγές, άνοιξε ξανά την πινέζα σου και πάτησε «Επεξεργασία στοιχείων». Κάνε τις αλλαγές και αποθήκευσε ξανά.",
+    ],
+  } : tab === "calendar" ? {
+    title: "Βοήθεια · Δράσεις",
+    intro: "Πώς καταχωρίζεις και διαχειρίζεσαι μια δράση στο ημερολόγιο του Συλλόγου.",
+    steps: [
+      "Επίλεξε την ημερομηνία που θέλεις από το ημερολόγιο. Αν είναι ελεύθερη, ανοίγει η φόρμα της δράσης.",
+      "Συμπλήρωσε τίτλο, ώρα, περιγραφή, μορφή, φωτογραφίες και τα στοιχεία του συντονιστή. Όσα δεν γνωρίζεις ακόμη μπορείς να τα αφήσεις για να επιστρέψεις αργότερα.",
+      "Διάλεξε σωστή κατηγορία: «Δράση Συλλόγου», «Δωρεάν Δράση Συλλόγου» ή «Δράση Θεραπευτή Συλλόγου». Η τελευταία αφορά μόνο περιεχόμενο σχετικό με την εκπαίδευση Σ.Ε.ΨΥ.G.",
+      "Πάτησε «Προεπισκόπηση» πριν την αποθήκευση για να δεις ακριβώς πώς θα εμφανιστεί στο κοινό.",
+      "Όταν ζητάς δημόσια δημοσίευση ως θεραπευτής, η δράση περνά για έγκριση από το Διοικητικό και εμφανίζεται δημόσια μετά την έγκριση. Αν στο προφίλ σου στον Χάρτη υπάρχει email, θα λάβεις και ενημέρωση έγκρισης για τη συγκεκριμένη ημερομηνία.",
+      "Μπορείς να επιστρέψεις αργότερα στη δράση για διορθώσεις. Αν χρειάζεται αλλαγή ημερομηνίας ή κάτι δεν μπορεί να γίνει από την εφαρμογή, επικοινώνησε με τον Σύλλογο.",
+    ],
+  } : {
+    title: "Βοήθεια · Άρθρα",
+    intro: "Πώς γράφεις ένα άρθρο και πώς δημοσιεύεται στην ιστοσελίδα.",
+    steps: [
+      "Το ονοματεπώνυμό σου συμπληρώνεται από το Login. Αν υπάρχεις στον Χάρτη Θεραπευτών, η φωτογραφία και η ιδιότητά σου συνδέονται αυτόματα.",
+      "Γράψε τίτλο, σύντομη εισαγωγή, πρόσθεσε κεντρική φωτογραφία και γράψε το κείμενο στον editor.",
+      "Μπορείς να επιλέξεις κείμενο με το ποντίκι και να χρησιμοποιήσεις bold, υπογράμμιση, χρώμα, κεφαλαία, emoji και τα κουμπιά A− / A / A+ / A++ για το μέγεθος των γραμμάτων.",
+      "Πάτησε «Προεπισκόπηση» για να δεις το άρθρο όπως θα εμφανιστεί στον αναγνώστη.",
+      "Με την υποβολή από θεραπευτή το άρθρο πηγαίνει στο Διοικητικό για έγκριση. Μετά την έγκριση εμφανίζεται στα δημόσια άρθρα.",
+      "Κάθε δημοσιευμένο άρθρο αποκτά δικό του URL. Θα το βλέπεις στη λίστα των άρθρων και μπορείς να το αντιγράψεις με ένα πάτημα.",
+    ],
+  };
+
+  return (
+    <div className="sepsyg-help-overlay" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+      <section className="sepsyg-help-card" role="dialog" aria-modal="true" aria-label={content.title}>
+        <button type="button" className="sepsyg-help-close" onClick={onClose} aria-label="Κλείσιμο">×</button>
+        <span>Οδηγίες χρήσης</span>
+        <h2>{content.title}</h2>
+        <p>{content.intro}</p>
+        <ol>{content.steps.map((step, index) => <li key={index}>{step}</li>)}</ol>
+        <button type="button" className="sepsyg-help-done" onClick={onClose}>Το κατάλαβα</button>
+      </section>
+    </div>
+  );
+}
+
 function MemberPortal() {
   const [role, setRole] = useState<ManageRole | null>(() => getManageRole());
-  const [memberName, setMemberName] = useState(() => {
-    try { return window.sessionStorage.getItem("association-portal-name") || ""; } catch { return ""; }
-  });
+  const [memberName, setMemberName] = useState(() => getPortalName());
   const [loginName, setLoginName] = useState("");
   const [loginCode, setLoginCode] = useState("");
   const [loginError, setLoginError] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"map" | "calendar" | "articles">("map");
   const mapFrameRef = useRef<HTMLIFrameElement | null>(null);
 
@@ -2753,7 +2905,18 @@ function MemberPortal() {
       if (!response.ok || (payload.role !== "member" && payload.role !== "admin")) throw new Error("INVALID_CODE");
       window.sessionStorage.setItem(MANAGE_ACCESS_KEY, loginCode.trim());
       window.sessionStorage.setItem(MANAGE_ROLE_KEY, payload.role);
-      window.sessionStorage.setItem("association-portal-name", loginName.trim());
+      window.sessionStorage.setItem(PORTAL_NAME_KEY, loginName.trim());
+      if (rememberMe) {
+        window.localStorage.setItem(PORTAL_REMEMBER_KEY, "1");
+        window.localStorage.setItem(MANAGE_ACCESS_KEY, loginCode.trim());
+        window.localStorage.setItem(MANAGE_ROLE_KEY, payload.role);
+        window.localStorage.setItem(PORTAL_NAME_KEY, loginName.trim());
+      } else {
+        window.localStorage.removeItem(PORTAL_REMEMBER_KEY);
+        window.localStorage.removeItem(MANAGE_ACCESS_KEY);
+        window.localStorage.removeItem(MANAGE_ROLE_KEY);
+        window.localStorage.removeItem(PORTAL_NAME_KEY);
+      }
       setRole(payload.role);
       setMemberName(loginName.trim());
       setActiveTab("map");
@@ -2769,7 +2932,11 @@ function MemberPortal() {
     try {
       window.sessionStorage.removeItem(MANAGE_ACCESS_KEY);
       window.sessionStorage.removeItem(MANAGE_ROLE_KEY);
-      window.sessionStorage.removeItem("association-portal-name");
+      window.sessionStorage.removeItem(PORTAL_NAME_KEY);
+      window.localStorage.removeItem(PORTAL_REMEMBER_KEY);
+      window.localStorage.removeItem(MANAGE_ACCESS_KEY);
+      window.localStorage.removeItem(MANAGE_ROLE_KEY);
+      window.localStorage.removeItem(PORTAL_NAME_KEY);
     } catch { /* noop */ }
     setRole(null);
     setMemberName("");
@@ -2790,9 +2957,14 @@ function MemberPortal() {
             <input id="portal-name" value={loginName} onChange={(e) => setLoginName(e.target.value)} placeholder="Ονοματεπώνυμο" autoFocus required />
             <label htmlFor="portal-code">Κωδικός</label>
             <input id="portal-code" type="password" inputMode="numeric" value={loginCode} onChange={(e) => setLoginCode(e.target.value)} placeholder="••••" required />
+            <label className="sepsyg-remember-me">
+              <input type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} />
+              <span><strong>Να με θυμάσαι</strong><small>Μόνο σε προσωπική συσκευή. Την επόμενη φορά θα ανοίγει κατευθείαν η περιοχή θεραπευτών.</small></span>
+            </label>
             {loginError && <div className="sepsyg-portal-login-error">{loginError}</div>}
             <button type="submit" disabled={checking}>{checking ? "Έλεγχος…" : "Είσοδος"}</button>
           </form>
+          <a className="sepsyg-return-site" href="https://eusyllogossepshyg.carrd.co/">← Επιστροφή στην ιστοσελίδα</a>
         </div>
       </div>
     );
@@ -2805,15 +2977,19 @@ function MemberPortal() {
         <div className="sepsyg-portal-user"><span>{memberName}</span><button type="button" onClick={logout}>Έξοδος</button></div>
       </header>
       <nav className="sepsyg-portal-tabs" aria-label="Περιοχές διαχείρισης">
-        <button type="button" className={activeTab === "map" ? "active" : ""} onClick={() => setActiveTab("map")}>Χάρτης</button>
-        <button type="button" className={activeTab === "calendar" ? "active" : ""} onClick={() => setActiveTab("calendar")}>Ημερολόγιο</button>
-        <button type="button" className={activeTab === "articles" ? "active" : ""} onClick={() => setActiveTab("articles")}>Άρθρα</button>
+        <div className="sepsyg-portal-tab-group">
+          <button type="button" className={activeTab === "map" ? "active" : ""} onClick={() => { setActiveTab("map"); setHelpOpen(false); }}>Χάρτης</button>
+          <button type="button" className={activeTab === "calendar" ? "active" : ""} onClick={() => { setActiveTab("calendar"); setHelpOpen(false); }}>Ημερολόγιο</button>
+          <button type="button" className={activeTab === "articles" ? "active" : ""} onClick={() => { setActiveTab("articles"); setHelpOpen(false); }}>Άρθρα</button>
+        </div>
+        <button type="button" className="sepsyg-portal-help-button" onClick={() => setHelpOpen(true)}>❔ Βοήθεια</button>
       </nav>
       <main className="sepsyg-portal-content">
         {activeTab === "map" && <iframe ref={mapFrameRef} onLoad={syncMapPortalAuth} className="sepsyg-portal-map" title="Χάρτης Θεραπευτών" src="https://syllogosmap.vercel.app/?portal=1" /> }
         {activeTab === "calendar" && <ManageApp role={role} embedded />}
         {activeTab === "articles" && <ArticlesManager role={role} memberName={memberName} />}
       </main>
+      {helpOpen && <PortalHelpModal tab={activeTab} onClose={() => setHelpOpen(false)} />}
     </div>
   );
 }
@@ -2826,6 +3002,7 @@ export default function App() {
   if (path === "/portal") return <MemberPortal />;
   if (path === "/articles") return <PublicArticlesApp />;
   if (path === "/articles-embed") return <PublicArticlesApp embedOnly />;
+  if (path.startsWith("/article/")) return <PublicSingleArticleApp articleId={decodeURIComponent(path.slice("/article/".length))} />;
   return <PublicEventsApp />;
 }
 
@@ -2903,6 +3080,14 @@ function BookingForm({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showPreview, setShowPreview] = useState(false);
+  const [formTherapists, setFormTherapists] = useState<TherapistDirectoryItem[]>([]);
+
+  useEffect(() => {
+    void loadTherapistDirectory().then(setFormTherapists);
+  }, []);
+
+  const matchedFormTherapist = useMemo(() => findTherapistByName(name, formTherapists), [name, formTherapists]);
+  const coordinatorEmail = existing?.therapist_email || matchedFormTherapist?.email || null;
 
   const previewCoverUrl = usePreviewFileUrl(coverImageFile, imageUrl.trim() || existing?.image_url);
   const previewDetailUrl = usePreviewFileUrl(detailImageFile, existing?.detail_image_url);
@@ -2914,6 +3099,7 @@ function BookingForm({
     booking_date: date,
     therapist_name: name.trim(),
     therapist_role: coordinatorRole.trim() || null,
+    therapist_email: coordinatorEmail,
     additional_coordinator_name: hasAdditionalCoordinator ? additionalCoordinator.trim() || null : null,
     additional_coordinator_role: hasAdditionalCoordinator ? additionalCoordinatorRole.trim() || null : null,
     coordinator_photo_url: previewCoordinatorPhoto || null,
@@ -2993,6 +3179,7 @@ function BookingForm({
         booking_date: date,
         therapist_name: name.trim(),
         therapist_role: coordinatorRole.trim() || null,
+        therapist_email: coordinatorEmail,
         additional_coordinator_name: hasAdditionalCoordinator ? additionalCoordinator.trim() || null : null,
         additional_coordinator_role: hasAdditionalCoordinator ? additionalCoordinatorRole.trim() || null : null,
         coordinator_photo_url:

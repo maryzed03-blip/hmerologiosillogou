@@ -1829,3 +1829,156 @@ html.sepsyg-embedded-frame .fixed.inset-0 > [role="dialog"] {
 @media(max-width:760px){
   .sepsyg-portal-header{min-height:60px;padding:7px 10px;}.sepsyg-portal-brand strong{font-size:.88rem;}.sepsyg-portal-user span{display:none;}.sepsyg-portal-tabs{top:60px;padding:7px 8px;gap:5px;overflow-x:auto;justify-content:flex-start;}.sepsyg-portal-tabs button{min-width:92px;padding:7px 12px;font-size:.7rem;}.sepsyg-portal-content{min-height:calc(100dvh - 104px);}.sepsyg-portal-map{height:calc(100dvh - 104px);min-height:500px;}.sepsyg-articles-manager{width:calc(100% - 18px);padding-top:12px;}.sepsyg-portal-section-head{display:block;}.sepsyg-portal-section-head>p{margin-top:7px;}.sepsyg-article-form{padding:14px;}.sepsyg-article-form-grid{grid-template-columns:1fr;gap:0;}.sepsyg-article-admin-item{align-items:flex-start;flex-direction:column;}.sepsyg-article-reader{max-height:96dvh;border-radius:18px;}.sepsyg-article-reader-body{padding:24px 19px 34px;}.sepsyg-article-cover{height:230px;}.sepsyg-public-article-grid{grid-template-columns:1fr;}.sepsyg-public-article-card .cover{height:210px;}
 }
+
+/* ==========================================================
+   SEPSYG v5.3 — FONT SIZE / FULL ARTICLE / PORTAL HELP
+   ========================================================== */
+
+/* Article reader: almost full screen, like a dedicated landing page. */
+.sepsyg-article-overlay{
+  padding:10px;
+}
+.sepsyg-article-reader{
+  width:min(1240px,calc(100vw - 20px));
+  max-height:97dvh;
+  border-radius:22px;
+}
+.sepsyg-article-cover{
+  height:min(470px,44dvh);
+}
+.sepsyg-article-reader-body{
+  width:min(1060px,100%);
+  margin:0 auto;
+  padding:clamp(26px,4.5vw,64px);
+}
+.sepsyg-article-reader h1,
+.sepsyg-article-lead,
+.sepsyg-article-content{
+  max-width:900px;
+}
+
+/* Keep inline font sizes selected in the rich editor. */
+.sepsyg-rich-output span[style*="font-size"]{line-height:1.45;}
+
+/* Remember me + strong return link after logout/login screen. */
+.sepsyg-portal-login-card .sepsyg-remember-me{
+  display:flex;
+  align-items:flex-start;
+  gap:10px;
+  margin:14px 1px 0;
+  padding:11px 12px;
+  border:1px solid rgba(23,75,73,.10);
+  border-radius:12px;
+  background:#FBF7F2;
+  cursor:pointer;
+}
+.sepsyg-portal-login-card .sepsyg-remember-me input{
+  width:17px;
+  height:17px;
+  flex:0 0 auto;
+  margin:2px 0 0;
+  padding:0;
+  accent-color:#008D8B;
+}
+.sepsyg-remember-me span{display:block;min-width:0;}
+.sepsyg-remember-me strong{display:block;color:#174B49;font-size:.76rem;}
+.sepsyg-remember-me small{display:block;margin-top:3px;color:#77847F;font-size:.66rem;line-height:1.45;font-weight:500;}
+.sepsyg-return-site{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  width:100%;
+  margin-top:18px;
+  padding:13px 16px;
+  border:1px solid rgba(23,75,73,.16);
+  border-radius:14px;
+  background:#fff;
+  color:#174B49;
+  font-family:Georgia,"Times New Roman",serif;
+  font-size:1.08rem;
+  font-weight:700;
+  text-decoration:none;
+}
+.sepsyg-return-site:hover{border-color:#008D8B;color:#008D8B;}
+
+/* Tabs + contextual help button. */
+.sepsyg-portal-tabs{
+  justify-content:space-between;
+  align-items:center;
+  padding-left:clamp(10px,3vw,34px);
+  padding-right:clamp(10px,3vw,34px);
+}
+.sepsyg-portal-tab-group{display:flex;gap:7px;margin:0 auto;}
+.sepsyg-portal-tabs .sepsyg-portal-help-button{
+  min-width:auto;
+  margin-left:12px;
+  border-color:rgba(0,141,139,.22);
+  background:#F0FAF8;
+  color:#006B68;
+}
+.sepsyg-portal-tabs .sepsyg-portal-help-button:hover{background:#E3F7F3;}
+
+.sepsyg-help-overlay{
+  position:fixed;
+  inset:0;
+  z-index:260;
+  display:grid;
+  place-items:center;
+  padding:16px;
+  background:rgba(15,42,40,.66);
+  backdrop-filter:blur(7px);
+}
+.sepsyg-help-card{
+  position:relative;
+  width:min(720px,100%);
+  max-height:92dvh;
+  overflow:auto;
+  padding:clamp(24px,4vw,38px);
+  border:1px solid rgba(23,75,73,.12);
+  border-radius:24px;
+  background:#FFFDFB;
+  box-shadow:0 30px 90px rgba(8,33,31,.28);
+}
+.sepsyg-help-card>span{display:block;color:#008D8B;font-size:.65rem;font-weight:900;letter-spacing:.14em;text-transform:uppercase;}
+.sepsyg-help-card h2{margin:5px 42px 8px 0;color:#174B49;font-family:Georgia,"Times New Roman",serif;font-size:clamp(1.7rem,4vw,2.35rem);font-weight:500;}
+.sepsyg-help-card>p{margin:0;color:#66746F;font-size:.86rem;line-height:1.65;}
+.sepsyg-help-card ol{margin:22px 0 0;padding:0;list-style:none;counter-reset:sepsyg-help;display:grid;gap:11px;}
+.sepsyg-help-card li{counter-increment:sepsyg-help;position:relative;padding:13px 14px 13px 49px;border:1px solid rgba(23,75,73,.09);border-radius:14px;background:#FBF7F2;color:#40534E;font-size:.82rem;line-height:1.58;}
+.sepsyg-help-card li::before{content:counter(sepsyg-help);position:absolute;left:13px;top:12px;display:grid;place-items:center;width:25px;height:25px;border-radius:50%;background:#008D8B;color:#fff;font-size:.7rem;font-weight:900;}
+.sepsyg-help-close{position:absolute;top:13px;right:13px;width:36px;height:36px;border:0;border-radius:50%;background:#F6F1EC;color:#174B49;font-size:23px;cursor:pointer;}
+.sepsyg-help-done{width:100%;margin-top:18px;border:0;border-radius:999px;background:#174B49;color:#fff;padding:11px 16px;font-size:.78rem;font-weight:900;cursor:pointer;}
+
+/* A visible, copyable permanent URL for every approved article. */
+.sepsyg-article-admin-copy{min-width:0;flex:1;}
+.sepsyg-article-public-url{
+  display:flex;
+  align-items:center;
+  gap:7px;
+  max-width:650px;
+  margin-top:8px;
+  padding:7px 8px 7px 10px;
+  border:1px dashed rgba(0,141,139,.25);
+  border-radius:10px;
+  background:#F5FBFA;
+}
+.sepsyg-article-public-url code{min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#48605A;font-size:.66rem;}
+.sepsyg-article-public-url button{flex:0 0 auto !important;border-color:rgba(0,141,139,.22) !important;color:#00716E !important;background:#fff !important;}
+.sepsyg-url-pending{margin-top:7px !important;color:#A07343 !important;font-style:italic;}
+
+.sepsyg-single-article-page{min-height:100dvh;background:linear-gradient(180deg,#FFF9F3,#F6EEE8);}
+.sepsyg-single-article-state{min-height:100dvh;display:grid;place-items:center;align-content:center;gap:14px;padding:24px;background:#FFF9F3;color:#174B49;text-align:center;}
+.sepsyg-single-article-state a{display:inline-flex;padding:10px 15px;border-radius:999px;background:#174B49;color:#fff;text-decoration:none;font-weight:800;}
+
+@media(max-width:760px){
+  .sepsyg-article-overlay{padding:4px;}
+  .sepsyg-article-reader{width:calc(100vw - 8px);max-height:98dvh;border-radius:14px;}
+  .sepsyg-article-cover{height:240px;}
+  .sepsyg-portal-tabs{gap:6px;overflow:visible;}
+  .sepsyg-portal-tab-group{min-width:0;flex:1;overflow-x:auto;justify-content:flex-start;}
+  .sepsyg-portal-tabs .sepsyg-portal-help-button{position:sticky;right:0;min-width:88px;margin-left:0;flex:0 0 auto;}
+  .sepsyg-article-public-url{align-items:stretch;flex-direction:column;}
+  .sepsyg-article-public-url code{white-space:normal;word-break:break-all;}
+  .sepsyg-article-public-url button{width:100%;}
+  .sepsyg-help-card{max-height:94dvh;padding:23px 17px 20px;border-radius:18px;}
+  .sepsyg-help-card li{padding-left:46px;font-size:.78rem;}
+}
