@@ -1982,3 +1982,118 @@ html.sepsyg-embedded-frame .fixed.inset-0 > [role="dialog"] {
   .sepsyg-help-card{max-height:94dvh;padding:23px 17px 20px;border-radius:18px;}
   .sepsyg-help-card li{padding-left:46px;font-size:.78rem;}
 }
+
+/* V5.4 — admin website content */
+.sepsyg-admin-content{width:min(1180px,100%);margin:0 auto;padding:18px 8px 40px;color:#263b39}
+.sepsyg-admin-intro{margin-bottom:20px;padding:20px 22px;border:1px solid rgba(23,75,73,.12);border-radius:20px;background:#fff}
+.sepsyg-admin-intro>span,.sepsyg-admin-panel-head span{display:block;margin-bottom:5px;color:#008d8b;font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase}
+.sepsyg-admin-intro h2,.sepsyg-admin-panel-head h3{margin:0;color:#174b49;font-family:Georgia,"Times New Roman",serif;font-weight:500}
+.sepsyg-admin-intro h2{font-size:clamp(24px,3vw,34px)}
+.sepsyg-admin-intro p{max-width:850px;margin:8px 0 0;color:#667875;line-height:1.65;font-size:14px}
+.sepsyg-admin-error,.sepsyg-admin-loading{margin-bottom:16px;padding:12px 14px;border-radius:12px;font-size:13px}
+.sepsyg-admin-error{border:1px solid #fecaca;background:#fff1f2;color:#991b1b}.sepsyg-admin-loading{background:#f5f7f6;color:#536561}
+.sepsyg-admin-panel{margin-top:18px;padding:20px;border:1px solid rgba(23,75,73,.12);border-radius:22px;background:#fff;box-shadow:0 12px 34px rgba(23,75,73,.04)}
+.sepsyg-admin-panel-head{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:18px}
+.sepsyg-admin-panel-head h3{font-size:24px}
+.sepsyg-admin-panel-head>button,.sepsyg-admin-actions button,.sepsyg-community-list button{border:1px solid rgba(23,75,73,.14);border-radius:999px;background:#fff;color:#174b49;font-size:12px;font-weight:800;cursor:pointer}
+.sepsyg-admin-panel-head>button{padding:10px 15px;background:#008d8b;color:#fff;border-color:#008d8b}
+.sepsyg-board-admin-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.sepsyg-board-admin-card{padding:17px;border:1px solid rgba(23,75,73,.11);border-radius:17px;background:#fffaf6}
+.sepsyg-board-admin-year{margin-bottom:10px;color:#174b49;font:500 24px Georgia,"Times New Roman",serif}
+.sepsyg-board-admin-card p{display:grid;grid-template-columns:120px 1fr;gap:8px;margin:0;padding:8px 0;border-bottom:1px solid rgba(23,75,73,.08);font-size:13px;line-height:1.4}
+.sepsyg-board-admin-card p strong{color:#008d8b;font-size:10px;letter-spacing:.06em;text-transform:uppercase}
+.sepsyg-admin-actions{display:flex;justify-content:flex-end;gap:7px;margin-top:12px}.sepsyg-admin-actions button{padding:7px 11px}.sepsyg-admin-actions .danger,.sepsyg-community-list .danger{color:#a33;border-color:#efcaca}
+.sepsyg-community-admin-columns{display:grid;grid-template-columns:1fr 1fr;gap:18px}.sepsyg-community-title{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px}.sepsyg-community-title h4{margin:0;color:#174b49;font-size:15px}.sepsyg-community-title span{min-width:28px;padding:4px 8px;border-radius:999px;background:#eef7f6;color:#0b6965;text-align:center;font-size:11px;font-weight:800}
+.sepsyg-community-list{overflow:hidden;border:1px solid rgba(23,75,73,.1);border-radius:15px}.sepsyg-community-list>div{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border-bottom:1px solid rgba(23,75,73,.08);background:#fff}.sepsyg-community-list>div:last-child{border-bottom:0}.sepsyg-community-list>div>span{font-size:13px}.sepsyg-community-list>div>div{display:flex;gap:5px}.sepsyg-community-list button{padding:5px 8px;font-size:10px}.sepsyg-community-empty{margin:0;padding:14px;color:#667875;font-size:12px}
+.sepsyg-admin-modal{position:fixed;inset:0;z-index:100000;display:flex;align-items:center;justify-content:center;padding:18px;background:rgba(15,42,40,.62);backdrop-filter:blur(5px)}
+.sepsyg-admin-modal-card{position:relative;width:min(640px,100%);max-height:90vh;overflow:auto;padding:24px;border-radius:22px;background:#fff9f3;box-shadow:0 28px 90px rgba(0,0,0,.22)}.sepsyg-admin-modal-card.small{width:min(500px,100%)}
+.sepsyg-admin-modal-card>span{display:block;color:#008d8b;font-size:10px;font-weight:800;letter-spacing:.13em;text-transform:uppercase}.sepsyg-admin-modal-card h3{margin:4px 0 18px;color:#174b49;font:500 25px Georgia,"Times New Roman",serif}.sepsyg-admin-modal-card label{display:block;margin-top:11px;color:#174b49;font-size:12px;font-weight:800}.sepsyg-admin-modal-card input,.sepsyg-admin-modal-card select{width:100%;margin-top:6px;padding:11px 12px;border:1px solid rgba(23,75,73,.15);border-radius:11px;background:#fff}.sepsyg-admin-years{display:grid;grid-template-columns:1fr 1fr;gap:10px}.sepsyg-admin-save{width:100%;margin-top:18px;padding:12px;border:0;border-radius:999px;background:#008d8b;color:#fff;font-weight:800;cursor:pointer}.sepsyg-admin-modal-close{position:absolute;top:13px;right:13px;width:34px;height:34px;border:0;border-radius:50%;background:#fff;color:#174b49;font-size:21px;cursor:pointer}
+@media(max-width:760px){.sepsyg-admin-content{padding:10px 2px 28px}.sepsyg-admin-panel{padding:15px}.sepsyg-admin-panel-head{align-items:flex-start}.sepsyg-board-admin-grid,.sepsyg-community-admin-columns{grid-template-columns:1fr}.sepsyg-board-admin-card p{grid-template-columns:100px 1fr}.sepsyg-admin-years{grid-template-columns:1fr}}
+
+/* ==========================================================
+   SEPSYG v5.5 — ONE-SCROLL POPUPS / CENTERED ARTICLE IMAGE
+   ========================================================== */
+html.sepsyg-modal-open,
+html.sepsyg-modal-open body,
+body.sepsyg-modal-open{
+  overflow:hidden !important;
+  overscroll-behavior:none;
+}
+
+/* In Carrd embeds, the iframe normally grows with its content. While a popup
+   is open we explicitly stop the iframe document itself from scrolling. */
+html.sepsyg-embedded-frame.sepsyg-modal-open,
+html.sepsyg-embedded-frame.sepsyg-modal-open body{
+  overflow:hidden !important;
+}
+
+/* Article image is no longer a full-width banner. */
+.sepsyg-article-feature-image-wrap{
+  display:flex;
+  justify-content:center;
+  width:100%;
+  margin:0 auto 28px;
+}
+.sepsyg-article-feature-image{
+  display:block;
+  width:auto;
+  max-width:min(760px,100%);
+  max-height:520px;
+  object-fit:contain;
+  border-radius:22px;
+  box-shadow:0 16px 42px rgba(23,75,73,.10);
+}
+.sepsyg-article-reader-body > h1{
+  margin-top:0;
+}
+.sepsyg-article-author-row{
+  margin-top:18px;
+  margin-bottom:22px;
+}
+
+/* Share links are an internal therapist/admin tool only. */
+.sepsyg-internal-share-box{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  gap:8px 10px;
+  align-items:center;
+  margin-top:18px;
+  padding:13px;
+  border:1px solid rgba(0,141,139,.18);
+  border-radius:13px;
+  background:#F4FBFA;
+}
+.sepsyg-internal-share-box>span{
+  grid-column:1/-1;
+  color:#006B68;
+  font-size:11px;
+  font-weight:900;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+}
+.sepsyg-internal-share-box code{
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  color:#405852;
+  font-size:11px;
+}
+.sepsyg-internal-share-box button{
+  border:1px solid rgba(0,141,139,.22);
+  border-radius:999px;
+  background:#fff;
+  color:#00716E;
+  padding:7px 11px;
+  font-size:11px;
+  font-weight:900;
+  cursor:pointer;
+}
+
+@media(max-width:760px){
+  .sepsyg-article-feature-image-wrap{margin-bottom:20px;}
+  .sepsyg-article-feature-image{max-height:360px;border-radius:15px;}
+  .sepsyg-internal-share-box{grid-template-columns:1fr;}
+  .sepsyg-internal-share-box code{white-space:normal;word-break:break-all;}
+  .sepsyg-internal-share-box button{width:100%;}
+}

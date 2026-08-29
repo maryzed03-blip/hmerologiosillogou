@@ -14,11 +14,47 @@ function escapeHtml(value) {
     .replaceAll("'", "&#039;");
 }
 
+function normalizeTherapistName(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[.,;:()"'’`´\-_/\\]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+async function lookupTherapistEmail(name) {
+  const target = normalizeTherapistName(name);
+  if (!target) return "";
+  try {
+    const url = "https://firestore.googleapis.com/v1/projects/syllogos-map/databases/(default)/documents/therapists?pageSize=500";
+    const response = await fetch(url);
+    if (!response.ok) return "";
+    const payload = await response.json();
+    const documents = Array.isArray(payload.documents) ? payload.documents : [];
+    for (const document of documents) {
+      const fields = document?.fields || {};
+      const therapistName = fields?.name?.stringValue || "";
+      if (normalizeTherapistName(therapistName) !== target) continue;
+      const email = clean(fields?.email?.stringValue, 220);
+      if (/^\S+@\S+\.\S+$/.test(email)) return email;
+    }
+  } catch (error) {
+    console.error("THERAPIST_EMAIL_LOOKUP_FAILED", error);
+  }
+  return "";
+}
+
 async function sendApprovalEmail(current, eventId) {
-  const recipient = clean(current?.therapist_email, 220);
+  let recipient = clean(current?.therapist_email, 220);
+  if (!/^\S+@\S+\.\S+$/.test(recipient)) {
+    recipient = await lookupTherapistEmail(current?.therapist_name);
+  }
   const user = process.env.GMAIL_USER;
   const pass = process.env.GMAIL_APP_PASSWORD;
-  if (!recipient || !/^\S+@\S+\.\S+$/.test(recipient) || !user || !pass) return false;
+  if (!recipient || !user || !pass) return false;
 
   try {
     const transporter = nodemailer.createTransport({ service: "gmail", auth: { user, pass } });

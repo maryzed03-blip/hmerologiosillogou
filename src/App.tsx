@@ -1,17 +1,19 @@
 import {
+  addDoc,
   collection,
   deleteDoc,
   doc,
   onSnapshot,
   runTransaction,
   serverTimestamp,
+  setDoc,
   updateDoc,
   type DocumentData,
   type FirestoreError,
   type QueryDocumentSnapshot,
 } from "firebase/firestore";
 import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
-import { db, ensureAnonymousUser } from "./firebase";
+import { associationDb, db, ensureAnonymousUser, ensureAssociationAnonymousUser } from "./firebase";
 
 type BookingStatus = "booked" | "completed";
 type ActivityCategory = "association" | "association_free" | "therapist_action";
@@ -802,6 +804,108 @@ function articlePublicUrl(articleId: string) {
   return `${window.location.origin}/article/${encodeURIComponent(articleId)}`;
 }
 
+function eventPublicUrl(eventDate: string) {
+  if (typeof window === "undefined" || !eventDate) return "";
+  return `${window.location.origin}/events?event=${encodeURIComponent(eventDate)}`;
+}
+
+type BoardTermAdmin = {
+  id: string;
+  from_year: number;
+  to_year: number;
+  president: string;
+  vice_president: string;
+  secretary: string;
+  treasurer: string;
+  member: string;
+  hidden?: boolean;
+  isStatic?: boolean;
+};
+
+type CommunityKind = "member" | "friend";
+type CommunityPersonAdmin = {
+  id: string;
+  name: string;
+  type: CommunityKind;
+  source: "static" | "remote";
+};
+
+const STATIC_BOARD_TERMS: BoardTermAdmin[] = [
+  {
+    id: "static-2026-2028",
+    from_year: 2026,
+    to_year: 2028,
+    president: "Στέφανος Γκιουλτζόγλου",
+    vice_president: "Μανουσάκιε Μπαλλχύσα Τσάκα",
+    secretary: "Μαρία Ζάχου",
+    treasurer: "Ταξιάρχης Πάζιος",
+    member: "Ευαγγελία Ξανθοπούλου",
+    isStatic: true,
+  },
+  {
+    id: "static-2023-2026",
+    from_year: 2023,
+    to_year: 2026,
+    president: "Μαρία Κουτσοκώστα",
+    vice_president: "Στέφανος Γκιουλτζόγλου",
+    secretary: "Ειρήνη Νταλάρα",
+    treasurer: "Γωγώ Παπαγεωργίου",
+    member: "Ταξιάρχης Πάζιος",
+    isStatic: true,
+  },
+];
+
+const STATIC_ASSOCIATION_MEMBERS = [
+  "Αγγελόπουλος Περικλής",
+  "Αμανάκης Μάνος",
+  "Ανδρικοπούλου Έλενα",
+  "Βογιατζή Φραντζέσκα",
+  "Γκιουλτζούογλου Στέφανος",
+  "Διβανόγλου Σταυρούλα",
+  "Ζάγκα Δήμητρα",
+  "Ζάχου Μαρία",
+  "Ισάκοφ Σέργιος",
+  "Κοζυράκη Σοφία",
+  "Κουτσοκώστα Μαρία",
+  "Κρεμμύδα Μαρία",
+  "Λάζαρης Στάθης",
+  "Μελά Βίβιαν",
+  "Μπαλχύσσα Τσάκα Μανουσακιε",
+  "Νεστοράκη Δέσποινα",
+  "Νταλαρά Ειρήνη",
+  "Ξανθοπούλου Ευαγγελία",
+  "Παζιος Ταξιάρχης",
+  "Παπαγεωργίου Γωγώ",
+  "Πλατανησιώτη Σοφία",
+  "Προκοπίου Κατερίνα",
+  "Σαατσάκη Ευνίκη",
+  "Σαμαρά Γεωργία",
+  "Σέργη Βίβιαν",
+  "Σιδηροπούλου Σοφία",
+  "Τσουλκανίδου Τζούλια",
+  "Φραντζή Κυριακή",
+  "Χαραλάμπους Μαίρη",
+  "Χατζηαναστασίου Κωνσταντίνα",
+  "Ψυχογίος Κλέαρχος",
+];
+
+function normalizeCommunityName(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase("el")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function communityControlId(name: string, kind: CommunityKind) {
+  const encoded = Array.from(normalizeCommunityName(name))
+    .map((char) => char.codePointAt(0)?.toString(36) || "0")
+    .join("-")
+    .slice(0, 380);
+  return `control-${kind}-${encoded}`;
+}
+
 
 function AssociationLogo({ size = "md", centered = false }: { size?: "sm" | "md"; centered?: boolean }) {
   const sizeClass = size === "sm" ? "h-24 w-24 sm:h-28 sm:w-28" : "h-28 w-28 sm:h-32 sm:w-32";
@@ -914,7 +1018,7 @@ function ManageAccess() {
   );
 }
 
-function ManageApp({ role, embedded = false }: { role: ManageRole; embedded?: boolean }) {
+function ManageApp({ role, embedded = false, memberName = "" }: { role: ManageRole; embedded?: boolean; memberName?: string }) {
   const [activeMonth, setActiveMonth] = useState(() => getInitialMonthKey());
   const [bookings, setBookings] = useState<Booking[]>(STATIC_BOOKINGS);
   const [loading, setLoading] = useState(true);
@@ -1223,6 +1327,11 @@ function ManageApp({ role, embedded = false }: { role: ManageRole; embedded?: bo
           canManage={viewBooking.status === "booked"}
           registrationCount={registrationCounts[viewBooking.booking_date] || 0}
           canViewRegistrationDetails={role === "admin"}
+          canShareUrl={
+            role === "admin" ||
+            Boolean(memberName && [viewBooking.therapist_name, viewBooking.additional_coordinator_name]
+              .some((person) => normalizeTherapistName(person) === normalizeTherapistName(memberName)))
+          }
           onViewRegistrations={() => {
             const booking = viewBooking;
             setViewBooking(null);
@@ -1244,6 +1353,20 @@ function ManageApp({ role, embedded = false }: { role: ManageRole; embedded?: bo
             setEditBooking(booking);
           }}
           onEmailStatus={reportEmailStatus}
+          onMoved={(fromDate, movedBooking, movedRegistrationCount) => {
+            setBookings((previous) => mergeBookings([
+              ...previous.filter((item) => item.booking_date !== fromDate && item.id !== fromDate),
+              movedBooking,
+            ]));
+            setRegistrationCounts((previous) => {
+              const next = { ...previous };
+              delete next[fromDate];
+              next[movedBooking.booking_date] = movedRegistrationCount;
+              return next;
+            });
+            setActiveMonth(movedBooking.booking_date.slice(0, 7));
+            setViewBooking(movedBooking);
+          }}
           onDeleted={(id) => {
             setBookings((previous) => previous.filter((item) => item.id !== id));
             setViewBooking(null);
@@ -1952,12 +2075,7 @@ function PublicBookingDetails({
   const [consent, setConsent] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
-  const [copyNotice, setCopyNotice] = useState("");
   const registrationRef = useRef<HTMLFormElement | null>(null);
-  const shareUrl = typeof window === "undefined"
-    ? `/events?event=${encodeURIComponent(booking.booking_date)}`
-    : `${window.location.origin}/events?event=${encodeURIComponent(booking.booking_date)}`;
-
   useEffect(() => {
     if (previewMode || typeof window === "undefined") return;
 
@@ -1974,22 +2092,6 @@ function PublicBookingDetails({
       }
     };
   }, [booking.booking_date, previewMode]);
-
-  async function copyShareLink() {
-    try {
-      await navigator.clipboard.writeText(shareUrl);
-      setCopyNotice("Ο σύνδεσμος αντιγράφηκε.");
-    } catch {
-      const input = document.createElement("input");
-      input.value = shareUrl;
-      document.body.appendChild(input);
-      input.select();
-      document.execCommand("copy");
-      input.remove();
-      setCopyNotice("Ο σύνδεσμος αντιγράφηκε.");
-    }
-    window.setTimeout(() => setCopyNotice(""), 2200);
-  }
 
   useEffect(() => {
     if (!showForm) return;
@@ -2084,20 +2186,9 @@ function PublicBookingDetails({
                 </button>
               )}
 
-              <button type="button" className="sepsyg-popup-copy-link" onClick={() => void copyShareLink()}>
-                🔗 Αντιγραφή συνδέσμου
-              </button>
-
               {previewMode && (
                 <span className="sepsyg-preview-badge">ΠΡΟΕΠΙΣΚΟΠΗΣΗ — δεν έχει δημοσιευτεί ακόμη</span>
               )}
-            </div>
-
-            <div className="sepsyg-popup-share-box">
-              <span>{previewMode ? "Ο σύνδεσμος θα είναι" : "Σύνδεσμος αυτής της δράσης"}</span>
-              <input className="sepsyg-popup-share-url" readOnly value={shareUrl} onFocus={(event) => event.currentTarget.select()} />
-              {previewMode && <small>Θα ενεργοποιηθεί μόλις αποθηκευτεί και δημοσιευτεί η δράση.</small>}
-              {copyNotice && <small>{copyNotice}</small>}
             </div>
           </section>
 
@@ -2422,7 +2513,18 @@ function articleDateLabel(value: string | null | undefined) {
   return date.toLocaleDateString("el-GR", { day: "numeric", month: "long", year: "numeric" });
 }
 
-function ArticleReaderModal({ article, preview = false, onClose }: { article: ArticleItem; preview?: boolean; onClose: () => void }) {
+function ArticleReaderModal({
+  article,
+  preview = false,
+  showShareTools = false,
+  onClose,
+}: {
+  article: ArticleItem;
+  preview?: boolean;
+  showShareTools?: boolean;
+  onClose: () => void;
+}) {
+  useModalScrollLock();
   const shareUrl = preview ? "" : articlePublicUrl(article.id);
   const [copied, setCopied] = useState(false);
 
@@ -2441,8 +2543,17 @@ function ArticleReaderModal({ article, preview = false, onClose }: { article: Ar
     <div className="sepsyg-article-overlay" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
       <article className="sepsyg-article-reader" role="dialog" aria-modal="true" aria-label={article.title || "Άρθρο"}>
         <button type="button" className="sepsyg-article-close" onClick={onClose} aria-label="Κλείσιμο">×</button>
-        {article.cover_image_url && <img className="sepsyg-article-cover" src={article.cover_image_url} alt="" />}
         <div className="sepsyg-article-reader-body">
+          {article.cover_image_url && (
+            <div className="sepsyg-article-feature-image-wrap">
+              <img className="sepsyg-article-feature-image" src={article.cover_image_url} alt="" />
+            </div>
+          )}
+
+          {preview && <div className="sepsyg-article-preview-badge">ΠΡΟΕΠΙΣΚΟΠΗΣΗ</div>}
+          <h1>{article.title || "Τίτλος άρθρου"}</h1>
+          {article.created_at && <p className="sepsyg-article-date">{articleDateLabel(article.created_at)}</p>}
+
           <div className="sepsyg-article-author-row">
             {article.author_photo_url ? (
               <img src={article.author_photo_url} alt={article.author_name} />
@@ -2455,13 +2566,10 @@ function ArticleReaderModal({ article, preview = false, onClose }: { article: Ar
             </div>
           </div>
 
-          {preview && <div className="sepsyg-article-preview-badge">ΠΡΟΕΠΙΣΚΟΠΗΣΗ</div>}
-          <h1>{article.title || "Τίτλος άρθρου"}</h1>
-          {article.created_at && <p className="sepsyg-article-date">{articleDateLabel(article.created_at)}</p>}
           {article.excerpt && <p className="sepsyg-article-lead">{article.excerpt}</p>}
           <RichTextDisplay value={article.content} className="sepsyg-article-content" />
 
-          {!preview && article.is_public && (
+          {!preview && showShareTools && article.is_public && (
             <div className="sepsyg-article-share-row">
               <button type="button" onClick={copyShareLink}>{copied ? "✓ Αντιγράφηκε" : "🔗 Αντιγραφή συνδέσμου άρθρου"}</button>
             </div>
@@ -2689,14 +2797,14 @@ function ArticlesManager({ role, memberName }: { role: ManageRole; memberName: s
                 <div className="sepsyg-article-admin-copy">
                   <strong>{article.title}</strong>
                   <small>{article.author_name} · {article.approval_status === "approved" ? "Δημοσιευμένο" : "Αναμονή έγκρισης"}</small>
-                  {article.approval_status === "approved" ? (
+                  {article.approval_status === "approved" && (role === "admin" || normalizeTherapistName(article.author_name) === normalizeTherapistName(memberName)) ? (
                     <div className="sepsyg-article-public-url">
                       <code>{articlePublicUrl(article.id)}</code>
                       <button type="button" onClick={() => copyArticleUrl(article)}>{copiedArticleId === article.id ? "✓ Αντιγράφηκε" : "Αντιγραφή URL"}</button>
                     </div>
-                  ) : (
+                  ) : article.approval_status !== "approved" && (role === "admin" || normalizeTherapistName(article.author_name) === normalizeTherapistName(memberName)) ? (
                     <small className="sepsyg-url-pending">Το ξεχωριστό URL δημιουργείται μόλις εγκριθεί το άρθρο.</small>
-                  )}
+                  ) : null}
                 </div>
                 <div>
                   <button type="button" onClick={() => setReaderArticle(article)}>Προβολή</button>
@@ -2710,7 +2818,13 @@ function ArticlesManager({ role, memberName }: { role: ManageRole; memberName: s
       </section>
 
       {previewOpen && <ArticleReaderModal article={previewArticle} preview onClose={() => setPreviewOpen(false)} />}
-      {readerArticle && <ArticleReaderModal article={readerArticle} onClose={() => setReaderArticle(null)} />}
+      {readerArticle && (
+        <ArticleReaderModal
+          article={readerArticle}
+          showShareTools={role === "admin" || normalizeTherapistName(readerArticle.author_name) === normalizeTherapistName(memberName)}
+          onClose={() => setReaderArticle(null)}
+        />
+      )}
     </div>
   );
 }
@@ -2814,7 +2928,329 @@ function PublicSingleArticleApp({ articleId }: { articleId: string }) {
   );
 }
 
-function PortalHelpModal({ tab, onClose }: { tab: "map" | "calendar" | "articles"; onClose: () => void }) {
+
+function AdministrationManager() {
+  const [boardRemote, setBoardRemote] = useState<BoardTermAdmin[]>([]);
+  const [communityRemote, setCommunityRemote] = useState<Array<{ id: string; name: string; type: CommunityKind; hidden: boolean }>>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [boardEditing, setBoardEditing] = useState<BoardTermAdmin | "new" | null>(null);
+  const [boardForm, setBoardForm] = useState({ from_year: 2026, to_year: 2028, president: "", vice_president: "", secretary: "", treasurer: "", member: "" });
+  const [personEditing, setPersonEditing] = useState<CommunityPersonAdmin | "new" | null>(null);
+  const [personName, setPersonName] = useState("");
+  const [personType, setPersonType] = useState<CommunityKind>("member");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    let stopBoard: (() => void) | undefined;
+    let stopCommunity: (() => void) | undefined;
+    let cancelled = false;
+
+    ensureAssociationAnonymousUser()
+      .then(() => {
+        if (cancelled) return;
+        stopBoard = onSnapshot(
+          collection(associationDb, "association_board"),
+          (snapshot) => {
+            const items = snapshot.docs.map((entry) => {
+              const data = entry.data() as Record<string, unknown>;
+              return {
+                id: entry.id,
+                from_year: Number(data.from_year || 0),
+                to_year: Number(data.to_year || 0),
+                president: String(data.president || ""),
+                vice_president: String(data.vice_president || ""),
+                secretary: String(data.secretary || ""),
+                treasurer: String(data.treasurer || ""),
+                member: String(data.member || ""),
+                hidden: data.hidden === true,
+              } satisfies BoardTermAdmin;
+            });
+            setBoardRemote(items);
+            setLoading(false);
+            setError(null);
+          },
+          (caught) => {
+            console.error(caught);
+            setError("Δεν φορτώθηκε το Διοικητικό Συμβούλιο από τη βάση.");
+            setLoading(false);
+          },
+        );
+        stopCommunity = onSnapshot(
+          collection(associationDb, "association_members"),
+          (snapshot) => {
+            const items = snapshot.docs.map((entry) => {
+              const data = entry.data() as Record<string, unknown>;
+              return {
+                id: entry.id,
+                name: String(data.name || "").trim(),
+                type: data.type === "friend" ? "friend" as const : "member" as const,
+                hidden: data.hidden === true,
+              };
+            }).filter((item) => item.name);
+            setCommunityRemote(items);
+            setLoading(false);
+            setError(null);
+          },
+          (caught) => {
+            console.error(caught);
+            setError("Δεν φορτώθηκαν τα Μέλη & Φίλοι από τη βάση.");
+            setLoading(false);
+          },
+        );
+      })
+      .catch((caught) => {
+        console.error(caught);
+        setError("Δεν ήταν δυνατή η σύνδεση με τη βάση του Συλλόγου.");
+        setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+      stopBoard?.();
+      stopCommunity?.();
+    };
+  }, []);
+
+  const boardTerms = useMemo(() => {
+    const map = new Map<string, BoardTermAdmin>();
+    STATIC_BOARD_TERMS.forEach((item) => map.set(item.id, { ...item }));
+    boardRemote.forEach((item) => {
+      if (item.hidden) {
+        map.delete(item.id);
+        return;
+      }
+      const previous = map.get(item.id);
+      map.set(item.id, { ...(previous || {} as BoardTermAdmin), ...item, isStatic: previous?.isStatic === true });
+    });
+    return Array.from(map.values()).sort((a, b) => b.from_year - a.from_year);
+  }, [boardRemote]);
+
+  const community = useMemo(() => {
+    const map = new Map<string, CommunityPersonAdmin>();
+    const hiddenKeys = new Set<string>();
+    STATIC_ASSOCIATION_MEMBERS.forEach((name) => {
+      const key = `member|${normalizeCommunityName(name)}`;
+      map.set(key, { id: `static-${key}`, name, type: "member", source: "static" });
+    });
+    communityRemote.forEach((item) => {
+      const key = `${item.type}|${normalizeCommunityName(item.name)}`;
+      if (item.hidden) hiddenKeys.add(key);
+    });
+    communityRemote.forEach((item) => {
+      const key = `${item.type}|${normalizeCommunityName(item.name)}`;
+      if (item.hidden || hiddenKeys.has(key)) return;
+      map.set(key, { id: item.id, name: item.name, type: item.type, source: "remote" });
+    });
+    hiddenKeys.forEach((key) => map.delete(key));
+    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name, "el"));
+  }, [communityRemote]);
+
+  const members = community.filter((item) => item.type === "member");
+  const friends = community.filter((item) => item.type === "friend");
+
+  function openBoard(item?: BoardTermAdmin) {
+    if (item) {
+      setBoardEditing(item);
+      setBoardForm({
+        from_year: item.from_year,
+        to_year: item.to_year,
+        president: item.president,
+        vice_president: item.vice_president,
+        secretary: item.secretary,
+        treasurer: item.treasurer,
+        member: item.member,
+      });
+    } else {
+      setBoardEditing("new");
+      setBoardForm({ from_year: 2026, to_year: 2028, president: "", vice_president: "", secretary: "", treasurer: "", member: "" });
+    }
+  }
+
+  async function saveBoard(event: FormEvent) {
+    event.preventDefault();
+    if (boardForm.to_year < boardForm.from_year) {
+      setError("Το έτος λήξης δεν μπορεί να είναι πριν από το έτος έναρξης.");
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      await ensureAssociationAnonymousUser();
+      const id = boardEditing && boardEditing !== "new" ? boardEditing.id : `custom-${Date.now()}`;
+      await setDoc(doc(associationDb, "association_board", id), { ...boardForm, hidden: false, updated_at: serverTimestamp() }, { merge: true });
+      setBoardEditing(null);
+    } catch (caught) {
+      console.error(caught);
+      setError("Δεν αποθηκεύτηκε η θητεία του Διοικητικού Συμβουλίου.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function removeBoard(item: BoardTermAdmin) {
+    if (!window.confirm(`Να αφαιρεθεί η θητεία ${item.from_year}–${item.to_year};`)) return;
+    setError(null);
+    try {
+      await ensureAssociationAnonymousUser();
+      await setDoc(
+        doc(associationDb, "association_board", item.id),
+        { hidden: true, updated_at: serverTimestamp() },
+        { merge: true },
+      );
+    } catch (caught) {
+      console.error(caught);
+      setError("Δεν αφαιρέθηκε η θητεία.");
+    }
+  }
+
+  function openPerson(item?: CommunityPersonAdmin) {
+    if (item) {
+      setPersonEditing(item);
+      setPersonName(item.name);
+      setPersonType(item.type);
+    } else {
+      setPersonEditing("new");
+      setPersonName("");
+      setPersonType("member");
+    }
+  }
+
+  async function hideStaticCommunity(name: string, type: CommunityKind) {
+    await setDoc(
+      doc(associationDb, "association_members", communityControlId(name, type)),
+      { name, type, hidden: true, updated_at: serverTimestamp() },
+      { merge: true },
+    );
+  }
+
+  async function savePerson(event: FormEvent) {
+    event.preventDefault();
+    const nextName = personName.trim();
+    if (nextName.length < 2) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await ensureAssociationAnonymousUser();
+      if (personEditing && personEditing !== "new") {
+        if (personEditing.source === "static") {
+          const oldKey = `${personEditing.type}|${normalizeCommunityName(personEditing.name)}`;
+          const newKey = `${personType}|${normalizeCommunityName(nextName)}`;
+          if (oldKey === newKey) {
+            await setDoc(
+              doc(associationDb, "association_members", communityControlId(personEditing.name, personEditing.type)),
+              { name: nextName, type: personType, hidden: false, updated_at: serverTimestamp() },
+              { merge: true },
+            );
+          } else {
+            await hideStaticCommunity(personEditing.name, personEditing.type);
+            await addDoc(collection(associationDb, "association_members"), { name: nextName, type: personType, hidden: false, created_at: serverTimestamp(), updated_at: serverTimestamp() });
+          }
+        } else {
+          await updateDoc(doc(associationDb, "association_members", personEditing.id), { name: nextName, type: personType, hidden: false, updated_at: serverTimestamp() });
+        }
+      } else {
+        await addDoc(collection(associationDb, "association_members"), { name: nextName, type: personType, hidden: false, created_at: serverTimestamp(), updated_at: serverTimestamp() });
+      }
+      setPersonEditing(null);
+      setPersonName("");
+    } catch (caught) {
+      console.error(caught);
+      setError("Δεν αποθηκεύτηκε το μέλος/ο φίλος.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function removePerson(item: CommunityPersonAdmin) {
+    if (!window.confirm(`Να αφαιρεθεί ο/η ${item.name};`)) return;
+    setError(null);
+    try {
+      await ensureAssociationAnonymousUser();
+      const existsInStatic = item.type === "member" && STATIC_ASSOCIATION_MEMBERS.some((name) => normalizeCommunityName(name) === normalizeCommunityName(item.name));
+      if (item.source === "static") {
+        await hideStaticCommunity(item.name, item.type);
+      } else {
+        await setDoc(
+          doc(associationDb, "association_members", item.id),
+          { name: item.name, type: item.type, hidden: true, updated_at: serverTimestamp() },
+          { merge: true },
+        );
+        if (existsInStatic) await hideStaticCommunity(item.name, item.type);
+      }
+    } catch (caught) {
+      console.error(caught);
+      setError("Δεν αφαιρέθηκε το μέλος/ο φίλος.");
+    }
+  }
+
+  return (
+    <div className="sepsyg-admin-content">
+      <div className="sepsyg-admin-intro">
+        <span>Μόνο Διοικητικό</span>
+        <h2>Διαχείριση ιστοσελίδας</h2>
+        <p>Οι αλλαγές εδώ ενημερώνουν τα δημόσια τμήματα «Διοικητικό Συμβούλιο» και «Μέλη & Φίλοι». Τα κουμπιά διαχείρισης δεν χρειάζεται πλέον να υπάρχουν στο Carrd.</p>
+      </div>
+      {error && <div className="sepsyg-admin-error">{error}</div>}
+      {loading && <div className="sepsyg-admin-loading">Φόρτωση στοιχείων…</div>}
+
+      <section className="sepsyg-admin-panel">
+        <div className="sepsyg-admin-panel-head"><div><span>Διοίκηση</span><h3>Διοικητικό Συμβούλιο</h3></div><button type="button" onClick={() => openBoard()}>+ Νέα θητεία</button></div>
+        <div className="sepsyg-board-admin-grid">
+          {boardTerms.map((item) => (
+            <article key={item.id} className="sepsyg-board-admin-card">
+              <div className="sepsyg-board-admin-year">{item.from_year}–{item.to_year}</div>
+              <p><strong>Πρόεδρος</strong>{item.president || "—"}</p>
+              <p><strong>Αντιπρόεδρος</strong>{item.vice_president || "—"}</p>
+              <p><strong>Γραμματέας</strong>{item.secretary || "—"}</p>
+              <p><strong>Ταμίας</strong>{item.treasurer || "—"}</p>
+              <p><strong>Μέλος</strong>{item.member || "—"}</p>
+              <div className="sepsyg-admin-actions"><button type="button" onClick={() => openBoard(item)}>Επεξεργασία</button><button type="button" className="danger" onClick={() => void removeBoard(item)}>Αφαίρεση</button></div>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="sepsyg-admin-panel">
+        <div className="sepsyg-admin-panel-head"><div><span>Κοινότητα</span><h3>Μέλη &amp; Φίλοι</h3></div><button type="button" onClick={() => openPerson()}>+ Προσθήκη</button></div>
+        <div className="sepsyg-community-admin-columns">
+          <div><div className="sepsyg-community-title"><h4>Μέλη Συλλόγου</h4><span>{members.length}</span></div><div className="sepsyg-community-list">{members.map((item) => <div key={`${item.type}-${item.id}-${item.name}`}><span>{item.name}</span><div><button type="button" onClick={() => openPerson(item)}>Επεξεργασία</button><button type="button" className="danger" onClick={() => void removePerson(item)}>×</button></div></div>)}</div></div>
+          <div><div className="sepsyg-community-title"><h4>Φίλοι Συλλόγου</h4><span>{friends.length}</span></div><div className="sepsyg-community-list">{friends.length ? friends.map((item) => <div key={`${item.type}-${item.id}-${item.name}`}><span>{item.name}</span><div><button type="button" onClick={() => openPerson(item)}>Επεξεργασία</button><button type="button" className="danger" onClick={() => void removePerson(item)}>×</button></div></div>) : <p className="sepsyg-community-empty">Δεν υπάρχουν ακόμη καταχωρισμένοι φίλοι.</p>}</div></div>
+        </div>
+      </section>
+
+      {boardEditing && (
+        <div className="sepsyg-admin-modal" onMouseDown={(event) => event.target === event.currentTarget && !saving && setBoardEditing(null)}>
+          <form className="sepsyg-admin-modal-card" onSubmit={saveBoard}>
+            <button type="button" className="sepsyg-admin-modal-close" onClick={() => setBoardEditing(null)}>×</button>
+            <span>Διοικητικό Συμβούλιο</span><h3>{boardEditing === "new" ? "Νέα θητεία" : "Επεξεργασία θητείας"}</h3>
+            <div className="sepsyg-admin-years"><label>Από έτος<input type="number" min="2020" max="2050" value={boardForm.from_year} onChange={(e) => setBoardForm((v) => ({ ...v, from_year: Number(e.target.value) }))} /></label><label>Έως έτος<input type="number" min="2020" max="2050" value={boardForm.to_year} onChange={(e) => setBoardForm((v) => ({ ...v, to_year: Number(e.target.value) }))} /></label></div>
+            <label>Πρόεδρος<input value={boardForm.president} onChange={(e) => setBoardForm((v) => ({ ...v, president: e.target.value }))} /></label>
+            <label>Αντιπρόεδρος<input value={boardForm.vice_president} onChange={(e) => setBoardForm((v) => ({ ...v, vice_president: e.target.value }))} /></label>
+            <label>Γραμματέας<input value={boardForm.secretary} onChange={(e) => setBoardForm((v) => ({ ...v, secretary: e.target.value }))} /></label>
+            <label>Ταμίας<input value={boardForm.treasurer} onChange={(e) => setBoardForm((v) => ({ ...v, treasurer: e.target.value }))} /></label>
+            <label>Μέλος<input value={boardForm.member} onChange={(e) => setBoardForm((v) => ({ ...v, member: e.target.value }))} /></label>
+            <button type="submit" className="sepsyg-admin-save" disabled={saving}>{saving ? "Αποθήκευση…" : "Αποθήκευση"}</button>
+          </form>
+        </div>
+      )}
+
+      {personEditing && (
+        <div className="sepsyg-admin-modal" onMouseDown={(event) => event.target === event.currentTarget && !saving && setPersonEditing(null)}>
+          <form className="sepsyg-admin-modal-card small" onSubmit={savePerson}>
+            <button type="button" className="sepsyg-admin-modal-close" onClick={() => setPersonEditing(null)}>×</button>
+            <span>Κοινότητα Συλλόγου</span><h3>{personEditing === "new" ? "Νέα καταχώριση" : "Επεξεργασία"}</h3>
+            <label>Ονοματεπώνυμο<input value={personName} onChange={(e) => setPersonName(e.target.value)} autoFocus required /></label>
+            <label>Κατηγορία<select value={personType} onChange={(e) => setPersonType(e.target.value as CommunityKind)}><option value="member">Μέλος Συλλόγου</option><option value="friend">Φίλος Συλλόγου</option></select></label>
+            <button type="submit" className="sepsyg-admin-save" disabled={saving}>{saving ? "Αποθήκευση…" : "Αποθήκευση"}</button>
+          </form>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PortalHelpModal({ tab, onClose }: { tab: "map" | "calendar" | "articles" | "administration"; onClose: () => void }) {
   const content = tab === "map" ? {
     title: "Βοήθεια · Χάρτης",
     intro: "Πώς προσθέτεις ή αλλάζεις το προφίλ σου στον Χάρτη Θεραπευτών.",
@@ -2832,10 +3268,10 @@ function PortalHelpModal({ tab, onClose }: { tab: "map" | "calendar" | "articles
       "Συμπλήρωσε τίτλο, ώρα, περιγραφή, μορφή, φωτογραφίες και τα στοιχεία του συντονιστή. Όσα δεν γνωρίζεις ακόμη μπορείς να τα αφήσεις για να επιστρέψεις αργότερα.",
       "Διάλεξε σωστή κατηγορία: «Δράση Συλλόγου», «Δωρεάν Δράση Συλλόγου» ή «Δράση Θεραπευτή Συλλόγου». Η τελευταία αφορά μόνο περιεχόμενο σχετικό με την εκπαίδευση Σ.Ε.ΨΥ.G.",
       "Πάτησε «Προεπισκόπηση» πριν την αποθήκευση για να δεις ακριβώς πώς θα εμφανιστεί στο κοινό.",
-      "Όταν ζητάς δημόσια δημοσίευση ως θεραπευτής, η δράση περνά για έγκριση από το Διοικητικό και εμφανίζεται δημόσια μετά την έγκριση. Αν στο προφίλ σου στον Χάρτη υπάρχει email, θα λάβεις και ενημέρωση έγκρισης για τη συγκεκριμένη ημερομηνία.",
-      "Μπορείς να επιστρέψεις αργότερα στη δράση για διορθώσεις. Αν χρειάζεται αλλαγή ημερομηνίας ή κάτι δεν μπορεί να γίνει από την εφαρμογή, επικοινώνησε με τον Σύλλογο.",
+      "Όταν ζητάς δημόσια δημοσίευση ως θεραπευτής, η δράση περνά για έγκριση από το Διοικητικό και εμφανίζεται δημόσια μετά την έγκριση. Αν το ονοματεπώνυμό σου αντιστοιχεί στο προφίλ σου στον Χάρτη και εκεί υπάρχει έγκυρο email, το σύστημα στέλνει ενημέρωση έγκρισης για τη συγκεκριμένη ημερομηνία.",
+      "Μπορείς να επιστρέψεις αργότερα στη δράση για διορθώσεις. Για αλλαγή ημερομηνίας, άνοιξε τη δράση και χρησιμοποίησε «Προηγούμενη ημέρα», «Επόμενη ημέρα» ή επίλεξε απευθείας νέα ημερομηνία. Οι συνδεδεμένες συμμετοχές και δηλώσεις πληρωμής μεταφέρονται αυτόματα μαζί με τη δράση. Αν η νέα ημέρα είναι ήδη δεσμευμένη, η εφαρμογή δεν θα επιτρέψει τη μεταφορά.",
     ],
-  } : {
+  } : tab === "articles" ? {
     title: "Βοήθεια · Άρθρα",
     intro: "Πώς γράφεις ένα άρθρο και πώς δημοσιεύεται στην ιστοσελίδα.",
     steps: [
@@ -2844,7 +3280,16 @@ function PortalHelpModal({ tab, onClose }: { tab: "map" | "calendar" | "articles
       "Μπορείς να επιλέξεις κείμενο με το ποντίκι και να χρησιμοποιήσεις bold, υπογράμμιση, χρώμα, κεφαλαία, emoji και τα κουμπιά A− / A / A+ / A++ για το μέγεθος των γραμμάτων.",
       "Πάτησε «Προεπισκόπηση» για να δεις το άρθρο όπως θα εμφανιστεί στον αναγνώστη.",
       "Με την υποβολή από θεραπευτή το άρθρο πηγαίνει στο Διοικητικό για έγκριση. Μετά την έγκριση εμφανίζεται στα δημόσια άρθρα.",
-      "Κάθε δημοσιευμένο άρθρο αποκτά δικό του URL. Θα το βλέπεις στη λίστα των άρθρων και μπορείς να το αντιγράψεις με ένα πάτημα.",
+      "Κάθε δημοσιευμένο άρθρο αποκτά δικό του URL. Ο σύνδεσμος εμφανίζεται μόνο μέσα στην Περιοχή Θεραπευτών, στο δικό σου άρθρο (και στο Διοικητικό για όλα τα άρθρα), ώστε να τον αντιγράψεις όπου χρειάζεται.",
+    ],
+  } : {
+    title: "Βοήθεια · Διοίκηση",
+    intro: "Η ενότητα αυτή εμφανίζεται μόνο στη διοικητική πρόσβαση και αντικαθιστά τα παλιά + της ιστοσελίδας.",
+    steps: [
+      "Στο «Διοικητικό Συμβούλιο» μπορείς να προσθέσεις νέα θητεία, να αλλάξεις ονόματα/ρόλους ή να αφαιρέσεις μια θητεία.",
+      "Στα «Μέλη & Φίλοι» μπορείς να προσθέσεις νέο πρόσωπο, να αλλάξεις το ονοματεπώνυμο ή την κατηγορία του και να το αφαιρέσεις.",
+      "Οι αλλαγές αποθηκεύονται στη βάση του Συλλόγου και εμφανίζονται αυτόματα στα αντίστοιχα δημόσια embeds του Carrd.",
+      "Τα δημόσια embeds δεν έχουν πλέον κουμπί + ή κωδικό διαχείρισης. Η επεξεργασία γίνεται μόνο από εδώ.",
     ],
   };
 
@@ -2871,7 +3316,7 @@ function MemberPortal() {
   const [checking, setChecking] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<"map" | "calendar" | "articles">("map");
+  const [activeTab, setActiveTab] = useState<"map" | "calendar" | "articles" | "administration">("map");
   const mapFrameRef = useRef<HTMLIFrameElement | null>(null);
 
   function syncMapPortalAuth() {
@@ -2981,13 +3426,15 @@ function MemberPortal() {
           <button type="button" className={activeTab === "map" ? "active" : ""} onClick={() => { setActiveTab("map"); setHelpOpen(false); }}>Χάρτης</button>
           <button type="button" className={activeTab === "calendar" ? "active" : ""} onClick={() => { setActiveTab("calendar"); setHelpOpen(false); }}>Ημερολόγιο</button>
           <button type="button" className={activeTab === "articles" ? "active" : ""} onClick={() => { setActiveTab("articles"); setHelpOpen(false); }}>Άρθρα</button>
+          {role === "admin" && <button type="button" className={activeTab === "administration" ? "active" : ""} onClick={() => { setActiveTab("administration"); setHelpOpen(false); }}>Διοίκηση</button>}
         </div>
         <button type="button" className="sepsyg-portal-help-button" onClick={() => setHelpOpen(true)}>❔ Βοήθεια</button>
       </nav>
       <main className="sepsyg-portal-content">
         {activeTab === "map" && <iframe ref={mapFrameRef} onLoad={syncMapPortalAuth} className="sepsyg-portal-map" title="Χάρτης Θεραπευτών" src="https://syllogosmap.vercel.app/?portal=1" /> }
-        {activeTab === "calendar" && <ManageApp role={role} embedded />}
+        {activeTab === "calendar" && <ManageApp role={role} embedded memberName={memberName} />}
         {activeTab === "articles" && <ArticlesManager role={role} memberName={memberName} />}
+        {activeTab === "administration" && role === "admin" && <AdministrationManager />}
       </main>
       {helpOpen && <PortalHelpModal tab={activeTab} onClose={() => setHelpOpen(false)} />}
     </div>
@@ -3733,29 +4180,96 @@ function BookingDetails({
   canManage,
   registrationCount,
   canViewRegistrationDetails,
+  canShareUrl,
   onViewRegistrations,
   onClose,
   onEdit,
   canApprove,
   onApproved,
   onEmailStatus,
+  onMoved,
   onDeleted,
 }: {
   booking: Booking;
   canManage: boolean;
   registrationCount: number;
   canViewRegistrationDetails: boolean;
+  canShareUrl: boolean;
   onViewRegistrations: () => void;
   onClose: () => void;
   onEdit: () => void;
   canApprove: boolean;
   onApproved: (booking: Booking) => void;
   onEmailStatus: (result: { ok: boolean; code: string }) => void;
+  onMoved: (fromDate: string, booking: Booking, registrationCount: number) => void;
   onDeleted: (id: string) => void;
 }) {
   const [deleting, setDeleting] = useState(false);
   const [approving, setApproving] = useState(false);
+  const [moving, setMoving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [approvalNotice, setApprovalNotice] = useState<string | null>(null);
+  const [urlCopied, setUrlCopied] = useState(false);
+
+  function offsetDate(isoDate: string, delta: number) {
+    const [year, month, day] = isoDate.split("-").map(Number);
+    const value = new Date(Date.UTC(year, month - 1, day));
+    value.setUTCDate(value.getUTCDate() + delta);
+    return value.toISOString().slice(0, 10);
+  }
+
+  async function handleMoveTo(targetDate: string, label?: string) {
+    if (!targetDate || targetDate === booking.booking_date) return;
+    if (targetDate < "2026-07-01" || targetDate > "2027-08-31") {
+      setError("Η νέα ημερομηνία είναι έξω από το διαθέσιμο ημερολόγιο.");
+      return;
+    }
+    const extra = registrationCount > 0 ? ` Οι ${registrationCount} συμμετοχές θα μεταφερθούν αυτόματα μαζί με τη δράση.` : "";
+    if (!window.confirm(`Μεταφορά της δράσης${label ? ` ${label}` : ""} στις ${formatDateGreek(targetDate)};${extra}`)) return;
+
+    setMoving(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/move-event", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: getManageCode(), eventId: booking.booking_date, targetDate }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        const labels: Record<string, string> = {
+          TARGET_DATE_OCCUPIED: "Η ημερομηνία αυτή είναι ήδη δεσμευμένη.",
+          DATE_OUT_OF_RANGE: "Η νέα ημερομηνία είναι έξω από το διαθέσιμο ημερολόγιο.",
+          EVENT_NOT_FOUND: "Η δράση δεν βρέθηκε.",
+        };
+        throw Object.assign(new Error(labels[payload.code] || "Δεν ήταν δυνατή η μεταφορά της δράσης."), { code: payload.code });
+      }
+      const moved = payload.booking as Booking;
+      onMoved(booking.booking_date, moved, Number(payload.registrationCount || 0));
+      void notifyAdmin("update", moved).then(onEmailStatus);
+    } catch (caughtError) {
+      setError((caughtError as Error).message || "Δεν ήταν δυνατή η μεταφορά της δράσης.");
+    } finally {
+      setMoving(false);
+    }
+  }
+
+  async function handleMove(delta: number) {
+    const targetDate = offsetDate(booking.booking_date, delta);
+    await handleMoveTo(targetDate, delta < 0 ? "στην προηγούμενη ημέρα" : "στην επόμενη ημέρα");
+  }
+
+  async function copyEventUrl() {
+    const url = eventPublicUrl(booking.booking_date);
+    if (!url) return;
+    try {
+      await navigator.clipboard.writeText(url);
+      setUrlCopied(true);
+      window.setTimeout(() => setUrlCopied(false), 1800);
+    } catch {
+      window.prompt("Αντέγραψε τον σύνδεσμο:", url);
+    }
+  }
 
   async function handleApprove() {
     setApproving(true);
@@ -3784,6 +4298,9 @@ function BookingDetails({
         approval_status: "approved",
         is_public: true,
       });
+      setApprovalNotice(payload.approvalEmailSent
+        ? "Η δράση εγκρίθηκε και στάλθηκε email ενημέρωσης στον θεραπευτή."
+        : "Η δράση εγκρίθηκε. Δεν στάλθηκε email ενημέρωσης — έλεγξε ότι το προφίλ του θεραπευτή στον Χάρτη έχει σωστό email.");
     } catch (caughtError) {
       const code = (caughtError as { code?: string } | null)?.code;
       setError(`Δεν ήταν δυνατή η έγκριση${code ? ` (${code})` : ""}.`);
@@ -3813,7 +4330,7 @@ function BookingDetails({
   const isCompleted = booking.status === "completed";
 
   return (
-    <Modal onClose={deleting ? undefined : onClose}>
+    <Modal onClose={deleting || moving || approving ? undefined : onClose}>
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className={`text-xs font-semibold uppercase tracking-wide ${isCompleted ? "text-violet-700" : "text-emerald-700"}`}>
@@ -3852,6 +4369,22 @@ function BookingDetails({
         )}
       </dl>
 
+      {canShareUrl && booking.is_public && (
+        <div className="sepsyg-internal-share-box">
+          <span>Σύνδεσμος δημόσιας δράσης</span>
+          <code>{eventPublicUrl(booking.booking_date)}</code>
+          <button type="button" onClick={() => void copyEventUrl()}>{urlCopied ? "✓ Αντιγράφηκε" : "Αντιγραφή URL"}</button>
+        </div>
+      )}
+
+      {canShareUrl && !booking.is_public && booking.approval_status === "pending" && (
+        <p className="sepsyg-url-pending">Το δημόσιο URL θα εμφανιστεί εδώ μόλις εγκριθεί η δράση.</p>
+      )}
+
+      {approvalNotice && (
+        <p className={`mt-4 rounded-md px-3 py-2 text-sm ${!approvalNotice.includes("Δεν στάλθηκε") ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-800"}`}>{approvalNotice}</p>
+      )}
+
       {booking.is_public && canViewRegistrationDetails && (
         <button
           type="button"
@@ -3876,6 +4409,40 @@ function BookingDetails({
         </p>
       )}
 
+      {canManage && !isCompleted && (
+        <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-3">
+          <p className="mb-2 text-xs font-semibold text-slate-700">Μετακίνηση ημερομηνίας</p>
+          <div className="grid grid-cols-2 gap-2">
+            <button type="button" onClick={() => void handleMove(-1)} disabled={moving || deleting || approving} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-50">← Προηγούμενη ημέρα</button>
+            <button type="button" onClick={() => void handleMove(1)} disabled={moving || deleting || approving} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-50">Επόμενη ημέρα →</button>
+          </div>
+          <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+            <input
+              id={`move-date-${booking.booking_date}`}
+              type="date"
+              min="2026-07-01"
+              max="2027-08-31"
+              defaultValue={booking.booking_date}
+              disabled={moving || deleting || approving}
+              className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-slate-700 disabled:opacity-50"
+            />
+            <button
+              type="button"
+              disabled={moving || deleting || approving}
+              onClick={() => {
+                const input = document.getElementById(`move-date-${booking.booking_date}`) as HTMLInputElement | null;
+                if (input?.value) void handleMoveTo(input.value);
+              }}
+              className="rounded-lg bg-slate-800 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-900 disabled:opacity-50"
+            >
+              Μεταφορά σε αυτή την ημερομηνία
+            </button>
+          </div>
+          <p className="mt-2 text-[11px] leading-4 text-slate-500">Οι συμμετοχές και οι συνδεδεμένες δηλώσεις μεταφέρονται αυτόματα μαζί με τη δράση.</p>
+          {moving && <p className="mt-2 text-xs text-slate-500">Μεταφορά δράσης και συνδεδεμένων συμμετοχών…</p>}
+        </div>
+      )}
+
       {error && <p className="mt-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
 
       <div className="mt-6 flex flex-wrap justify-end gap-2">
@@ -3895,7 +4462,7 @@ function BookingDetails({
             <button
               type="button"
               onClick={handleDelete}
-              disabled={deleting}
+              disabled={deleting || moving}
               className="rounded-lg border border-red-300 bg-white px-4 py-2.5 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-60"
             >
               {deleting ? "Ακύρωση…" : "Ακύρωση δέσμευσης"}
@@ -3903,7 +4470,7 @@ function BookingDetails({
             <button
               type="button"
               onClick={onEdit}
-              disabled={deleting}
+              disabled={deleting || moving}
               className="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium hover:bg-slate-50 disabled:opacity-60"
             >
               Επεξεργασία
@@ -3914,7 +4481,7 @@ function BookingDetails({
         <button
           type="button"
           onClick={onClose}
-          disabled={deleting}
+          disabled={deleting || moving}
           className="rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60"
         >
           Κλείσιμο
@@ -4080,11 +4647,38 @@ function DetailRow({ label, value }: { label: string; value: string | null }) {
   );
 }
 
+let sepsygModalLockCount = 0;
+
+function useModalScrollLock() {
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const root = document.documentElement;
+    const body = document.body;
+    sepsygModalLockCount += 1;
+    root.classList.add("sepsyg-modal-open");
+    body?.classList.add("sepsyg-modal-open");
+    if (sepsygModalLockCount === 1 && window.parent !== window) {
+      window.parent.postMessage({ type: "SEPSYG_MODAL_STATE", open: true }, "*");
+    }
+    return () => {
+      sepsygModalLockCount = Math.max(0, sepsygModalLockCount - 1);
+      if (sepsygModalLockCount === 0) {
+        root.classList.remove("sepsyg-modal-open");
+        body?.classList.remove("sepsyg-modal-open");
+        if (window.parent !== window) {
+          window.parent.postMessage({ type: "SEPSYG_MODAL_STATE", open: false }, "*");
+        }
+      }
+    };
+  }, []);
+}
+
 function Modal({ children, onClose, wide = false, landing = false }: { children: ReactNode; onClose?: () => void; wide?: boolean; landing?: boolean }) {
+  useModalScrollLock();
   const sizeClass = landing ? "max-w-6xl sm:min-h-[86vh]" : wide ? "max-w-5xl" : "max-w-lg";
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/50 p-2 sm:items-center sm:p-4"
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-hidden bg-slate-950/50 p-2 sm:items-center sm:p-4"
       onClick={() => onClose?.()}
       role="presentation"
     >
