@@ -1151,7 +1151,7 @@ function ManageApp({ role, embedded = false, memberName = "" }: { role: ManageRo
               Προβολή δημόσιου προγράμματος
             </a>
             <a
-              href="https://eusyllogossepshyg.carrd.co/"
+              href="https://euassociationsepsyg.carrd.co/#"
               target="_blank"
               rel="noreferrer"
               className="inline-flex items-center rounded-lg bg-emerald-700 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-800"
@@ -1772,7 +1772,7 @@ function PublicEventsApp() {
         </section>
 
         <div className="sepsyg-public-links">
-          <a href="https://eusyllogossepshyg.carrd.co/" target="_blank" rel="noreferrer">Ιστοσελίδα Συλλόγου</a>
+          <a href="https://euassociationsepsyg.carrd.co/#" target="_blank" rel="noreferrer">Ιστοσελίδα Συλλόγου</a>
         </div>
       </main>
 
@@ -3409,7 +3409,7 @@ function MemberPortal() {
             {loginError && <div className="sepsyg-portal-login-error">{loginError}</div>}
             <button type="submit" disabled={checking}>{checking ? "Έλεγχος…" : "Είσοδος"}</button>
           </form>
-          <a className="sepsyg-return-site" href="https://eusyllogossepshyg.carrd.co/">← Επιστροφή στην ιστοσελίδα</a>
+          <a className="sepsyg-return-site" href="https://euassociationsepsyg.carrd.co/#">← Επιστροφή στην ιστοσελίδα</a>
         </div>
       </div>
     );
