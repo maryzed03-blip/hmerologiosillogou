@@ -5,6 +5,10 @@
   "installCommand": "npm install --no-audit --no-fund --registry=https://registry.npmjs.org/",
   "rewrites": [
     {
+      "source": "/api/payment-declarations",
+      "destination": "/api/event-registrations?resource=payment-declarations"
+    },
+    {
       "source": "/manage/:path*",
       "destination": "/index.html"
     },
