@@ -944,6 +944,206 @@ function communityControlId(name: string, kind: CommunityKind) {
 }
 
 
+type WebsiteFieldKind = "text" | "textarea" | "url" | "image";
+
+type WebsiteFieldDefinition = {
+  key: string;
+  label: string;
+  kind: WebsiteFieldKind;
+  placeholder?: string;
+  help?: string;
+};
+
+type WebsiteSectionDefinition = {
+  key: string;
+  label: string;
+  description: string;
+  connected: boolean;
+  fields: WebsiteFieldDefinition[];
+  defaults: Record<string, string>;
+};
+
+type SiteContentAdminSection = {
+  id: string;
+  section_key: string;
+  label: string;
+  draft: Record<string, string>;
+  published: Record<string, string>;
+  updated_at: string | null;
+  published_at: string | null;
+  updated_by: string;
+};
+
+type SiteContentVersion = {
+  id: string;
+  section_key: string;
+  label: string;
+  fields: Record<string, string>;
+  created_at: string | null;
+  created_by: string;
+  action: string;
+};
+
+const WEBSITE_SECTION_DEFINITIONS: WebsiteSectionDefinition[] = [
+  {
+    key: "general",
+    label: "Γενικά & Logo",
+    description: "Τα βασικά στοιχεία ταυτότητας του Συλλόγου. Το Carrd θα συνδεθεί με αυτά όταν μετατρέψουμε το header/footer.",
+    connected: false,
+    fields: [
+      { key: "logo_url", label: "Logo", kind: "image", help: "Μπορείς να βάλεις URL ή να ανεβάσεις εικόνα." },
+      { key: "short_name", label: "Σύντομη ονομασία", kind: "text", placeholder: "Σ.Ε.ΨΥ.G." },
+      { key: "full_name", label: "Πλήρης ονομασία", kind: "textarea" },
+      { key: "email", label: "Email", kind: "text", placeholder: "email@example.com" },
+      { key: "phone", label: "Τηλέφωνο", kind: "text" },
+      { key: "address", label: "Διεύθυνση", kind: "text" },
+    ],
+    defaults: {
+      logo_url: "https://demo.unityenergetics.org/wp-content/uploads/2026/07/Στιγμιότυπο-οθόνης-2026-06-27-202314.png",
+      short_name: "Σ.Ε.ΨΥ.G.",
+      full_name: "Πανευρωπαϊκός Επιστημονικός Σύλλογος Σ.Ε.ΨΥ.G. Σωματικά Επικεντρωμένης Ψυχοθεραπείας Gestalt",
+      email: "euassociationsepsyg@gmail.com",
+      phone: "693 796 2301",
+      address: "Πολυτεχνείου 37",
+    },
+  },
+  {
+    key: "home",
+    label: "Αρχική",
+    description: "Κεντρικός τίτλος, εισαγωγικά κείμενα, εικόνα και βασικό κουμπί της αρχικής σελίδας.",
+    connected: false,
+    fields: [
+      { key: "eyebrow", label: "Μικρός τίτλος πάνω από το hero", kind: "text" },
+      { key: "title", label: "Κεντρικός τίτλος", kind: "textarea" },
+      { key: "subtitle", label: "Υπότιτλος", kind: "textarea" },
+      { key: "body", label: "Κείμενο", kind: "textarea" },
+      { key: "hero_image", label: "Κεντρική εικόνα", kind: "image" },
+      { key: "button_text", label: "Κείμενο κουμπιού", kind: "text" },
+      { key: "button_url", label: "Σύνδεσμος κουμπιού", kind: "url" },
+    ],
+    defaults: {},
+  },
+  {
+    key: "association",
+    label: "Ο Σύλλογος",
+    description: "Τα κείμενα που παρουσιάζουν τον Σύλλογο και το όραμά του.",
+    connected: false,
+    fields: [
+      { key: "title", label: "Τίτλος", kind: "text" },
+      { key: "intro", label: "Εισαγωγή", kind: "textarea" },
+      { key: "body", label: "Κύριο κείμενο", kind: "textarea" },
+      { key: "vision_title", label: "Τίτλος οράματος", kind: "text" },
+      { key: "vision_body", label: "Κείμενο οράματος", kind: "textarea" },
+      { key: "image", label: "Εικόνα ενότητας", kind: "image" },
+    ],
+    defaults: {},
+  },
+  {
+    key: "approach",
+    label: "Η Προσέγγιση",
+    description: "Τα κείμενα και οι εικόνες της ενότητας για τη Σωματικά Επικεντρωμένη Ψυχοθεραπεία Gestalt.",
+    connected: false,
+    fields: [
+      { key: "title", label: "Τίτλος", kind: "text" },
+      { key: "intro", label: "Εισαγωγή", kind: "textarea" },
+      { key: "body", label: "Κύριο κείμενο", kind: "textarea" },
+      { key: "image", label: "Εικόνα", kind: "image" },
+    ],
+    defaults: {},
+  },
+  {
+    key: "activities",
+    label: "Δράσεις",
+    description: "Ο τίτλος και τα σταθερά εισαγωγικά κείμενα γύρω από το ημερολόγιο δράσεων.",
+    connected: false,
+    fields: [
+      { key: "eyebrow", label: "Μικρός τίτλος", kind: "text" },
+      { key: "title", label: "Τίτλος", kind: "text" },
+      { key: "intro", label: "Εισαγωγικό κείμενο", kind: "textarea" },
+    ],
+    defaults: {},
+  },
+  {
+    key: "articles",
+    label: "Άρθρα",
+    description: "Το hero των άρθρων, το video και τα σταθερά κείμενα πριν από τις κάρτες άρθρων.",
+    connected: true,
+    fields: [
+      { key: "eyebrow", label: "Μικρός τίτλος", kind: "text" },
+      { key: "title", label: "Τίτλος", kind: "text" },
+      { key: "intro", label: "Περιγραφή", kind: "textarea" },
+      { key: "video_url", label: "Video hero", kind: "url" },
+      { key: "video_badge", label: "Ετικέτα πάνω στο video", kind: "text" },
+    ],
+    defaults: {
+      eyebrow: "Γνώση · Εμπειρία · Εφαρμογή",
+      title: "Άρθρα",
+      intro: "Κείμενα για την ανθρώπινη επαφή, την επικοινωνία, τη θεραπευτική σχέση και τη Σωματικά Επικεντρωμένη Ψυχοθεραπεία Gestalt.",
+      video_url: "https://demo.unityenergetics.org/wp-content/uploads/2026/08/6279423-uhd_3840_2160_24fps-1.mp4",
+      video_badge: "Άρθρα & Προσεγγίσεις",
+    },
+  },
+  {
+    key: "members",
+    label: "Μέλη Συλλόγου",
+    description: "Τα σταθερά κείμενα που πλαισιώνουν τα μέλη, τους θεραπευτές και το Διοικητικό Συμβούλιο.",
+    connected: false,
+    fields: [
+      { key: "title", label: "Τίτλος", kind: "text" },
+      { key: "intro", label: "Εισαγωγή", kind: "textarea" },
+    ],
+    defaults: {},
+  },
+  {
+    key: "membership",
+    label: "Γίνε Μέλος",
+    description: "Κείμενα και κουμπιά της ενότητας εγγραφής/συμμετοχής στον Σύλλογο.",
+    connected: false,
+    fields: [
+      { key: "title", label: "Τίτλος", kind: "text" },
+      { key: "intro", label: "Κείμενο", kind: "textarea" },
+      { key: "button_text", label: "Κείμενο κουμπιού", kind: "text" },
+      { key: "button_url", label: "Σύνδεσμος κουμπιού", kind: "url" },
+    ],
+    defaults: {},
+  },
+  {
+    key: "contact",
+    label: "Επικοινωνία",
+    description: "Τίτλοι, κείμενα και στοιχεία επικοινωνίας της τελευταίας ενότητας.",
+    connected: false,
+    fields: [
+      { key: "eyebrow", label: "Μικρός τίτλος", kind: "text" },
+      { key: "title", label: "Τίτλος", kind: "text" },
+      { key: "intro", label: "Κείμενο", kind: "textarea" },
+      { key: "email", label: "Email", kind: "text" },
+      { key: "phone", label: "Τηλέφωνο", kind: "text" },
+      { key: "address", label: "Διεύθυνση", kind: "text" },
+      { key: "facebook_url", label: "Facebook", kind: "url" },
+      { key: "instagram_url", label: "Instagram", kind: "url" },
+    ],
+    defaults: {
+      eyebrow: "Επικοινωνία",
+      title: "Έλα σε επαφή",
+      email: "euassociationsepsyg@gmail.com",
+      phone: "693 796 2301",
+      address: "Πολυτεχνείου 37",
+    },
+  },
+  {
+    key: "footer",
+    label: "Footer",
+    description: "Τα μικρά σταθερά κείμενα στο κάτω μέρος της ιστοσελίδας.",
+    connected: false,
+    fields: [
+      { key: "copyright", label: "Copyright", kind: "text" },
+      { key: "small_text", label: "Μικρό κείμενο", kind: "textarea" },
+    ],
+    defaults: {},
+  },
+];
+
+
 function AssociationLogo({ size = "md", centered = false }: { size?: "sm" | "md"; centered?: boolean }) {
   const sizeClass = size === "sm" ? "h-24 w-24 sm:h-28 sm:w-28" : "h-28 w-28 sm:h-32 sm:w-32";
   return (
@@ -2892,7 +3092,9 @@ function ArticlesManager({ role, memberName }: { role: ManageRole; memberName: s
 }
 
 function PublicArticlesApp({ embedOnly = false }: { embedOnly?: boolean }) {
+  const articleHeroDefaults = WEBSITE_SECTION_DEFINITIONS.find((item) => item.key === "articles")?.defaults || {};
   const [articles, setArticles] = useState<ArticleItem[]>([]);
+  const [articleHero, setArticleHero] = useState<Record<string, string>>({ ...articleHeroDefaults });
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<ArticleItem | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -2938,6 +3140,32 @@ function PublicArticlesApp({ embedOnly = false }: { embedOnly?: boolean }) {
     };
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadArticleHero() {
+      try {
+        const response = await fetch(`/api/site-content?section=articles&_=${Date.now()}`, { cache: "no-store" });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok || cancelled) return;
+        const fields = payload?.section?.fields && typeof payload.section.fields === "object" ? payload.section.fields : {};
+        setArticleHero({ ...articleHeroDefaults, ...fields });
+      } catch {
+        // Κρατάμε τα υπάρχοντα defaults αν το CMS δεν έχει ακόμη δημοσιευμένο περιεχόμενο.
+      }
+    }
+
+    void loadArticleHero();
+    const timer = window.setInterval(loadArticleHero, 30000);
+    window.addEventListener("focus", loadArticleHero);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+      window.removeEventListener("focus", loadArticleHero);
+    };
+  }, []);
+
   const routeBase = embedOnly ? "/articles-embed" : "/articles";
 
   function openArticle(article: ArticleItem) {
@@ -2955,20 +3183,16 @@ function PublicArticlesApp({ embedOnly = false }: { embedOnly?: boolean }) {
       {embedOnly ? (
         <header className="sepsyg-articles-embed-hero">
           <div className="sepsyg-articles-embed-copy">
-            <span>Γνώση · Εμπειρία · Εφαρμογή</span>
-            <h1>Άρθρα</h1>
-            <p>
-              Κείμενα για την ανθρώπινη επαφή, την επικοινωνία,
-              τη θεραπευτική σχέση και τη Σωματικά Επικεντρωμένη
-              Ψυχοθεραπεία Gestalt.
-            </p>
+            <span>{articleHero.eyebrow || "Γνώση · Εμπειρία · Εφαρμογή"}</span>
+            <h1>{articleHero.title || "Άρθρα"}</h1>
+            <p>{articleHero.intro || "Κείμενα για την ανθρώπινη επαφή, την επικοινωνία, τη θεραπευτική σχέση και τη Σωματικά Επικεντρωμένη Ψυχοθεραπεία Gestalt."}</p>
           </div>
 
           <div className="sepsyg-articles-embed-video">
             <video autoPlay muted loop playsInline preload="metadata">
-              <source src="https://demo.unityenergetics.org/wp-content/uploads/2026/08/6279423-uhd_3840_2160_24fps-1.mp4" type="video/mp4" />
+              {articleHero.video_url && <source src={articleHero.video_url} type="video/mp4" />}
             </video>
-            <span>Άρθρα &amp; Προσεγγίσεις</span>
+            <span>{articleHero.video_badge || "Άρθρα & Προσεγγίσεις"}</span>
           </div>
         </header>
       ) : (
@@ -3296,8 +3520,8 @@ function AdministrationManager() {
     <div className="sepsyg-admin-content">
       <div className="sepsyg-admin-intro">
         <span>Μόνο Διοικητικό</span>
-        <h2>Διαχείριση ιστοσελίδας</h2>
-        <p>Οι αλλαγές εδώ ενημερώνουν τα δημόσια τμήματα «Διοικητικό Συμβούλιο» και «Μέλη & Φίλοι». Τα κουμπιά διαχείρισης δεν χρειάζεται πλέον να υπάρχουν στο Carrd.</p>
+        <h2>Διοίκηση Συλλόγου</h2>
+        <p>Εδώ διαχειρίζεσαι το Διοικητικό Συμβούλιο και τα Μέλη & Φίλους. Για τα κείμενα, τις εικόνες και το logo της ιστοσελίδας χρησιμοποίησε τη νέα καρτέλα «Επεξεργασία ιστοσελίδας».</p>
       </div>
       {error && <div className="sepsyg-admin-error">{error}</div>}
       {loading && <div className="sepsyg-admin-loading">Φόρτωση στοιχείων…</div>}
@@ -3358,7 +3582,276 @@ function AdministrationManager() {
   );
 }
 
-function PortalHelpModal({ tab, onClose }: { tab: "map" | "calendar" | "articles" | "administration"; onClose: () => void }) {
+
+function formatSiteContentTime(value: string | null) {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return date.toLocaleString("el-GR", { dateStyle: "short", timeStyle: "short" });
+}
+
+function WebsiteContentManager({ adminName }: { adminName: string }) {
+  const code = getManageCode();
+  const [sections, setSections] = useState<SiteContentAdminSection[]>([]);
+  const [versions, setVersions] = useState<SiteContentVersion[]>([]);
+  const [selectedKey, setSelectedKey] = useState(WEBSITE_SECTION_DEFINITIONS[0].key);
+  const [form, setForm] = useState<Record<string, string>>({ ...WEBSITE_SECTION_DEFINITIONS[0].defaults });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
+
+  const definition = WEBSITE_SECTION_DEFINITIONS.find((item) => item.key === selectedKey) || WEBSITE_SECTION_DEFINITIONS[0];
+  const remote = sections.find((item) => item.section_key === selectedKey) || null;
+  const currentVersions = versions.filter((item) => item.section_key === selectedKey).slice(0, 8);
+  const storedDraft = { ...definition.defaults, ...(remote?.draft || {}) };
+  const published = { ...definition.defaults, ...(remote?.published || {}) };
+  const dirty = JSON.stringify(form) !== JSON.stringify(storedDraft);
+  const differsFromPublished = !remote?.published_at || JSON.stringify(form) !== JSON.stringify(published);
+
+  async function loadContent(showSpinner = true) {
+    if (!code) return;
+    if (showSpinner) setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/site-content?code=${encodeURIComponent(code)}&_=${Date.now()}`, { cache: "no-store" });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.code || "SITE_CONTENT_LOAD_FAILED");
+      setSections(Array.isArray(payload.sections) ? payload.sections : []);
+      setVersions(Array.isArray(payload.versions) ? payload.versions : []);
+    } catch (caught) {
+      setError(`Δεν φορτώθηκε η επεξεργασία ιστοσελίδας (${(caught as Error).message}).`);
+    } finally {
+      if (showSpinner) setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    void loadContent(true);
+  }, []);
+
+  useEffect(() => {
+    const nextDefinition = WEBSITE_SECTION_DEFINITIONS.find((item) => item.key === selectedKey) || WEBSITE_SECTION_DEFINITIONS[0];
+    const nextRemote = sections.find((item) => item.section_key === selectedKey) || null;
+    setForm({ ...nextDefinition.defaults, ...(nextRemote?.draft || {}) });
+    setPreviewOpen(false);
+  }, [selectedKey, sections]);
+
+  function setField(key: string, value: string) {
+    setForm((current) => ({ ...current, [key]: value }));
+  }
+
+  async function uploadImage(field: WebsiteFieldDefinition, file: File | null) {
+    if (!file) return;
+    setError(null);
+    try {
+      const compressed = await compressImageFile(file);
+      if (!compressed) throw new Error("IMAGE_CONVERSION_FAILED");
+      setField(field.key, compressed);
+    } catch (caught) {
+      setError(`Δεν διαβάστηκε η εικόνα (${(caught as Error).message}).`);
+    }
+  }
+
+  async function runAction(action: "save_draft" | "publish", fields = form) {
+    if (!code) return;
+    setSaving(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const response = await fetch("/api/site-content", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code,
+          action,
+          section: definition.key,
+          label: definition.label,
+          fields,
+          updated_by: adminName,
+        }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.code || "SITE_CONTENT_SAVE_FAILED");
+      setNotice(action === "publish" ? "Η ενότητα δημοσιεύτηκε." : "Το πρόχειρο αποθηκεύτηκε.");
+      window.setTimeout(() => setNotice(null), 5000);
+      await loadContent(false);
+    } catch (caught) {
+      setError(`Δεν αποθηκεύτηκε η ενότητα (${(caught as Error).message}).`);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function publishSection() {
+    if (!window.confirm(`Να δημοσιευτούν οι αλλαγές στην ενότητα «${definition.label}»;`)) return;
+    await runAction("publish");
+  }
+
+  async function restoreVersion(version: SiteContentVersion) {
+    if (!code || !window.confirm(`Να επαναφερθεί η έκδοση ${formatSiteContentTime(version.created_at)} και να γίνει ξανά δημόσια;`)) return;
+    setSaving(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const response = await fetch("/api/site-content", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code,
+          action: "restore",
+          section: definition.key,
+          label: definition.label,
+          version_id: version.id,
+          updated_by: adminName,
+        }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.code || "SITE_CONTENT_RESTORE_FAILED");
+      setNotice("Η προηγούμενη έκδοση επανήλθε και δημοσιεύτηκε.");
+      window.setTimeout(() => setNotice(null), 5000);
+      await loadContent(false);
+    } catch (caught) {
+      setError(`Δεν έγινε επαναφορά (${(caught as Error).message}).`);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="sepsyg-site-editor">
+      <div className="sepsyg-site-editor-head">
+        <div>
+          <span>Μόνο Διοικητικό</span>
+          <h2>Επεξεργασία ιστοσελίδας</h2>
+          <p>Εδώ θα συγκεντρώνονται όλα τα κείμενα, οι εικόνες, το logo και οι σύνδεσμοι της δημόσιας ιστοσελίδας. Κάθε Carrd ενότητα θα συνδέεται εδώ μία-μία, χωρίς να αλλάζουμε το design που έχεις ήδη φτιάξει.</p>
+        </div>
+        <div className="sepsyg-site-editor-global-status">
+          <strong>{WEBSITE_SECTION_DEFINITIONS.filter((item) => item.connected).length}/{WEBSITE_SECTION_DEFINITIONS.length}</strong>
+          <span>ενότητες συνδεδεμένες με Carrd</span>
+        </div>
+      </div>
+
+      {error && <div className="sepsyg-site-editor-message error">{error}</div>}
+      {notice && <div className="sepsyg-site-editor-message success">{notice}</div>}
+
+      <div className="sepsyg-site-editor-layout">
+        <aside className="sepsyg-site-editor-nav" aria-label="Ενότητες ιστοσελίδας">
+          <div className="sepsyg-site-editor-nav-title">Ενότητες</div>
+          {WEBSITE_SECTION_DEFINITIONS.map((item) => {
+            const itemRemote = sections.find((section) => section.section_key === item.key);
+            return (
+              <button
+                type="button"
+                key={item.key}
+                className={selectedKey === item.key ? "active" : ""}
+                onClick={() => setSelectedKey(item.key)}
+              >
+                <span>{item.label}</span>
+                <small className={item.connected ? "connected" : itemRemote?.published_at ? "stored" : "waiting"}>
+                  {item.connected ? "Συνδεδεμένο" : itemRemote?.published_at ? "Αποθηκευμένο" : "Σε αναμονή"}
+                </small>
+              </button>
+            );
+          })}
+        </aside>
+
+        <section className="sepsyg-site-editor-main">
+          <div className="sepsyg-site-editor-section-head">
+            <div>
+              <div className="sepsyg-site-editor-kicker">{definition.connected ? "Συνδεδεμένο με δημόσια σελίδα" : "Έτοιμο για σύνδεση με Carrd"}</div>
+              <h3>{definition.label}</h3>
+              <p>{definition.description}</p>
+            </div>
+            <div className="sepsyg-site-editor-state">
+              {dirty ? <span className="dirty">Μη αποθηκευμένες αλλαγές</span> : <span>Πρόχειρο αποθηκευμένο</span>}
+              {remote?.published_at ? <small>Δημοσίευση: {formatSiteContentTime(remote.published_at)}</small> : <small>Δεν έχει δημοσιευτεί ακόμη</small>}
+            </div>
+          </div>
+
+          {loading ? (
+            <div className="sepsyg-site-editor-loading">Φόρτωση περιεχομένου…</div>
+          ) : (
+            <>
+              <div className="sepsyg-site-editor-fields">
+                {definition.fields.map((field) => {
+                  const value = form[field.key] || "";
+                  return (
+                    <label key={field.key} className={`sepsyg-site-editor-field ${field.kind === "textarea" ? "wide" : ""}`}>
+                      <span>{field.label}</span>
+                      {field.kind === "textarea" ? (
+                        <textarea value={value} onChange={(event) => setField(field.key, event.target.value)} placeholder={field.placeholder} rows={5} />
+                      ) : (
+                        <input
+                          value={value}
+                          onChange={(event) => setField(field.key, event.target.value)}
+                          placeholder={field.placeholder || (field.kind === "url" ? "https://…" : "")}
+                          type={field.kind === "url" ? "url" : "text"}
+                        />
+                      )}
+                      {field.kind === "image" && (
+                        <div className="sepsyg-site-editor-image-tools">
+                          <input type="file" accept="image/*" onChange={(event) => void uploadImage(field, event.target.files?.[0] || null)} />
+                          {value && <div className="sepsyg-site-editor-image-preview"><img src={value} alt="" /><button type="button" onClick={() => setField(field.key, "")}>Αφαίρεση</button></div>}
+                        </div>
+                      )}
+                      {field.help && <small>{field.help}</small>}
+                    </label>
+                  );
+                })}
+              </div>
+
+              <div className="sepsyg-site-editor-actions">
+                <button type="button" className="ghost" onClick={() => setPreviewOpen((value) => !value)}>{previewOpen ? "Κλείσιμο προεπισκόπησης" : "Προεπισκόπηση"}</button>
+                <button type="button" className="secondary" disabled={saving || !dirty} onClick={() => void runAction("save_draft")}>{saving ? "Αποθήκευση…" : "Αποθήκευση πρόχειρου"}</button>
+                <button type="button" className="primary" disabled={saving || (!dirty && !differsFromPublished)} onClick={() => void publishSection()}>{saving ? "Δημοσίευση…" : "Δημοσίευση"}</button>
+              </div>
+
+              {previewOpen && (
+                <section className="sepsyg-site-editor-preview">
+                  <div className="sepsyg-site-editor-preview-head"><span>Προεπισκόπηση περιεχομένου</span><strong>{definition.label}</strong></div>
+                  <div className="sepsyg-site-editor-preview-grid">
+                    {definition.fields.map((field) => {
+                      const value = form[field.key] || "";
+                      if (!value) return null;
+                      return (
+                        <div key={field.key} className={field.kind === "textarea" ? "wide" : ""}>
+                          <small>{field.label}</small>
+                          {field.kind === "image" ? <img src={value} alt="" /> : <p>{value}</p>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {!definition.connected && <p className="sepsyg-site-editor-preview-note">Αυτή είναι προεπισκόπηση του περιεχομένου. Όταν μου στείλεις το συγκεκριμένο Carrd block, θα συνδέσουμε αυτά τα πεδία πάνω στο υπάρχον design του.</p>}
+                </section>
+              )}
+
+              <section className="sepsyg-site-editor-history">
+                <div className="sepsyg-site-editor-history-head">
+                  <div><span>Ασφάλεια αλλαγών</span><h4>Προηγούμενες δημοσιεύσεις</h4></div>
+                  <small>Κάθε δημοσίευση κρατάει έκδοση για επαναφορά.</small>
+                </div>
+                {currentVersions.length ? (
+                  <div className="sepsyg-site-editor-history-list">
+                    {currentVersions.map((version) => (
+                      <div key={version.id}>
+                        <div><strong>{formatSiteContentTime(version.created_at)}</strong><small>{version.created_by || "Διοίκηση"}{version.action === "restore" ? " · επαναφορά" : ""}</small></div>
+                        <button type="button" disabled={saving} onClick={() => void restoreVersion(version)}>Επαναφορά</button>
+                      </div>
+                    ))}
+                  </div>
+                ) : <p className="sepsyg-site-editor-empty-history">Δεν υπάρχει ακόμη προηγούμενη δημοσίευση για αυτή την ενότητα.</p>}
+              </section>
+            </>
+          )}
+        </section>
+      </div>
+    </div>
+  );
+}
+
+function PortalHelpModal({ tab, onClose }: { tab: "map" | "calendar" | "articles" | "administration" | "website"; onClose: () => void }) {
   const content = tab === "map" ? {
     title: "Βοήθεια · Χάρτης",
     intro: "Πώς προσθέτεις ή αλλάζεις το προφίλ σου στον Χάρτη Θεραπευτών.",
@@ -3389,6 +3882,17 @@ function PortalHelpModal({ tab, onClose }: { tab: "map" | "calendar" | "articles
       "Πάτησε «Προεπισκόπηση» για να δεις το άρθρο όπως θα εμφανιστεί στον αναγνώστη.",
       "Με την υποβολή από θεραπευτή το άρθρο πηγαίνει στο Διοικητικό για έγκριση. Μετά την έγκριση εμφανίζεται στα δημόσια άρθρα.",
       "Κάθε δημοσιευμένο άρθρο αποκτά δικό του URL. Ο σύνδεσμος εμφανίζεται μόνο μέσα στην Περιοχή Θεραπευτών, στο δικό σου άρθρο (και στο Διοικητικό για όλα τα άρθρα), ώστε να τον αντιγράψεις όπου χρειάζεται.",
+    ],
+  } : tab === "website" ? {
+    title: "Βοήθεια · Επεξεργασία ιστοσελίδας",
+    intro: "Από εδώ η Διοίκηση διαχειρίζεται το περιεχόμενο της δημόσιας ιστοσελίδας χωρίς να χρειάζεται να αλλάζει κώδικα.",
+    steps: [
+      "Διάλεξε αριστερά την ενότητα που θέλεις να αλλάξεις, όπως Αρχική, Άρθρα, Επικοινωνία ή Γενικά & Logo.",
+      "Άλλαξε τα κείμενα, τα URLs ή τις εικόνες. Για εικόνα μπορείς να χρησιμοποιήσεις URL ή να ανεβάσεις αρχείο.",
+      "Πάτησε «Αποθήκευση πρόχειρου» για να κρατήσεις τις αλλαγές χωρίς να γίνουν δημόσιες.",
+      "Πάτησε «Προεπισκόπηση» για να ελέγξεις το περιεχόμενο και μετά «Δημοσίευση» όταν είναι έτοιμο.",
+      "Κάθε δημοσίευση κρατάει προηγούμενη έκδοση. Από το ιστορικό μπορείς να κάνεις «Επαναφορά» αν κάτι πάει λάθος.",
+      "Οι ενότητες θα συνδέονται μία-μία με τα Carrd blocks που μου στέλνεις, ώστε να διατηρηθεί ακριβώς το υπάρχον design.",
     ],
   } : {
     title: "Βοήθεια · Διοίκηση",
@@ -3424,7 +3928,7 @@ function MemberPortal() {
   const [checking, setChecking] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<"map" | "calendar" | "articles" | "administration">("map");
+  const [activeTab, setActiveTab] = useState<"map" | "calendar" | "articles" | "administration" | "website">("map");
   const mapFrameRef = useRef<HTMLIFrameElement | null>(null);
 
   function syncMapPortalAuth() {
@@ -3535,6 +4039,7 @@ function MemberPortal() {
           <button type="button" className={activeTab === "calendar" ? "active" : ""} onClick={() => { setActiveTab("calendar"); setHelpOpen(false); }}>Ημερολόγιο</button>
           <button type="button" className={activeTab === "articles" ? "active" : ""} onClick={() => { setActiveTab("articles"); setHelpOpen(false); }}>Άρθρα</button>
           {role === "admin" && <button type="button" className={activeTab === "administration" ? "active" : ""} onClick={() => { setActiveTab("administration"); setHelpOpen(false); }}>Διοίκηση</button>}
+          {role === "admin" && <button type="button" className={activeTab === "website" ? "active" : ""} onClick={() => { setActiveTab("website"); setHelpOpen(false); }}>Επεξεργασία ιστοσελίδας</button>}
         </div>
         <button type="button" className="sepsyg-portal-help-button" onClick={() => setHelpOpen(true)}>❔ Βοήθεια</button>
       </nav>
@@ -3543,6 +4048,7 @@ function MemberPortal() {
         {activeTab === "calendar" && <ManageApp role={role} embedded memberName={memberName} />}
         {activeTab === "articles" && <ArticlesManager role={role} memberName={memberName} />}
         {activeTab === "administration" && role === "admin" && <AdministrationManager />}
+        {activeTab === "website" && role === "admin" && <WebsiteContentManager adminName={memberName} />}
       </main>
       {helpOpen && <PortalHelpModal tab={activeTab} onClose={() => setHelpOpen(false)} />}
     </div>
