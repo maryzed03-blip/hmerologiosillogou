@@ -3919,6 +3919,33 @@ function PortalHelpModal({ tab, onClose }: { tab: "map" | "calendar" | "articles
   );
 }
 
+
+type PortalSectionKey = "map" | "calendar" | "articles" | "administration" | "website";
+
+function PortalNavIcon({ name }: { name: PortalSectionKey | "help" | "logout" | "external" | "menu" }) {
+  const common = {
+    width: 18,
+    height: 18,
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 1.8,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+    "aria-hidden": true,
+  };
+
+  if (name === "map") return <svg {...common}><path d="m9 18-6 3V6l6-3 6 3 6-3v15l-6 3-6-3Z" /><path d="M9 3v15M15 6v15" /></svg>;
+  if (name === "calendar") return <svg {...common}><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M16 3v4M8 3v4M3 10h18" /><path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01" /></svg>;
+  if (name === "articles") return <svg {...common}><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v16H6.5A2.5 2.5 0 0 0 4 21.5v-16Z" /><path d="M4 5.5V21M8 7h8M8 11h8M8 15h5" /></svg>;
+  if (name === "administration") return <svg {...common}><path d="M4 21v-7M20 21v-7M4 14h16M6 14V8l6-4 6 4v6" /><path d="M9 21v-4h6v4" /></svg>;
+  if (name === "website") return <svg {...common}><rect x="3" y="4" width="18" height="14" rx="2" /><path d="M3 8h18M7 6h.01M10 6h.01" /><path d="m14 15 4-4 2 2-4 4-3 1 1-3Z" /></svg>;
+  if (name === "help") return <svg {...common}><circle cx="12" cy="12" r="9" /><path d="M9.8 9a2.4 2.4 0 1 1 3.6 2.1c-.9.55-1.4 1.05-1.4 2.15M12 17h.01" /></svg>;
+  if (name === "logout") return <svg {...common}><path d="M10 17l5-5-5-5M15 12H3" /><path d="M14 4h5a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-5" /></svg>;
+  if (name === "external") return <svg {...common}><path d="M14 3h7v7M10 14 21 3" /><path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5" /></svg>;
+  return <svg {...common}><path d="M4 7h16M4 12h16M4 17h16" /></svg>;
+}
+
 function MemberPortal() {
   const [role, setRole] = useState<ManageRole | null>(() => getManageRole());
   const [memberName, setMemberName] = useState(() => getPortalName());
@@ -3928,7 +3955,8 @@ function MemberPortal() {
   const [checking, setChecking] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<"map" | "calendar" | "articles" | "administration" | "website">("map");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<PortalSectionKey>("map");
   const mapFrameRef = useRef<HTMLIFrameElement | null>(null);
 
   function syncMapPortalAuth() {
@@ -4001,6 +4029,20 @@ function MemberPortal() {
     setLoginCode("");
   }
 
+  const sectionMeta: Record<PortalSectionKey, { group: string; title: string }> = {
+    map: { group: "Workspace", title: "Χάρτης θεραπευτών" },
+    calendar: { group: "Workspace", title: "Ημερολόγιο δράσεων" },
+    articles: { group: "Workspace", title: "Άρθρα" },
+    administration: { group: "Διοίκηση", title: "Διαχείριση συλλόγου" },
+    website: { group: "Διοίκηση", title: "Επεξεργασία ιστοσελίδας" },
+  };
+
+  function changeSection(next: PortalSectionKey) {
+    setActiveTab(next);
+    setHelpOpen(false);
+    setSidebarOpen(false);
+  }
+
   if (!role || !memberName) {
     return (
       <div className="sepsyg-portal-login-page">
@@ -4028,28 +4070,64 @@ function MemberPortal() {
   }
 
   return (
-    <div className="sepsyg-member-portal">
-      <header className="sepsyg-portal-header">
-        <div className="sepsyg-portal-brand"><AssociationLogo size="sm" centered={false} /><div><span>Σ.Ε.ΨΥ.G.</span><strong>Περιοχή θεραπευτών</strong></div></div>
-        <div className="sepsyg-portal-user"><span>{memberName}</span><button type="button" onClick={logout}>Έξοδος</button></div>
-      </header>
-      <nav className="sepsyg-portal-tabs" aria-label="Περιοχές διαχείρισης">
-        <div className="sepsyg-portal-tab-group">
-          <button type="button" className={activeTab === "map" ? "active" : ""} onClick={() => { setActiveTab("map"); setHelpOpen(false); }}>Χάρτης</button>
-          <button type="button" className={activeTab === "calendar" ? "active" : ""} onClick={() => { setActiveTab("calendar"); setHelpOpen(false); }}>Ημερολόγιο</button>
-          <button type="button" className={activeTab === "articles" ? "active" : ""} onClick={() => { setActiveTab("articles"); setHelpOpen(false); }}>Άρθρα</button>
-          {role === "admin" && <button type="button" className={activeTab === "administration" ? "active" : ""} onClick={() => { setActiveTab("administration"); setHelpOpen(false); }}>Διοίκηση</button>}
-          {role === "admin" && <button type="button" className={activeTab === "website" ? "active" : ""} onClick={() => { setActiveTab("website"); setHelpOpen(false); }}>Επεξεργασία ιστοσελίδας</button>}
+    <div className={`sepsyg-member-portal ${sidebarOpen ? "sidebar-open" : ""}`}>
+      <button type="button" className="sepsyg-saas-sidebar-backdrop" aria-label="Κλείσιμο μενού" onClick={() => setSidebarOpen(false)} />
+
+      <aside className="sepsyg-saas-sidebar" aria-label="Κύρια πλοήγηση">
+        <div className="sepsyg-saas-sidebar-brand">
+          <AssociationLogo size="sm" centered={false} />
+          <div><strong>Σ.Ε.ΨΥ.G.</strong><span>Portal Συλλόγου</span></div>
         </div>
-        <button type="button" className="sepsyg-portal-help-button" onClick={() => setHelpOpen(true)}>❔ Βοήθεια</button>
-      </nav>
-      <main className="sepsyg-portal-content">
-        {activeTab === "map" && <iframe ref={mapFrameRef} onLoad={syncMapPortalAuth} className="sepsyg-portal-map" title="Χάρτης Θεραπευτών" src="https://syllogosmap.vercel.app/?portal=1" /> }
-        {activeTab === "calendar" && <ManageApp role={role} embedded memberName={memberName} />}
-        {activeTab === "articles" && <ArticlesManager role={role} memberName={memberName} />}
-        {activeTab === "administration" && role === "admin" && <AdministrationManager />}
-        {activeTab === "website" && role === "admin" && <WebsiteContentManager adminName={memberName} />}
-      </main>
+
+        <nav className="sepsyg-saas-sidebar-nav">
+          <div className="sepsyg-saas-nav-group">
+            <span className="sepsyg-saas-nav-label">Workspace</span>
+            <button type="button" className={activeTab === "map" ? "active" : ""} onClick={() => changeSection("map")}><PortalNavIcon name="map" /><span>Χάρτης</span></button>
+            <button type="button" className={activeTab === "calendar" ? "active" : ""} onClick={() => changeSection("calendar")}><PortalNavIcon name="calendar" /><span>Ημερολόγιο</span></button>
+            <button type="button" className={activeTab === "articles" ? "active" : ""} onClick={() => changeSection("articles")}><PortalNavIcon name="articles" /><span>Άρθρα</span></button>
+          </div>
+
+          {role === "admin" && (
+            <div className="sepsyg-saas-nav-group admin">
+              <span className="sepsyg-saas-nav-label">Διοίκηση</span>
+              <button type="button" className={activeTab === "administration" ? "active" : ""} onClick={() => changeSection("administration")}><PortalNavIcon name="administration" /><span>Διαχείριση συλλόγου</span></button>
+              <button type="button" className={activeTab === "website" ? "active" : ""} onClick={() => changeSection("website")}><PortalNavIcon name="website" /><span>Επεξεργασία ιστοσελίδας</span></button>
+            </div>
+          )}
+        </nav>
+
+        <div className="sepsyg-saas-sidebar-footer">
+          <button type="button" className="sepsyg-saas-help-link" onClick={() => setHelpOpen(true)}><PortalNavIcon name="help" /><span>Βοήθεια</span></button>
+          <div className="sepsyg-saas-user-card">
+            <div className="sepsyg-saas-user-avatar">{memberName.trim().charAt(0).toUpperCase()}</div>
+            <div className="sepsyg-saas-user-copy"><strong>{memberName}</strong><span>{role === "admin" ? "Διοίκηση" : "Θεραπευτής"}</span></div>
+            <button type="button" className="sepsyg-saas-logout" onClick={logout} title="Έξοδος" aria-label="Έξοδος"><PortalNavIcon name="logout" /></button>
+          </div>
+          <a className="sepsyg-saas-return-link" href="https://euassociationsepsyg.carrd.co/#"><PortalNavIcon name="external" /><span>Δημόσια ιστοσελίδα</span></a>
+        </div>
+      </aside>
+
+      <div className="sepsyg-saas-workspace">
+        <header className="sepsyg-saas-topbar">
+          <div className="sepsyg-saas-topbar-left">
+            <button type="button" className="sepsyg-saas-mobile-menu" onClick={() => setSidebarOpen(true)} aria-label="Άνοιγμα μενού"><PortalNavIcon name="menu" /></button>
+            <div className="sepsyg-saas-page-title"><span>{sectionMeta[activeTab].group}</span><h1>{sectionMeta[activeTab].title}</h1></div>
+          </div>
+          <div className="sepsyg-saas-topbar-actions">
+            <span className="sepsyg-saas-role-badge">{role === "admin" ? "Admin" : "Member"}</span>
+            <button type="button" className="sepsyg-saas-top-help" onClick={() => setHelpOpen(true)} title="Βοήθεια" aria-label="Βοήθεια"><PortalNavIcon name="help" /></button>
+          </div>
+        </header>
+
+        <main className="sepsyg-portal-content">
+          {activeTab === "map" && <iframe ref={mapFrameRef} onLoad={syncMapPortalAuth} className="sepsyg-portal-map" title="Χάρτης Θεραπευτών" src="https://syllogosmap.vercel.app/?portal=1" />}
+          {activeTab === "calendar" && <ManageApp role={role} embedded memberName={memberName} />}
+          {activeTab === "articles" && <ArticlesManager role={role} memberName={memberName} />}
+          {activeTab === "administration" && role === "admin" && <AdministrationManager />}
+          {activeTab === "website" && role === "admin" && <WebsiteContentManager adminName={memberName} />}
+        </main>
+      </div>
+
       {helpOpen && <PortalHelpModal tab={activeTab} onClose={() => setHelpOpen(false)} />}
     </div>
   );
