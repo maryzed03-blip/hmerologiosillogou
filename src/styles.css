@@ -3618,10 +3618,13 @@ html.sepsyg-embedded-frame.sepsyg-modal-open body{
 /* Make rich-text bold visually explicit everywhere. */
 .sepsyg-rich-editor-area b,
 .sepsyg-rich-editor-area strong,
+.sepsyg-rich-editor-area span[style*="font-weight"],
 .sepsyg-rich-output b,
 .sepsyg-rich-output strong,
+.sepsyg-rich-output span[style*="font-weight"],
 .sepsyg-article-content b,
-.sepsyg-article-content strong {
+.sepsyg-article-content strong,
+.sepsyg-article-content span[style*="font-weight"] {
   font-weight: 800 !important;
 }
 

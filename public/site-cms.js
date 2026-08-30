@@ -99,6 +99,160 @@
     });
   }
 
+
+  function stripHtml(value) {
+    var holder = document.createElement("div");
+    holder.innerHTML = String(value || "");
+    return String(holder.textContent || holder.innerText || "").replace(/\s+/g, " ").trim();
+  }
+
+  function shortText(value, maxLength) {
+    var text = stripHtml(value);
+    var limit = Math.max(40, Number(maxLength) || 150);
+    return text.length > limit ? text.slice(0, limit - 1).trim() + "…" : text;
+  }
+
+  function greekDate(dateString) {
+    if (!dateString) return "";
+    try {
+      var date = new Date(String(dateString) + "T12:00:00");
+      return new Intl.DateTimeFormat("el-GR", {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+        year: "numeric"
+      }).format(date);
+    } catch (error) {
+      return String(dateString);
+    }
+  }
+
+  function activityTypeLabel(eventItem) {
+    if (eventItem.event_type) return eventItem.event_type;
+    if (eventItem.activity_category === "association_free") return "Δωρεάν δράση";
+    if (eventItem.activity_category === "therapist_action") return "Δράση θεραπευτή";
+    return "Δράση Συλλόγου";
+  }
+
+  function buildActivityCard(eventItem) {
+    var article = document.createElement("article");
+    article.className = "sepsyg-activity-card";
+
+    var imageWrap = document.createElement("div");
+    imageWrap.className = "sepsyg-activity-image";
+    var image = document.createElement("img");
+    image.src = eventItem.image_url || "https://hmerologiosillogou.vercel.app/logo.png";
+    image.alt = eventItem.topic || "Δράση Συλλόγου";
+    image.loading = "lazy";
+    imageWrap.appendChild(image);
+
+    var type = document.createElement("span");
+    type.className = "sepsyg-activity-type";
+    type.textContent = activityTypeLabel(eventItem);
+    imageWrap.appendChild(type);
+    article.appendChild(imageWrap);
+
+    var content = document.createElement("div");
+    content.className = "sepsyg-activity-content";
+
+    var mode = document.createElement("span");
+    mode.className = "sepsyg-activity-mode";
+    mode.textContent = eventItem.mode || eventItem.location || "Νέα δράση";
+    content.appendChild(mode);
+
+    var title = document.createElement("h3");
+    title.className = "sepsyg-activity-title";
+    title.textContent = eventItem.topic || "Δράση Συλλόγου";
+    content.appendChild(title);
+
+    var subtitle = document.createElement("p");
+    subtitle.className = "sepsyg-activity-subtitle";
+    subtitle.textContent = shortText(eventItem.description || eventItem.long_description || "", 155);
+    if (subtitle.textContent) content.appendChild(subtitle);
+
+    var meta = document.createElement("div");
+    meta.className = "sepsyg-activity-meta";
+    var date = document.createElement("span");
+    date.textContent = greekDate(eventItem.booking_date);
+    meta.appendChild(date);
+    if (eventItem.action_time) {
+      var time = document.createElement("span");
+      time.textContent = eventItem.action_time;
+      meta.appendChild(time);
+    }
+    if (eventItem.location) {
+      var location = document.createElement("span");
+      location.textContent = "📍 " + eventItem.location;
+      meta.appendChild(location);
+    }
+    content.appendChild(meta);
+
+    var button = document.createElement("a");
+    button.className = "sepsyg-activity-button";
+    button.href = "https://hmerologiosillogou.vercel.app/events?event=" + encodeURIComponent(eventItem.booking_date || eventItem.id || "");
+    button.target = "_blank";
+    button.rel = "noopener noreferrer";
+    button.textContent = "Δείτε περισσότερα";
+    content.appendChild(button);
+
+    article.appendChild(content);
+    return article;
+  }
+
+  function loadLatestActivities(root) {
+    var grid = root && root.querySelector(".sepsyg-activities-grid");
+    if (!grid || grid.dataset.dynamicLoading === "1") return;
+    grid.dataset.dynamicLoading = "1";
+
+    fetch("https://hmerologiosillogou.vercel.app/api/public-events?limit=3&_=" + Date.now(), { cache: "no-store" })
+      .then(function (response) { return response.ok ? response.json() : null; })
+      .then(function (payload) {
+        var items = payload && Array.isArray(payload.events) ? payload.events : [];
+        if (!items.length) return;
+        while (grid.firstChild) grid.removeChild(grid.firstChild);
+        items.forEach(function (item) { grid.appendChild(buildActivityCard(item)); });
+
+        var allButton = root.querySelector(".sepsyg-activities-all-button");
+        if (allButton) {
+          allButton.href = "https://hmerologiosillogou.vercel.app/events";
+          allButton.target = "_blank";
+          allButton.rel = "noopener noreferrer";
+          allButton.textContent = "Δες όλες τις δράσεις";
+        }
+      })
+      .catch(function () {
+        /* Keep the existing Carrd fallback cards if the live feed is unavailable. */
+      })
+      .finally(function () { grid.dataset.dynamicLoading = "0"; });
+  }
+
+  function installCarrdScrollBridge() {
+    if (window.__SEPSYG_CARRD_SCROLL_BRIDGE_V74__) return;
+    window.__SEPSYG_CARRD_SCROLL_BRIDGE_V74__ = true;
+
+    window.addEventListener("message", function (event) {
+      var data = event && event.data;
+      if (!data || data.type !== "SEPSYG_SCROLL_TO_EMBED_TOP") return;
+
+      var frames = document.querySelectorAll("iframe");
+      var sourceFrame = null;
+      for (var i = 0; i < frames.length; i += 1) {
+        if (frames[i].contentWindow === event.source) {
+          sourceFrame = frames[i];
+          break;
+        }
+      }
+      if (!sourceFrame) return;
+
+      var menu = document.querySelector("#sepsyg-menu-v3");
+      var menuHeight = menu ? Math.ceil(menu.getBoundingClientRect().height) : 0;
+      var top = window.pageYOffset + sourceFrame.getBoundingClientRect().top - menuHeight - 12;
+      window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+    });
+  }
+
+  installCarrdScrollBridge();
+
   function applySpecial(config, root, fields, general) {
     if (config.section === "hero") {
       var bg = fields.background_image;
@@ -269,6 +423,10 @@
           }, 650);
         }
       }
+    }
+
+    if (config.section === "activities_static") {
+      loadLatestActivities(root);
     }
   }
 

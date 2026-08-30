@@ -123,6 +123,13 @@ function isSafeFontSize(value: string) {
   return Number.isFinite(amount) && amount > 0 && amount <= (normalized.endsWith("px") ? 72 : normalized.endsWith("%") ? 300 : 4);
 }
 
+function isSafeFontWeight(value: string) {
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "bold" || normalized === "bolder") return true;
+  const amount = Number.parseInt(normalized, 10);
+  return Number.isFinite(amount) && amount >= 500 && amount <= 900;
+}
+
 const RICH_FONT_SIZE_MAP: Record<string, string> = {
   "1": "0.75rem",
   "2": "0.875rem",
@@ -167,9 +174,11 @@ function sanitizeRichHtml(value: string) {
     if (tag === "SPAN") {
       const color = element.style.color;
       const fontSize = element.style.fontSize;
+      const fontWeight = element.style.fontWeight;
       const styles: string[] = [];
       if (color && isSafeTextColor(color)) styles.push(`color:${escapeRichText(color)}`);
       if (fontSize && isSafeFontSize(fontSize)) styles.push(`font-size:${escapeRichText(fontSize)}`);
+      if (fontWeight && isSafeFontWeight(fontWeight)) styles.push(`font-weight:${escapeRichText(fontWeight)}`);
       return styles.length ? `<span style="${styles.join(";")}">${children}</span>` : `<span>${children}</span>`;
     }
 
@@ -250,7 +259,7 @@ function RichTextEditor({
     restoreSelection();
     const editor = editorRef.current;
     if (!editor) return;
-    document.execCommand("styleWithCSS", false, "false");
+    document.execCommand("styleWithCSS", false, command === "bold" ? "true" : "false");
     document.execCommand(command, false, argument);
     emitValue();
     rememberSelection();
@@ -3728,9 +3737,9 @@ function PublicBookingDetails({
             <div className="mt-5 grid gap-4 xl:grid-cols-2">
               {booking.long_description && (
                 <section className="rounded-2xl border border-[#174B49]/10 bg-white p-5 xl:col-span-2">
-                  <p className="text-[10px] font-extrabold uppercase tracking-[.14em] text-[#008D8B]">Η δράση</p>
-                  <h2 className="mt-1.5 font-serif text-2xl font-medium text-[#174B49]">Περισσότερες πληροφορίες</h2>
-                  <RichTextDisplay value={booking.long_description} className="mt-3 text-[14px] leading-7 text-[#566966] sm:text-[15px]" />
+                  <p className="text-[9px] font-extrabold uppercase tracking-[.13em] text-[#008D8B]">Η δράση</p>
+                  <h2 className="mt-1.5 font-serif text-lg font-medium leading-tight text-[#174B49] sm:text-xl">Περισσότερες πληροφορίες</h2>
+                  <RichTextDisplay value={booking.long_description} className="mt-2.5 text-[12px] leading-5 text-[#566966] sm:text-[13px] sm:leading-6" />
                 </section>
               )}
 
