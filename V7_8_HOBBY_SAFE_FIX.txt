@@ -1,0 +1,9 @@
+V7.8 — Vercel Hobby-safe deployment fix
+
+- Removed the destructive pre-build cleanup from the build command.
+- Obsolete API entrypoints are excluded before deployment via .vercelignore.
+- Legacy endpoint URLs continue to work through rewrites in vercel.json.
+- Production Vercel Functions: 9.
+- Keeps the V7.5 scroll-to-top fix for event details.
+
+Important: upload package.json, .vercelignore, vercel.json, api/, server-handlers/, src/ and public/.
