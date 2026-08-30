@@ -1,6 +1,5 @@
 import verifyManageCode from "../server-handlers/verify-manage-code.js";
 import approveEvent from "../server-handlers/approve-event.js";
-import moveEvent from "../server-handlers/move-event.js";
 
 function resourceFrom(request) {
   const value = request?.query?.resource;
@@ -18,9 +17,6 @@ export default async function handler(request, response) {
     return approveEvent(request, response);
   }
 
-  if (resource === "move-event") {
-    return moveEvent(request, response);
-  }
 
   return response.status(404).json({ error: "Unknown administration endpoint", code: "NOT_FOUND" });
 }

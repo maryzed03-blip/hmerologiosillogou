@@ -41,10 +41,6 @@
       "destination": "/api/admin-actions?resource=approve-event"
     },
     {
-      "source": "/api/move-event",
-      "destination": "/api/admin-actions?resource=move-event"
-    },
-    {
       "source": "/manage/:path*",
       "destination": "/index.html"
     },

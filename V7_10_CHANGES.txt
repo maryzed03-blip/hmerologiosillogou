@@ -1,0 +1,7 @@
+V7.10 — MOVE EVENT FIX
+
+- Η μεταφορά δράσης επέστρεψε σε αυτόνομο endpoint /api/move-event.
+- Αφαιρέθηκε η ενδιάμεση δρομολόγηση της μεταφοράς μέσω /api/admin-actions.
+- Το endpoint δεν εξαιρείται πλέον από .vercelignore.
+- Συνολικές production Serverless Functions: 6.
+- Όλες οι αλλαγές V7.9 (έγκριση άρθρων, Unity Energetics Institute, συγκατάθεση ενημερώσεων, scroll fix) παραμένουν.
