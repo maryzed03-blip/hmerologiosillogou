@@ -16,7 +16,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties, type FormEven
 import { associationDb, db, ensureAnonymousUser, ensureAssociationAnonymousUser } from "./firebase";
 
 type BookingStatus = "booked" | "completed";
-type ActivityCategory = "association" | "association_free" | "therapist_action";
+type ActivityCategory = "association" | "association_free" | "therapist_action" | "unity_institute";
 type ApprovalStatus = "draft" | "pending" | "approved";
 
 type Booking = {
@@ -78,6 +78,8 @@ type EventRegistration = {
   profession: string;
   membership_status: string;
   comment: string;
+  consent_updates: boolean;
+  consent_at: string | null;
   created_at: string | null;
 };
 
@@ -611,7 +613,13 @@ function bookingFromSnapshot(snapshot: QueryDocumentSnapshot<DocumentData>): Boo
     audience: typeof data.audience === "string" ? data.audience : null,
     program_details: typeof data.program_details === "string" ? data.program_details : null,
     activity_category:
-      data.activity_category === "association_free" ? "association_free" : (data.activity_category === "therapist_action" || data.activity_category === "therapist_independent") ? "therapist_action" : "association",
+      data.activity_category === "association_free"
+        ? "association_free"
+        : data.activity_category === "unity_institute"
+          ? "unity_institute"
+          : (data.activity_category === "therapist_action" || data.activity_category === "therapist_independent")
+            ? "therapist_action"
+            : "association",
     general_price: typeof data.general_price === "string" ? data.general_price : null,
     offers_member_discount: data.offers_member_discount === true,
     member_price: typeof data.member_price === "string" ? data.member_price : null,
@@ -785,18 +793,21 @@ function coordinatorsLabel(booking: Booking) {
 function activityCategoryLabel(booking: Booking) {
   if (booking.activity_category === "association_free") return "Δωρεάν Δράση Συλλόγου";
   if (booking.activity_category === "therapist_action") return "Δράση Θεραπευτή Συλλόγου";
+  if (booking.activity_category === "unity_institute") return "Δράση Unity Energetics Institute";
   return "Δράση Συλλόγου";
 }
 
 function activityCategoryClass(booking: Booking) {
   if (booking.activity_category === "association_free") return "category-free";
   if (booking.activity_category === "therapist_action") return "category-independent";
+  if (booking.activity_category === "unity_institute") return "category-institute";
   return "category-association";
 }
 
 function activityCategoryUnderline(booking: Booking) {
   if (booking.activity_category === "association_free") return "inset 0 -5px 0 #63A97E";
   if (booking.activity_category === "therapist_action") return "inset 0 -5px 0 #79B9D3";
+  if (booking.activity_category === "unity_institute") return "inset 0 -5px 0 #9B87C8";
   return "inset 0 -5px 0 #E39A55";
 }
 
@@ -3524,7 +3535,7 @@ function PublicBookingDetails({
   const [showForm, setShowForm] = useState(false);
   const [values, setValues] = useState<EventRegistrationFormValues>({ fullName: "", email: "", phone: "", profession: "", membershipStatus: "", comment: "" });
   const [website, setWebsite] = useState("");
-  const [consent, setConsent] = useState(false);
+  const [updatesConsent, setUpdatesConsent] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
   const registrationRef = useRef<HTMLFormElement | null>(null);
@@ -3594,21 +3605,17 @@ function PublicBookingDetails({
   async function handleRegistration(event: FormEvent) {
     event.preventDefault();
     setNotice(null);
-    if (!consent) {
-      setNotice({ ok: false, text: "Χρειάζεται να αποδεχτείς τη χρήση των στοιχείων για τη συγκεκριμένη συμμετοχή." });
-      return;
-    }
     setSubmitting(true);
     try {
       const response = await fetch("/api/register-event", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ eventId: booking.booking_date, ...values, consent, website }),
+        body: JSON.stringify({ eventId: booking.booking_date, ...values, updatesConsent, website }),
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw Object.assign(new Error(payload.code || "REQUEST_FAILED"), { code: payload.code || `HTTP_${response.status}` });
       setValues({ fullName: "", email: "", phone: "", profession: "", membershipStatus: "", comment: "" });
-      setConsent(false);
+      setUpdatesConsent(false);
       setWebsite("");
       setNotice({ ok: true, text: payload.emailWarning ? "Η συμμετοχή σου καταχωρίστηκε. Δεν στάλθηκε μόνο το email επιβεβαίωσης." : "Η συμμετοχή σου καταχωρίστηκε και στάλθηκε επιβεβαίωση στο email σου." });
     } catch (error) {
@@ -3806,7 +3813,7 @@ function PublicBookingDetails({
               <form ref={registrationRef} onSubmit={handleRegistration} className="sepsyg-registration-form sepsyg-popup-registration-form mt-5">
                 <div className="form-intro">
                   <h4>Δήλωση συμμετοχής</h4>
-                  <p>Συμπλήρωσε τα στοιχεία σου. Η φόρμα συνδέεται αυτόματα με αυτή τη δράση.</p>
+                  <p>Συμπλήρωσε τα στοιχεία σου.</p>
                 </div>
 
                 <div className="sepsyg-form-grid">
@@ -3820,13 +3827,13 @@ function PublicBookingDetails({
                   Σχέση με τον Σύλλογο
                   <select value={values.membershipStatus} onChange={(event) => updateValue("membershipStatus", event.target.value)} required>
                     <option value="" disabled>Επίλεξε</option>
-                    <option value="none">Δεν είμαι Μέλος ή Φίλος του Συλλόγου</option>
-                    <option value="friend">Είμαι Φίλος του Συλλόγου</option>
-                    <option value="member">Είμαι Μέλος του Συλλόγου</option>
-                    <option value="want_member">Θέλω να γίνω Μέλος του Συλλόγου</option>
+                    <option value="none">Δεν είμαι Μέλος / Φίλος</option>
+                    <option value="friend">Φίλος του Συλλόγου</option>
+                    <option value="member">Μέλος του Συλλόγου</option>
+                    <option value="want_member">Θέλω να γίνω Μέλος</option>
                   </select>
                   <small className="sepsyg-discount-note">
-                    * Οι Φίλοι και τα Μέλη έχουν έκπτωση σε όλες τις δράσεις του Συλλόγου. Η έκπτωση διαμορφώνεται σε συνεννόηση με τον θεραπευτή που διοργανώνει το Σεμινάριο / Εργαστήριο.
+                    * Μέλη και Φίλοι έχουν έκπτωση όπου προβλέπεται από τη συγκεκριμένη δράση.
                   </small>
                 </label>
 
@@ -3840,9 +3847,10 @@ function PublicBookingDetails({
                 </div>
 
                 <label className="sepsyg-consent">
-                  <input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} />
-                  <span>Αποδέχομαι τη χρήση των στοιχείων μου αποκλειστικά για τη διαχείριση της συμμετοχής μου και την επικοινωνία από τον Σύλλογο.</span>
+                  <input type="checkbox" checked={updatesConsent} onChange={(event) => setUpdatesConsent(event.target.checked)} />
+                  <span>Συναινώ να λαμβάνω ενημερώσεις για τη συγκεκριμένη και για μελλοντικές σχετικές δράσεις ή σεμινάρια από τον Σύλλογο και τον θεραπευτή / συντονιστή της δράσης.</span>
                 </label>
+                <p className="sepsyg-registration-privacy-note">Τα απαραίτητα στοιχεία της φόρμας χρησιμοποιούνται για τη διαχείριση της συμμετοχής και την επικοινωνία σχετικά με τη συγκεκριμένη δράση.</p>
 
                 {notice && <p className={`sepsyg-form-notice ${notice.ok ? "success" : "error"}`}>{notice.text}</p>}
 
@@ -4196,7 +4204,13 @@ function ArticlesManager({ role, memberName }: { role: ManageRole; memberName: s
       setCoverFile(null);
       setAuthorPhotoFile(null);
       clearLocalDraft(articleDraftKey);
-      setNotice(role === "admin" ? "Το άρθρο δημοσιεύτηκε." : "Το άρθρο αποθηκεύτηκε και στάλθηκε για έγκριση στο Διοικητικό.");
+      setNotice(
+        role === "admin"
+          ? "Το άρθρο δημοσιεύτηκε."
+          : payload.emailSent === false
+            ? "Το άρθρο αποθηκεύτηκε σε αναμονή έγκρισης. Το email προς το Διοικητικό δεν στάλθηκε, αλλά μπορεί να εγκριθεί από την καρτέλα Άρθρα."
+            : "Το άρθρο αποθηκεύτηκε και στάλθηκε με email στο Διοικητικό για έγκριση."
+      );
       window.setTimeout(() => setNotice(null), 6000);
       await loadArticles();
     } catch (caught) {
@@ -4579,7 +4593,7 @@ function AllEventRegistrationsManager() {
 
   function exportCsv() {
     downloadCsvFile("symmetoxes-olon-ton-draseon.csv", [
-      ["Ημερομηνία δράσης", "Δράση", "Ώρα", "Ονοματεπώνυμο", "Email", "Τηλέφωνο", "Επάγγελμα", "Σχέση με Σύλλογο", "Σχόλιο", "Υποβολή"],
+      ["Ημερομηνία δράσης", "Δράση", "Ώρα", "Ονοματεπώνυμο", "Email", "Τηλέφωνο", "Επάγγελμα", "Σχέση με Σύλλογο", "Ενημερώσεις Συλλόγου & συντονιστή", "Σχόλιο", "Υποβολή"],
       ...items.map((item) => [
         item.event_date || item.event_id,
         item.event_topic,
@@ -4589,6 +4603,7 @@ function AllEventRegistrationsManager() {
         item.phone,
         item.profession,
         item.membership_status,
+        item.consent_updates ? "Ναι" : "Όχι",
         item.comment,
         item.created_at ? new Date(item.created_at).toLocaleString("el-GR") : "",
       ]),
@@ -4622,7 +4637,7 @@ function AllEventRegistrationsManager() {
       {!loading && filtered.length > 0 && (
         <div className="sepsyg-admin-data-table-wrap">
           <table className="sepsyg-admin-data-table">
-            <thead><tr><th>Δράση</th><th>Συμμετέχων</th><th>Επικοινωνία</th><th>Επάγγελμα</th><th>Σχέση</th></tr></thead>
+            <thead><tr><th>Δράση</th><th>Συμμετέχων</th><th>Επικοινωνία</th><th>Επάγγελμα</th><th>Σχέση</th><th>Ενημερώσεις</th></tr></thead>
             <tbody>
               {filtered.map((item) => (
                 <tr key={item.id}>
@@ -4631,6 +4646,7 @@ function AllEventRegistrationsManager() {
                   <td><a href={`mailto:${item.email}`}>{item.email}</a><a href={`tel:${item.phone}`}>{item.phone}</a></td>
                   <td>{item.profession || "—"}</td>
                   <td>{item.membership_status || "—"}</td>
+                  <td>{item.consent_updates ? "Ναι" : "Όχι"}</td>
                 </tr>
               ))}
             </tbody>
@@ -5550,7 +5566,7 @@ function PortalHelpModal({ tab, onClose }: { tab: "map" | "calendar" | "articles
     steps: [
       "Επίλεξε την ημερομηνία που θέλεις από το ημερολόγιο. Αν είναι ελεύθερη, ανοίγει η φόρμα της δράσης.",
       "Συμπλήρωσε τίτλο, ώρα, περιγραφή, μορφή, φωτογραφίες και τα στοιχεία του συντονιστή. Όσα δεν γνωρίζεις ακόμη μπορείς να τα αφήσεις για να επιστρέψεις αργότερα.",
-      "Διάλεξε σωστή κατηγορία: «Δράση Συλλόγου», «Δωρεάν Δράση Συλλόγου» ή «Δράση Θεραπευτή Συλλόγου». Η τελευταία αφορά μόνο περιεχόμενο σχετικό με την εκπαίδευση Σ.Ε.ΨΥ.G.",
+      "Διάλεξε σωστή κατηγορία: «Δράση Συλλόγου», «Δωρεάν Δράση Συλλόγου», «Δράση Θεραπευτή Συλλόγου» ή «Δράση Unity Energetics Institute».",
       "Πάτησε «Προεπισκόπηση» πριν την αποθήκευση για να δεις ακριβώς πώς θα εμφανιστεί στο κοινό.",
       "Όταν ζητάς δημόσια δημοσίευση ως θεραπευτής, η δράση περνά για έγκριση από το Διοικητικό και εμφανίζεται δημόσια μετά την έγκριση. Αν το ονοματεπώνυμό σου αντιστοιχεί στο προφίλ σου στον Χάρτη και εκεί υπάρχει έγκυρο email, το σύστημα στέλνει ενημέρωση έγκρισης για τη συγκεκριμένη ημερομηνία.",
       "Μπορείς να επιστρέψεις αργότερα στη δράση για διορθώσεις. Για αλλαγή ημερομηνίας, άνοιξε τη δράση και χρησιμοποίησε «Προηγούμενη ημέρα», «Επόμενη ημέρα» ή επίλεξε απευθείας νέα ημερομηνία. Οι συνδεδεμένες συμμετοχές και δηλώσεις πληρωμής μεταφέρονται αυτόματα μαζί με τη δράση. Αν η νέα ημέρα είναι ήδη δεσμευμένη, η εφαρμογή δεν θα επιτρέψει τη μεταφορά.",
@@ -6483,12 +6499,14 @@ function BookingForm({
             <option value="association">Δράση Συλλόγου</option>
             <option value="association_free">Δωρεάν Δράση Συλλόγου</option>
             <option value="therapist_action">Δράση Θεραπευτή Συλλόγου</option>
+            <option value="unity_institute">Δράση Unity Energetics Institute</option>
           </select>
 
           <div className="mt-3 flex flex-wrap gap-3 text-[11px] font-semibold text-slate-600">
             <span className="border-b-4 border-[#63A97E] pb-1">Πράσινο · Δωρεάν</span>
-            <span className="border-b-4 border-[#E39A55] pb-1">Πορτοκαλί · Δράση Συλλόγου</span>
-            <span className="border-b-4 border-[#79B9D3] pb-1">Γαλάζιο · Δράση Θεραπευτή Συλλόγου</span>
+            <span className="border-b-4 border-[#E39A55] pb-1">Πορτοκαλί · Σύλλογος</span>
+            <span className="border-b-4 border-[#79B9D3] pb-1">Γαλάζιο · Θεραπευτής</span>
+            <span className="border-b-4 border-[#9B87C8] pb-1">Μωβ · Unity Energetics Institute</span>
           </div>
 
           {activityCategory === "therapist_action" && (
@@ -7188,13 +7206,14 @@ function RegistrationsModal({
   function exportCsv() {
     const quote = (value: string) => `"${value.replaceAll('"', '""')}"`;
     const rows = [
-      ["Ονοματεπώνυμο", "Email", "Τηλέφωνο", "Επάγγελμα", "Σχέση με Σύλλογο", "Σχόλιο", "Ημερομηνία υποβολής"],
+      ["Ονοματεπώνυμο", "Email", "Τηλέφωνο", "Επάγγελμα", "Σχέση με Σύλλογο", "Ενημερώσεις Συλλόγου & συντονιστή", "Σχόλιο", "Ημερομηνία υποβολής"],
       ...registrations.map((item) => [
         item.full_name,
         item.email,
         item.phone,
         item.profession,
         item.membership_status,
+        item.consent_updates ? "Ναι" : "Όχι",
         item.comment,
         item.created_at ? new Date(item.created_at).toLocaleString("el-GR") : "",
       ]),
@@ -7243,6 +7262,7 @@ function RegistrationsModal({
                     <p><strong>Τηλέφωνο:</strong> <a href={`tel:${registration.phone}`} className="text-sky-700 underline">{registration.phone}</a></p>
                     <p><strong>Επάγγελμα:</strong> {registration.profession}</p>
                     <p><strong>Σχέση με Σύλλογο:</strong> {registration.membership_status || "—"}</p>
+                    <p><strong>Ενημερώσεις:</strong> {registration.consent_updates ? "Ναι" : "Όχι"}</p>
                     <p><strong>Υποβολή:</strong> {registration.created_at ? new Date(registration.created_at).toLocaleString("el-GR") : "—"}</p>
                   </div>
                   {registration.comment && <p className="mt-3 rounded-lg bg-white px-3 py-2 text-sm leading-6 text-slate-600"><strong>Σχόλιο:</strong> {registration.comment}</p>}

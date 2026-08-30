@@ -5,6 +5,22 @@
   "installCommand": "npm install --no-audit --no-fund --registry=https://registry.npmjs.org/",
   "rewrites": [
     {
+      "source": "/api/register-event",
+      "destination": "/api/event-registrations?resource=register-event"
+    },
+    {
+      "source": "/api/declare-payment",
+      "destination": "/api/event-registrations?resource=declare-payment"
+    },
+    {
+      "source": "/api/send-notification",
+      "destination": "/api/communications?resource=send-notification"
+    },
+    {
+      "source": "/api/public-events",
+      "destination": "/api/site-content?resource=public-events"
+    },
+    {
       "source": "/api/payment-declarations",
       "destination": "/api/event-registrations?resource=payment-declarations"
     },
