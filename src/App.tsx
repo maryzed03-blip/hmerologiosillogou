@@ -27,8 +27,14 @@ type Booking = {
   therapist_email?: string | null;
   additional_coordinator_name: string | null;
   additional_coordinator_role: string | null;
+  third_coordinator_name?: string | null;
+  third_coordinator_role?: string | null;
+  fourth_coordinator_name?: string | null;
+  fourth_coordinator_role?: string | null;
   coordinator_photo_url: string | null;
   additional_coordinator_photo_url: string | null;
+  third_coordinator_photo_url?: string | null;
+  fourth_coordinator_photo_url?: string | null;
   action_time: string | null;
   topic: string | null;
   description: string | null;
@@ -516,6 +522,22 @@ function bookingFromSnapshot(snapshot: QueryDocumentSnapshot<DocumentData>): Boo
       typeof data.additional_coordinator_role === "string" && data.additional_coordinator_role.trim()
         ? data.additional_coordinator_role.trim()
         : null,
+    third_coordinator_name:
+      typeof data.third_coordinator_name === "string" && data.third_coordinator_name.trim()
+        ? data.third_coordinator_name.trim()
+        : null,
+    third_coordinator_role:
+      typeof data.third_coordinator_role === "string" && data.third_coordinator_role.trim()
+        ? data.third_coordinator_role.trim()
+        : null,
+    fourth_coordinator_name:
+      typeof data.fourth_coordinator_name === "string" && data.fourth_coordinator_name.trim()
+        ? data.fourth_coordinator_name.trim()
+        : null,
+    fourth_coordinator_role:
+      typeof data.fourth_coordinator_role === "string" && data.fourth_coordinator_role.trim()
+        ? data.fourth_coordinator_role.trim()
+        : null,
     coordinator_photo_url:
       typeof data.coordinator_photo_url === "string" && data.coordinator_photo_url.trim()
         ? data.coordinator_photo_url
@@ -523,6 +545,14 @@ function bookingFromSnapshot(snapshot: QueryDocumentSnapshot<DocumentData>): Boo
     additional_coordinator_photo_url:
       typeof data.additional_coordinator_photo_url === "string" && data.additional_coordinator_photo_url.trim()
         ? data.additional_coordinator_photo_url
+        : null,
+    third_coordinator_photo_url:
+      typeof data.third_coordinator_photo_url === "string" && data.third_coordinator_photo_url.trim()
+        ? data.third_coordinator_photo_url
+        : null,
+    fourth_coordinator_photo_url:
+      typeof data.fourth_coordinator_photo_url === "string" && data.fourth_coordinator_photo_url.trim()
+        ? data.fourth_coordinator_photo_url
         : null,
     action_time: typeof data.action_time === "string" ? data.action_time : null,
     topic: typeof data.topic === "string" ? data.topic : null,
@@ -696,7 +726,12 @@ async function loadTherapistDirectory(): Promise<TherapistDirectoryItem[]> {
 }
 
 function coordinatorsLabel(booking: Booking) {
-  return [booking.therapist_name, booking.additional_coordinator_name]
+  return [
+    booking.therapist_name,
+    booking.additional_coordinator_name,
+    booking.third_coordinator_name,
+    booking.fourth_coordinator_name,
+  ]
     .filter((value): value is string => Boolean(value && value.trim()))
     .join(" & ");
 }
@@ -737,6 +772,8 @@ async function notifyAdmin(action: NotificationAction, booking: Booking) {
         booking_date: booking.booking_date,
         therapist_name: booking.therapist_name,
         additional_coordinator_name: booking.additional_coordinator_name,
+        third_coordinator_name: booking.third_coordinator_name ?? null,
+        fourth_coordinator_name: booking.fourth_coordinator_name ?? null,
         action_time: booking.action_time,
         topic: booking.topic,
         description: richTextToPlainText(booking.description),
@@ -1329,8 +1366,12 @@ function ManageApp({ role, embedded = false, memberName = "" }: { role: ManageRo
           canViewRegistrationDetails={role === "admin"}
           canShareUrl={
             role === "admin" ||
-            Boolean(memberName && [viewBooking.therapist_name, viewBooking.additional_coordinator_name]
-              .some((person) => normalizeTherapistName(person) === normalizeTherapistName(memberName)))
+            Boolean(memberName && [
+              viewBooking.therapist_name,
+              viewBooking.additional_coordinator_name,
+              viewBooking.third_coordinator_name,
+              viewBooking.fourth_coordinator_name,
+            ].some((person) => normalizeTherapistName(person) === normalizeTherapistName(memberName)))
           }
           onViewRegistrations={() => {
             const booking = viewBooking;
@@ -2071,12 +2112,18 @@ function PublicBookingDetails({
   const isCompleted = isBookingCompleted(booking);
   const mainTherapist = findTherapistByName(booking.therapist_name, therapistDirectory);
   const additionalTherapist = findTherapistByName(booking.additional_coordinator_name, therapistDirectory);
+  const thirdTherapist = findTherapistByName(booking.third_coordinator_name, therapistDirectory);
+  const fourthTherapist = findTherapistByName(booking.fourth_coordinator_name, therapistDirectory);
   const mainCoordinatorPhoto = mainTherapist?.photo || booking.coordinator_photo_url;
   const additionalCoordinatorPhoto =
     additionalTherapist?.photo || booking.additional_coordinator_photo_url;
+  const thirdCoordinatorPhoto = thirdTherapist?.photo || booking.third_coordinator_photo_url || null;
+  const fourthCoordinatorPhoto = fourthTherapist?.photo || booking.fourth_coordinator_photo_url || null;
   const mainCoordinatorRole = booking.therapist_role || mainTherapist?.profession || "";
   const additionalCoordinatorRole =
     booking.additional_coordinator_role || additionalTherapist?.profession || "";
+  const thirdCoordinatorRole = booking.third_coordinator_role || thirdTherapist?.profession || "";
+  const fourthCoordinatorRole = booking.fourth_coordinator_role || fourthTherapist?.profession || "";
   const [showForm, setShowForm] = useState(false);
   const [values, setValues] = useState<EventRegistrationFormValues>({ fullName: "", email: "", phone: "", profession: "", membershipStatus: "", comment: "" });
   const [website, setWebsite] = useState("");
@@ -2219,7 +2266,7 @@ function PublicBookingDetails({
               </div>
             </section>
 
-            {(booking.therapist_name || booking.additional_coordinator_name) && (
+            {(booking.therapist_name || booking.additional_coordinator_name || booking.third_coordinator_name || booking.fourth_coordinator_name) && (
               <section className="rounded-2xl border border-[#174B49]/10 bg-white p-4">
                 <p className="mb-3 text-[10px] font-extrabold uppercase tracking-[.13em] text-[#008D8B]">Συντονίζει</p>
                 <div className="space-y-2.5">
@@ -2242,6 +2289,28 @@ function PublicBookingDetails({
                       <div className="min-w-0">
                         <strong className="block text-sm text-[#174B49]">{booking.additional_coordinator_name}</strong>
                         {additionalCoordinatorRole && <small className="mt-0.5 block text-xs leading-4 text-[#667875]">{additionalCoordinatorRole}</small>}
+                      </div>
+                    </div>
+                  )}
+                  {booking.third_coordinator_name && (
+                    <div className="flex items-center gap-3">
+                      <div className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-full bg-[#7FA7A2] text-sm font-black text-white">
+                        {thirdCoordinatorPhoto ? <img src={thirdCoordinatorPhoto} alt={booking.third_coordinator_name} className="h-full w-full object-cover" /> : <span>{booking.third_coordinator_name.charAt(0)}</span>}
+                      </div>
+                      <div className="min-w-0">
+                        <strong className="block text-sm text-[#174B49]">{booking.third_coordinator_name}</strong>
+                        {thirdCoordinatorRole && <small className="mt-0.5 block text-xs leading-4 text-[#667875]">{thirdCoordinatorRole}</small>}
+                      </div>
+                    </div>
+                  )}
+                  {booking.fourth_coordinator_name && (
+                    <div className="flex items-center gap-3">
+                      <div className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-full bg-[#6E918C] text-sm font-black text-white">
+                        {fourthCoordinatorPhoto ? <img src={fourthCoordinatorPhoto} alt={booking.fourth_coordinator_name} className="h-full w-full object-cover" /> : <span>{booking.fourth_coordinator_name.charAt(0)}</span>}
+                      </div>
+                      <div className="min-w-0">
+                        <strong className="block text-sm text-[#174B49]">{booking.fourth_coordinator_name}</strong>
+                        {fourthCoordinatorRole && <small className="mt-0.5 block text-xs leading-4 text-[#667875]">{fourthCoordinatorRole}</small>}
                       </div>
                     </div>
                   )}
@@ -3542,6 +3611,12 @@ function BookingForm({
   const [additionalCoordinator, setAdditionalCoordinator] = useState(existing?.additional_coordinator_name ?? "");
   const [additionalCoordinatorRole, setAdditionalCoordinatorRole] = useState(existing?.additional_coordinator_role ?? "");
   const [hasAdditionalCoordinator, setHasAdditionalCoordinator] = useState(Boolean(existing?.additional_coordinator_name));
+  const [thirdCoordinator, setThirdCoordinator] = useState(existing?.third_coordinator_name ?? "");
+  const [thirdCoordinatorRole, setThirdCoordinatorRole] = useState(existing?.third_coordinator_role ?? "");
+  const [hasThirdCoordinator, setHasThirdCoordinator] = useState(Boolean(existing?.third_coordinator_name));
+  const [fourthCoordinator, setFourthCoordinator] = useState(existing?.fourth_coordinator_name ?? "");
+  const [fourthCoordinatorRole, setFourthCoordinatorRole] = useState(existing?.fourth_coordinator_role ?? "");
+  const [hasFourthCoordinator, setHasFourthCoordinator] = useState(Boolean(existing?.fourth_coordinator_name));
   const [time, setTime] = useState(existing?.action_time ?? "");
   const [topic, setTopic] = useState(existing?.topic ?? "");
   const [description, setDescription] = useState(existing?.description ?? "");
@@ -3559,6 +3634,8 @@ function BookingForm({
   const [memberPrice, setMemberPrice] = useState(existing?.member_price ?? "");
   const [coordinatorPhotoFile, setCoordinatorPhotoFile] = useState<File | null>(null);
   const [additionalCoordinatorPhotoFile, setAdditionalCoordinatorPhotoFile] = useState<File | null>(null);
+  const [thirdCoordinatorPhotoFile, setThirdCoordinatorPhotoFile] = useState<File | null>(null);
+  const [fourthCoordinatorPhotoFile, setFourthCoordinatorPhotoFile] = useState<File | null>(null);
   const [laterTime, setLaterTime] = useState(existing ? existing.action_time === null : false);
   const [laterTopic, setLaterTopic] = useState(existing ? existing.topic === null : false);
   const [laterDescription, setLaterDescription] = useState(existing ? existing.description === null : false);
@@ -3579,6 +3656,8 @@ function BookingForm({
   const previewDetailUrl = usePreviewFileUrl(detailImageFile, existing?.detail_image_url);
   const previewCoordinatorPhoto = usePreviewFileUrl(coordinatorPhotoFile, existing?.coordinator_photo_url);
   const previewAdditionalPhoto = usePreviewFileUrl(additionalCoordinatorPhotoFile, existing?.additional_coordinator_photo_url);
+  const previewThirdPhoto = usePreviewFileUrl(thirdCoordinatorPhotoFile, existing?.third_coordinator_photo_url);
+  const previewFourthPhoto = usePreviewFileUrl(fourthCoordinatorPhotoFile, existing?.fourth_coordinator_photo_url);
 
   const previewBooking: Booking = {
     id: date,
@@ -3588,8 +3667,14 @@ function BookingForm({
     therapist_email: coordinatorEmail,
     additional_coordinator_name: hasAdditionalCoordinator ? additionalCoordinator.trim() || null : null,
     additional_coordinator_role: hasAdditionalCoordinator ? additionalCoordinatorRole.trim() || null : null,
+    third_coordinator_name: hasThirdCoordinator ? thirdCoordinator.trim() || null : null,
+    third_coordinator_role: hasThirdCoordinator ? thirdCoordinatorRole.trim() || null : null,
+    fourth_coordinator_name: hasFourthCoordinator ? fourthCoordinator.trim() || null : null,
+    fourth_coordinator_role: hasFourthCoordinator ? fourthCoordinatorRole.trim() || null : null,
     coordinator_photo_url: previewCoordinatorPhoto || null,
     additional_coordinator_photo_url: hasAdditionalCoordinator ? previewAdditionalPhoto || null : null,
+    third_coordinator_photo_url: hasThirdCoordinator ? previewThirdPhoto || null : null,
+    fourth_coordinator_photo_url: hasFourthCoordinator ? previewFourthPhoto || null : null,
     action_time: laterTime ? null : time.trim() || null,
     topic: laterTopic ? null : topic.trim() || null,
     description: laterDescription ? null : sanitizeRichHtml(description) || null,
@@ -3620,7 +3705,17 @@ function BookingForm({
     }
 
     if (hasAdditionalCoordinator && additionalCoordinator.trim().length < 2) {
-      setError("Συμπληρώστε το ονοματεπώνυμο του επιπλέον συντονιστή.");
+      setError("Συμπληρώστε το ονοματεπώνυμο του 2ου συντονιστή.");
+      return;
+    }
+
+    if (hasThirdCoordinator && thirdCoordinator.trim().length < 2) {
+      setError("Συμπληρώστε το ονοματεπώνυμο του 3ου συντονιστή.");
+      return;
+    }
+
+    if (hasFourthCoordinator && fourthCoordinator.trim().length < 2) {
+      setError("Συμπληρώστε το ονοματεπώνυμο του 4ου συντονιστή.");
       return;
     }
 
@@ -3661,6 +3756,14 @@ function BookingForm({
         ? await compressImageFile(additionalCoordinatorPhotoFile)
         : "";
 
+      const uploadedThirdCoordinatorPhoto = thirdCoordinatorPhotoFile
+        ? await compressImageFile(thirdCoordinatorPhotoFile)
+        : "";
+
+      const uploadedFourthCoordinatorPhoto = fourthCoordinatorPhotoFile
+        ? await compressImageFile(fourthCoordinatorPhotoFile)
+        : "";
+
       const values = {
         booking_date: date,
         therapist_name: name.trim(),
@@ -3668,10 +3771,20 @@ function BookingForm({
         therapist_email: coordinatorEmail,
         additional_coordinator_name: hasAdditionalCoordinator ? additionalCoordinator.trim() || null : null,
         additional_coordinator_role: hasAdditionalCoordinator ? additionalCoordinatorRole.trim() || null : null,
+        third_coordinator_name: hasThirdCoordinator ? thirdCoordinator.trim() || null : null,
+        third_coordinator_role: hasThirdCoordinator ? thirdCoordinatorRole.trim() || null : null,
+        fourth_coordinator_name: hasFourthCoordinator ? fourthCoordinator.trim() || null : null,
+        fourth_coordinator_role: hasFourthCoordinator ? fourthCoordinatorRole.trim() || null : null,
         coordinator_photo_url:
           uploadedCoordinatorPhoto || existing?.coordinator_photo_url || null,
         additional_coordinator_photo_url: hasAdditionalCoordinator
           ? uploadedAdditionalCoordinatorPhoto || existing?.additional_coordinator_photo_url || null
+          : null,
+        third_coordinator_photo_url: hasThirdCoordinator
+          ? uploadedThirdCoordinatorPhoto || existing?.third_coordinator_photo_url || null
+          : null,
+        fourth_coordinator_photo_url: hasFourthCoordinator
+          ? uploadedFourthCoordinatorPhoto || existing?.fourth_coordinator_photo_url || null
           : null,
         action_time: laterTime ? null : time.trim() || null,
         topic: laterTopic ? null : topic.trim() || null,
@@ -3808,17 +3921,25 @@ function BookingForm({
                   setAdditionalCoordinator("");
                   setAdditionalCoordinatorRole("");
                   setAdditionalCoordinatorPhotoFile(null);
+                  setHasThirdCoordinator(false);
+                  setThirdCoordinator("");
+                  setThirdCoordinatorRole("");
+                  setThirdCoordinatorPhotoFile(null);
+                  setHasFourthCoordinator(false);
+                  setFourthCoordinator("");
+                  setFourthCoordinatorRole("");
+                  setFourthCoordinatorPhotoFile(null);
                 }
               }}
               className="h-4 w-4 accent-emerald-600"
             />
-            <span className="text-sm font-semibold text-slate-900">Υπάρχει επιπλέον συντονιστής;</span>
+            <span className="text-sm font-semibold text-slate-900">Υπάρχει 2ος συντονιστής;</span>
           </label>
 
           {hasAdditionalCoordinator && (
             <div className="mt-4 space-y-4 border-t border-slate-200 pt-4">
               <div>
-                <label className="mb-1.5 block text-sm font-medium" htmlFor="additional-coordinator">Όνομα επιπλέον συντονιστή</label>
+                <label className="mb-1.5 block text-sm font-medium" htmlFor="additional-coordinator">Όνομα 2ου συντονιστή</label>
                 <input
                   id="additional-coordinator"
                   type="text"
@@ -3829,7 +3950,7 @@ function BookingForm({
                 />
               </div>
               <div>
-                <label className="mb-1.5 block text-sm font-medium" htmlFor="additional-coordinator-role">Ιδιότητα / επάγγελμα επιπλέον συντονιστή</label>
+                <label className="mb-1.5 block text-sm font-medium" htmlFor="additional-coordinator-role">Ιδιότητα / επάγγελμα 2ου συντονιστή</label>
                 <input
                   id="additional-coordinator-role"
                   type="text"
@@ -3840,7 +3961,7 @@ function BookingForm({
                 />
               </div>
               <div>
-                <label className="mb-1.5 block text-sm font-medium" htmlFor="additional-coordinator-photo">Φωτογραφία επιπλέον συντονιστή</label>
+                <label className="mb-1.5 block text-sm font-medium" htmlFor="additional-coordinator-photo">Φωτογραφία 2ου συντονιστή</label>
                 <input
                   id="additional-coordinator-photo"
                   type="file"
@@ -3849,6 +3970,84 @@ function BookingForm({
                   className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm"
                 />
                 <p className="mt-2 text-xs leading-5 text-slate-500">Αν υπάρχει στον Χάρτη Θεραπευτών με το ίδιο ονοματεπώνυμο, η φωτογραφία του μπορεί να εμφανιστεί αυτόματα.</p>
+              </div>
+
+              <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-4">
+                <label className="flex cursor-pointer items-center gap-3">
+                  <input
+                    type="checkbox"
+                    checked={hasThirdCoordinator}
+                    onChange={(event) => {
+                      const checked = event.target.checked;
+                      setHasThirdCoordinator(checked);
+                      if (!checked) {
+                        setThirdCoordinator("");
+                        setThirdCoordinatorRole("");
+                        setThirdCoordinatorPhotoFile(null);
+                        setHasFourthCoordinator(false);
+                        setFourthCoordinator("");
+                        setFourthCoordinatorRole("");
+                        setFourthCoordinatorPhotoFile(null);
+                      }
+                    }}
+                    className="h-4 w-4 accent-emerald-600"
+                  />
+                  <span className="text-sm font-semibold text-slate-900">Υπάρχει 3ος συντονιστής;</span>
+                </label>
+
+                {hasThirdCoordinator && (
+                  <div className="mt-4 space-y-4 border-t border-slate-200 pt-4">
+                    <div>
+                      <label className="mb-1.5 block text-sm font-medium" htmlFor="third-coordinator">Όνομα 3ου συντονιστή</label>
+                      <input id="third-coordinator" type="text" value={thirdCoordinator} onChange={(event) => setThirdCoordinator(event.target.value)} placeholder="Ονοματεπώνυμο" className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:border-emerald-500 focus:outline-none" />
+                    </div>
+                    <div>
+                      <label className="mb-1.5 block text-sm font-medium" htmlFor="third-coordinator-role">Ιδιότητα / επάγγελμα 3ου συντονιστή</label>
+                      <input id="third-coordinator-role" type="text" value={thirdCoordinatorRole} onChange={(event) => setThirdCoordinatorRole(event.target.value)} placeholder="π.χ. Ψυχολόγος – Ψυχοθεραπευτής" className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:border-emerald-500 focus:outline-none" />
+                    </div>
+                    <div>
+                      <label className="mb-1.5 block text-sm font-medium" htmlFor="third-coordinator-photo">Φωτογραφία 3ου συντονιστή</label>
+                      <input id="third-coordinator-photo" type="file" accept="image/*" onChange={(event) => setThirdCoordinatorPhotoFile(event.target.files?.[0] ?? null)} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm" />
+                    </div>
+
+                    <div className="rounded-xl border border-slate-200 bg-white p-4">
+                      <label className="flex cursor-pointer items-center gap-3">
+                        <input
+                          type="checkbox"
+                          checked={hasFourthCoordinator}
+                          onChange={(event) => {
+                            const checked = event.target.checked;
+                            setHasFourthCoordinator(checked);
+                            if (!checked) {
+                              setFourthCoordinator("");
+                              setFourthCoordinatorRole("");
+                              setFourthCoordinatorPhotoFile(null);
+                            }
+                          }}
+                          className="h-4 w-4 accent-emerald-600"
+                        />
+                        <span className="text-sm font-semibold text-slate-900">Υπάρχει 4ος συντονιστής;</span>
+                      </label>
+
+                      {hasFourthCoordinator && (
+                        <div className="mt-4 space-y-4 border-t border-slate-200 pt-4">
+                          <div>
+                            <label className="mb-1.5 block text-sm font-medium" htmlFor="fourth-coordinator">Όνομα 4ου συντονιστή</label>
+                            <input id="fourth-coordinator" type="text" value={fourthCoordinator} onChange={(event) => setFourthCoordinator(event.target.value)} placeholder="Ονοματεπώνυμο" className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:border-emerald-500 focus:outline-none" />
+                          </div>
+                          <div>
+                            <label className="mb-1.5 block text-sm font-medium" htmlFor="fourth-coordinator-role">Ιδιότητα / επάγγελμα 4ου συντονιστή</label>
+                            <input id="fourth-coordinator-role" type="text" value={fourthCoordinatorRole} onChange={(event) => setFourthCoordinatorRole(event.target.value)} placeholder="π.χ. Εκπαιδευτής / Θεραπευτής" className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:border-emerald-500 focus:outline-none" />
+                          </div>
+                          <div>
+                            <label className="mb-1.5 block text-sm font-medium" htmlFor="fourth-coordinator-photo">Φωτογραφία 4ου συντονιστή</label>
+                            <input id="fourth-coordinator-photo" type="file" accept="image/*" onChange={(event) => setFourthCoordinatorPhotoFile(event.target.files?.[0] ?? null)} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm" />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -4386,7 +4585,13 @@ function BookingDetails({
         <DetailRow label="Συντονιστές" value={coordinatorsLabel(booking)} />
         <DetailRow label="Ιδιότητα βασικού συντονιστή" value={booking.therapist_role || "—"} />
         {booking.additional_coordinator_name && (
-          <DetailRow label="Ιδιότητα επιπλέον συντονιστή" value={booking.additional_coordinator_role || "—"} />
+          <DetailRow label="Ιδιότητα 2ου συντονιστή" value={booking.additional_coordinator_role || "—"} />
+        )}
+        {booking.third_coordinator_name && (
+          <DetailRow label="Ιδιότητα 3ου συντονιστή" value={booking.third_coordinator_role || "—"} />
+        )}
+        {booking.fourth_coordinator_name && (
+          <DetailRow label="Ιδιότητα 4ου συντονιστή" value={booking.fourth_coordinator_role || "—"} />
         )}
         <DetailRow label="Ώρα" value={booking.action_time} />
         <DetailRow label="Θέμα" value={booking.topic} />
