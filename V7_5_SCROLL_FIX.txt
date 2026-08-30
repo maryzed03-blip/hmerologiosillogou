@@ -1,0 +1,10 @@
+SEPSYG V7.5 — ROBUST EVENT DETAILS SCROLL FIX
+============================================
+
+Διόρθωση για «Δείτε περισσότερα» στις δράσεις:
+- Η μετάβαση στην αναλυτική δράση επαναφέρει αμέσως το scroll στην κορυφή.
+- Η εντολή εκτελείται πριν και μετά το React render ώστε να μην επηρεάζεται από αλλαγές ύψους.
+- Σε Carrd iframe στέλνονται επαναλαμβανόμενα postMessage προς τον γονέα.
+- Το Carrd bridge χρησιμοποιεί instant/auto scroll για να μην χάνεται ο στόχος κατά το reflow.
+- Η ίδια συμπεριφορά εφαρμόζεται και όταν ανοίγει δράση από το mini calendar / expanded calendar.
+- Σε standalone Vercel /events γίνεται επίσης local scroll reset.

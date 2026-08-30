@@ -227,8 +227,8 @@
   }
 
   function installCarrdScrollBridge() {
-    if (window.__SEPSYG_CARRD_SCROLL_BRIDGE_V74__) return;
-    window.__SEPSYG_CARRD_SCROLL_BRIDGE_V74__ = true;
+    if (window.__SEPSYG_CARRD_SCROLL_BRIDGE_V75__) return;
+    window.__SEPSYG_CARRD_SCROLL_BRIDGE_V75__ = true;
 
     window.addEventListener("message", function (event) {
       var data = event && event.data;
@@ -247,7 +247,8 @@
       var menu = document.querySelector("#sepsyg-menu-v3");
       var menuHeight = menu ? Math.ceil(menu.getBoundingClientRect().height) : 0;
       var top = window.pageYOffset + sourceFrame.getBoundingClientRect().top - menuHeight - 12;
-      window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+      var behavior = data.behavior === "smooth" ? "smooth" : "auto";
+      window.scrollTo({ top: Math.max(0, top), behavior: behavior });
     });
   }
 

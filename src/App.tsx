@@ -3014,6 +3014,41 @@ function PublicEventsApp() {
     setActiveMonth(MONTHS[activeMonthIndex + 1].key);
   }
 
+  function requestDetailsScrollTop() {
+    if (typeof window === "undefined") return;
+
+    // Reset any local iframe/document scroll immediately. Carrd embeds normally
+    // use the parent page scroll, but this also covers standalone /events.
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    document.documentElement.scrollTop = 0;
+    if (document.body) document.body.scrollTop = 0;
+
+    // When embedded in Carrd, ask the parent page to move to the top of the
+    // iframe. The request is deliberately instant: smooth scrolling can lose
+    // its target while React swaps the list for a shorter/taller details view.
+    if (window.parent !== window) {
+      window.parent.postMessage(
+        { type: "SEPSYG_SCROLL_TO_EMBED_TOP", source: "calendar", behavior: "auto" },
+        "*",
+      );
+    }
+  }
+
+  function openPublicBooking(booking: Booking) {
+    // Do this before the DOM height changes, then repeat after React has rendered
+    // the details page. This prevents the visitor from remaining at the old
+    // card's scroll position and seeing only the beige/empty lower area.
+    requestDetailsScrollTop();
+    setViewBooking(booking);
+
+    if (typeof window === "undefined") return;
+    window.requestAnimationFrame(requestDetailsScrollTop);
+    window.setTimeout(requestDetailsScrollTop, 60);
+    window.setTimeout(requestDetailsScrollTop, 180);
+    window.setTimeout(requestDetailsScrollTop, 420);
+    window.setTimeout(requestDetailsScrollTop, 800);
+  }
+
   async function handlePublicAccess(event: FormEvent) {
     event.preventDefault();
     setAccessChecking(true);
@@ -3110,7 +3145,7 @@ function PublicEventsApp() {
                     key={booking.id}
                     booking={booking}
                     therapistDirectory={therapistDirectory}
-                    onOpen={() => setViewBooking(booking)}
+                    onOpen={() => openPublicBooking(booking)}
                   />
                 ))}
               </div>
@@ -3163,7 +3198,7 @@ function PublicEventsApp() {
                     type="button"
                     className={`sepsyg-mini-day ${booking ? "has-event" : ""} ${booking ? activityCategoryClass(booking) : ""}`}
                     disabled={!booking}
-                    onClick={() => booking && setViewBooking(booking)}
+                    onClick={() => booking && openPublicBooking(booking)}
                     aria-label={booking ? `${day} ${month.label}: ${booking.topic || "Δράση Συλλόγου"}` : `${day} ${month.label}`}
                   >
                     <span>{day}</span>
@@ -3246,7 +3281,7 @@ function PublicEventsApp() {
                     onClick={() => {
                       if (!booking) return;
                       setCalendarExpanded(false);
-                      setViewBooking(booking);
+                      openPublicBooking(booking);
                     }}
                   >
                     <span>{day}</span>
@@ -3525,20 +3560,29 @@ function PublicBookingDetails({
     if (!inlineMode || typeof window === "undefined") return;
 
     const requestParentScroll = () => {
+      window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+      document.documentElement.scrollTop = 0;
+      if (document.body) document.body.scrollTop = 0;
+
       if (window.parent !== window) {
-        window.parent.postMessage({ type: "SEPSYG_SCROLL_TO_EMBED_TOP", source: "calendar" }, "*");
-      } else {
-        window.scrollTo({ top: 0, behavior: "smooth" });
+        window.parent.postMessage(
+          { type: "SEPSYG_SCROLL_TO_EMBED_TOP", source: "calendar", behavior: "auto" },
+          "*",
+        );
       }
     };
 
     requestParentScroll();
-    const first = window.setTimeout(requestParentScroll, 120);
-    const second = window.setTimeout(requestParentScroll, 420);
+    const first = window.setTimeout(requestParentScroll, 50);
+    const second = window.setTimeout(requestParentScroll, 160);
+    const third = window.setTimeout(requestParentScroll, 420);
+    const fourth = window.setTimeout(requestParentScroll, 800);
 
     return () => {
       window.clearTimeout(first);
       window.clearTimeout(second);
+      window.clearTimeout(third);
+      window.clearTimeout(fourth);
     };
   }, [booking.booking_date, inlineMode]);
 
