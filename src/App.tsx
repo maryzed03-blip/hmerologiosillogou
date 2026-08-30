@@ -1639,6 +1639,19 @@ function PublicEventsApp() {
     }
   }
 
+  if (viewBooking) {
+    return (
+      <div className="sepsyg-public-page">
+        <PublicBookingDetails
+          booking={viewBooking}
+          therapistDirectory={therapistDirectory}
+          inlineMode
+          onClose={() => setViewBooking(null)}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="sepsyg-public-page">
       <header className="sepsyg-public-hero sepsyg-public-hero-compact">
@@ -1893,13 +1906,6 @@ function PublicEventsApp() {
         </div>
       )}
 
-      {viewBooking && (
-        <PublicBookingDetails
-          booking={viewBooking}
-          therapistDirectory={therapistDirectory}
-          onClose={() => setViewBooking(null)}
-        />
-      )}
     </div>
   );
 }
@@ -2054,11 +2060,13 @@ function PublicBookingDetails({
   therapistDirectory,
   onClose,
   previewMode = false,
+  inlineMode = false,
 }: {
   booking: Booking;
   therapistDirectory: TherapistDirectoryItem[];
   onClose: () => void;
   previewMode?: boolean;
+  inlineMode?: boolean;
 }) {
   const isCompleted = isBookingCompleted(booking);
   const mainTherapist = findTherapistByName(booking.therapist_name, therapistDirectory);
@@ -2104,6 +2112,28 @@ function PublicBookingDetails({
   }, [showForm]);
 
 
+  useEffect(() => {
+    if (!inlineMode || typeof window === "undefined") return;
+
+    const requestParentScroll = () => {
+      if (window.parent !== window) {
+        window.parent.postMessage({ type: "SEPSYG_SCROLL_TO_EMBED_TOP", source: "calendar" }, "*");
+      } else {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+    };
+
+    requestParentScroll();
+    const first = window.setTimeout(requestParentScroll, 120);
+    const second = window.setTimeout(requestParentScroll, 420);
+
+    return () => {
+      window.clearTimeout(first);
+      window.clearTimeout(second);
+    };
+  }, [booking.booking_date, inlineMode]);
+
+
   function updateValue(field: keyof EventRegistrationFormValues, value: string) {
     setValues((previous) => ({ ...previous, [field]: value }));
   }
@@ -2136,261 +2166,228 @@ function PublicBookingDetails({
     } finally { setSubmitting(false); }
   }
 
-  return (
-    <Modal onClose={submitting ? undefined : onClose} wide landing>
-      <div className="sepsyg-activity-popup-shell">
-        {booking.image_url ? (
-          <div className="sepsyg-popup-cover">
-            <img
-              src={booking.image_url}
-              alt={booking.topic || "Δράση Συλλόγου"}
-              className="h-full w-full object-cover"
-            />
-          </div>
-        ) : (
-          <div className="sepsyg-popup-cover sepsyg-popup-cover-empty" />
-        )}
 
-        <div className="sepsyg-popup-content">
-          <div className="flex flex-wrap gap-2">
-            <span className={`rounded-full px-3 py-1.5 text-xs font-bold ${activityCategoryClass(booking)}`}>
-              {activityCategoryLabel(booking)}
-            </span>
-            {booking.event_type && (
-              <span className="rounded-full bg-[#174B49] px-3 py-1.5 text-xs font-bold text-white">
-                {booking.event_type}
-              </span>
-            )}
-            {booking.mode && (
-              <span className="rounded-full bg-[#008D8B]/10 px-3 py-1.5 text-xs font-bold text-[#006B68]">
-                {booking.mode}
-              </span>
-            )}
-          </div>
-
-          <section className="sepsyg-popup-heading-card">
-            <h3>{booking.topic || "Δράση Συλλόγου"}</h3>
-
-            {booking.description && (
-              <RichTextDisplay value={booking.description} className="sepsyg-popup-lead" />
-            )}
-
-            <div className="sepsyg-popup-top-actions">
-              {!isCompleted && !previewMode && (
-                <button
-                  type="button"
-                  className="sepsyg-popup-register-primary"
-                  onClick={() => setShowForm(true)}
-                >
-                  Δήλωσε συμμετοχή
-                </button>
-              )}
-
-              {previewMode && (
-                <span className="sepsyg-preview-badge">ΠΡΟΕΠΙΣΚΟΠΗΣΗ — δεν έχει δημοσιευτεί ακόμη</span>
-              )}
-            </div>
-          </section>
-
-          <div className="sepsyg-popup-meta-grid">
-            <div className="sepsyg-popup-meta-card">
-              <span className="text-[11px] font-extrabold uppercase tracking-[.12em] text-[#008D8B]">Ημερομηνία</span>
-              <p className="mt-1 text-sm font-semibold text-[#263B39]">{formatDateGreek(booking.booking_date)}</p>
-            </div>
-            <div className="sepsyg-popup-meta-card">
-              <span className="text-[11px] font-extrabold uppercase tracking-[.12em] text-[#008D8B]">Ώρα</span>
-              <p className="mt-1 text-sm font-semibold text-[#263B39]">{booking.action_time || "Θα ανακοινωθεί"}</p>
-            </div>
-            <div className="sepsyg-popup-meta-card sm:col-span-2">
-              <span className="text-[11px] font-extrabold uppercase tracking-[.12em] text-[#008D8B]">Συντονιστές</span>
-              <p className="mt-1 text-sm font-semibold text-[#263B39]">{coordinatorsLabel(booking)}</p>
-            </div>
-          </div>
-
-          <section className={`mt-5 rounded-2xl border p-5 ${activityCategoryClass(booking)} price-panel`}>
-            <div className="text-[11px] font-extrabold uppercase tracking-[.13em]">Κόστος συμμετοχής</div>
-            <div className="mt-2 flex flex-wrap items-end gap-x-6 gap-y-2">
-              <p className="m-0 text-2xl font-bold">{activityPriceLabel(booking)}</p>
-              {booking.offers_member_discount && booking.member_price && (
-                <p className="m-0 text-sm font-bold">Μέλη &amp; Φίλοι: {booking.member_price} €</p>
-              )}
-            </div>
-          </section>
-
-          {booking.long_description && (
-            <section className="sepsyg-popup-info-card">
-              <p className="text-[11px] font-extrabold uppercase tracking-[.14em] text-[#008D8B]">Η δράση</p>
-              <h4 className="mt-2 font-serif text-2xl font-medium text-[#174B49]">Περισσότερες πληροφορίες</h4>
-              <RichTextDisplay value={booking.long_description} className="mt-3 text-[15px] leading-8 text-[#566966]" />
-            </section>
+  const detailsContent = (
+    <div className="w-full bg-[#F7EFE8] text-[#263B39]">
+      <div className="mx-auto w-full max-w-[1480px] px-3 py-3 sm:px-5 sm:py-5 lg:px-7">
+        <div className="mb-3 flex items-center justify-between gap-3 rounded-2xl border border-[#174B49]/10 bg-white/90 px-4 py-3 shadow-sm">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={submitting}
+            className="inline-flex items-center gap-2 rounded-full border border-[#174B49]/15 bg-white px-4 py-2 text-sm font-extrabold text-[#174B49] hover:border-[#008D8B]/35 hover:text-[#008D8B] disabled:opacity-60"
+          >
+            ← Επιστροφή στις δράσεις
+          </button>
+          {previewMode && (
+            <span className="sepsyg-preview-badge">ΠΡΟΕΠΙΣΚΟΠΗΣΗ — δεν έχει δημοσιευτεί ακόμη</span>
           )}
+        </div>
 
-          {booking.detail_image_url && (
-            <section className="sepsyg-popup-secondary-visual">
-              <div className="sepsyg-popup-secondary-image">
+        <div className="grid items-start gap-4 lg:grid-cols-[minmax(300px,0.78fr)_minmax(0,1.45fr)] xl:gap-6">
+          <aside className="space-y-4">
+            {booking.image_url ? (
+              <div className="flex min-h-[220px] items-center justify-center overflow-hidden rounded-[24px] border border-[#174B49]/10 bg-[#EEE5DC] p-2 shadow-[0_16px_40px_rgba(23,75,73,.09)] sm:min-h-[260px] lg:min-h-0">
                 <img
-                  src={booking.detail_image_url}
-                  alt=""
+                  src={booking.image_url}
+                  alt={booking.topic || "Δράση Συλλόγου"}
+                  className="block max-h-[310px] w-full rounded-[18px] object-contain lg:max-h-[360px] xl:max-h-[390px]"
                 />
               </div>
+            ) : (
+              <div className="h-[180px] rounded-[24px] border border-[#174B49]/10 bg-gradient-to-br from-[#9EB2A6] to-[#E1AF85] sm:h-[220px]" />
+            )}
 
-              {previewMode ? (
-                <div className="sepsyg-popup-secondary-completed">
-                  Προεπισκόπηση δεύτερης εικόνας
-                </div>
-              ) : !isCompleted ? (
-                <button
-                  type="button"
-                  className="sepsyg-popup-secondary-cta"
-                  onClick={() => setShowForm(true)}
-                >
-                  <span>Δήλωσε συμμετοχή</span>
-                  <strong>πατώντας εδώ</strong>
-                </button>
-              ) : (
-                <div className="sepsyg-popup-secondary-completed">
-                  Η δράση έχει ολοκληρωθεί
-                </div>
-              )}
-            </section>
-          )}
-
-          {booking.audience && (
-            <section className="sepsyg-popup-info-card sepsyg-popup-info-card-sage">
-              <p className="text-[11px] font-extrabold uppercase tracking-[.14em] text-[#008D8B]">Σε ποιους απευθύνεται</p>
-              <RichTextDisplay value={booking.audience} className="mt-2 text-[15px] leading-7 text-[#425754]" />
-            </section>
-          )}
-
-          {booking.program_details && (
-            <section className="sepsyg-popup-info-card">
-              <p className="text-[11px] font-extrabold uppercase tracking-[.14em] text-[#008D8B]">Πρόγραμμα / Θεματικές</p>
-              <RichTextDisplay value={booking.program_details} className="mt-2 text-[15px] leading-7 text-[#425754]" />
-            </section>
-          )}
-
-          {(booking.therapist_name || booking.additional_coordinator_name) && (
-            <section className="sepsyg-coordinator-section">
-              <h4>Συντονίζει:</h4>
-
-              <div className="sepsyg-coordinator-grid">
-                {booking.therapist_name && (
-                  <div className="sepsyg-coordinator-card">
-                    <div className="sepsyg-coordinator-avatar">
-                      {mainCoordinatorPhoto ? (
-                        <img src={mainCoordinatorPhoto} alt={booking.therapist_name} />
-                      ) : (
-                        <span>{booking.therapist_name.charAt(0)}</span>
-                      )}
-                    </div>
-                    <div className="sepsyg-coordinator-copy">
-                      <strong>{booking.therapist_name}</strong>
-                      {mainCoordinatorRole && <small>{mainCoordinatorRole}</small>}
-                    </div>
-                  </div>
-                )}
-
-                {booking.additional_coordinator_name && (
-                  <div className="sepsyg-coordinator-card">
-                    <div className="sepsyg-coordinator-avatar">
-                      {additionalCoordinatorPhoto ? (
-                        <img src={additionalCoordinatorPhoto} alt={booking.additional_coordinator_name} />
-                      ) : (
-                        <span>{booking.additional_coordinator_name.charAt(0)}</span>
-                      )}
-                    </div>
-                    <div className="sepsyg-coordinator-copy">
-                      <strong>{booking.additional_coordinator_name}</strong>
-                      {additionalCoordinatorRole && <small>{additionalCoordinatorRole}</small>}
-                    </div>
-                  </div>
-                )}
+            <div className="grid grid-cols-2 gap-2">
+              <div className="rounded-2xl border border-[#174B49]/10 bg-white p-3.5">
+                <span className="text-[10px] font-extrabold uppercase tracking-[.12em] text-[#008D8B]">Ημερομηνία</span>
+                <p className="mt-1.5 text-sm font-bold leading-5 text-[#263B39]">{formatDateGreek(booking.booking_date)}</p>
               </div>
-            </section>
-          )}
-
-          {!previewMode && !isCompleted && !showForm && (
-            <div className="sepsyg-popup-bottom-register">
-              <div>
-                <strong>Θέλεις να συμμετέχεις;</strong>
-                <p>Συμπλήρωσε τη φόρμα της συγκεκριμένης δράσης.</p>
+              <div className="rounded-2xl border border-[#174B49]/10 bg-white p-3.5">
+                <span className="text-[10px] font-extrabold uppercase tracking-[.12em] text-[#008D8B]">Ώρα</span>
+                <p className="mt-1.5 text-sm font-bold leading-5 text-[#263B39]">{booking.action_time || "Θα ανακοινωθεί"}</p>
               </div>
-              <button type="button" onClick={() => setShowForm(true)}>
-                Δήλωσε συμμετοχή
-              </button>
             </div>
-          )}
 
-          {!previewMode && !isCompleted && showForm && (
-            <form ref={registrationRef} onSubmit={handleRegistration} className="sepsyg-registration-form sepsyg-popup-registration-form">
-              <div className="form-intro">
-                <h4>Δήλωση συμμετοχής</h4>
-                <p>Συμπλήρωσε τα στοιχεία σου. Η φόρμα συνδέεται αυτόματα με αυτή τη δράση.</p>
+            <section className={`rounded-2xl border p-4 ${activityCategoryClass(booking)} price-panel`}>
+              <div className="text-[10px] font-extrabold uppercase tracking-[.13em]">Κόστος συμμετοχής</div>
+              <div className="mt-1.5 flex flex-wrap items-end gap-x-4 gap-y-1">
+                <p className="m-0 text-xl font-extrabold">{activityPriceLabel(booking)}</p>
+                {booking.offers_member_discount && booking.member_price && (
+                  <p className="m-0 text-xs font-extrabold">Μέλη &amp; Φίλοι: {booking.member_price} €</p>
+                )}
               </div>
+            </section>
 
-              <div className="sepsyg-form-grid">
-                <label>Ονοματεπώνυμο<input value={values.fullName} onChange={(event) => updateValue("fullName", event.target.value)} required maxLength={160} /></label>
-                <label>Email<input type="email" value={values.email} onChange={(event) => updateValue("email", event.target.value)} required maxLength={220} /></label>
-                <label>Τηλέφωνο<input type="tel" value={values.phone} onChange={(event) => updateValue("phone", event.target.value)} required maxLength={60} /></label>
-                <label>Επάγγελμα<input value={values.profession} onChange={(event) => updateValue("profession", event.target.value)} required maxLength={160} /></label>
+            {(booking.therapist_name || booking.additional_coordinator_name) && (
+              <section className="rounded-2xl border border-[#174B49]/10 bg-white p-4">
+                <p className="mb-3 text-[10px] font-extrabold uppercase tracking-[.13em] text-[#008D8B]">Συντονίζει</p>
+                <div className="space-y-2.5">
+                  {booking.therapist_name && (
+                    <div className="flex items-center gap-3">
+                      <div className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-full bg-[#569691] text-sm font-black text-white">
+                        {mainCoordinatorPhoto ? <img src={mainCoordinatorPhoto} alt={booking.therapist_name} className="h-full w-full object-cover" /> : <span>{booking.therapist_name.charAt(0)}</span>}
+                      </div>
+                      <div className="min-w-0">
+                        <strong className="block text-sm text-[#174B49]">{booking.therapist_name}</strong>
+                        {mainCoordinatorRole && <small className="mt-0.5 block text-xs leading-4 text-[#667875]">{mainCoordinatorRole}</small>}
+                      </div>
+                    </div>
+                  )}
+                  {booking.additional_coordinator_name && (
+                    <div className="flex items-center gap-3">
+                      <div className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-full bg-[#9EB2A6] text-sm font-black text-white">
+                        {additionalCoordinatorPhoto ? <img src={additionalCoordinatorPhoto} alt={booking.additional_coordinator_name} className="h-full w-full object-cover" /> : <span>{booking.additional_coordinator_name.charAt(0)}</span>}
+                      </div>
+                      <div className="min-w-0">
+                        <strong className="block text-sm text-[#174B49]">{booking.additional_coordinator_name}</strong>
+                        {additionalCoordinatorRole && <small className="mt-0.5 block text-xs leading-4 text-[#667875]">{additionalCoordinatorRole}</small>}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </section>
+            )}
+
+            {booking.detail_image_url && (
+              <div className="grid grid-cols-[100px_1fr] items-center gap-3 rounded-2xl border border-[#174B49]/10 bg-white p-3">
+                <img src={booking.detail_image_url} alt="" className="h-[92px] w-[100px] rounded-xl object-cover" />
+                {previewMode ? (
+                  <p className="m-0 text-xs font-bold text-[#667875]">Προεπισκόπηση δεύτερης εικόνας</p>
+                ) : !isCompleted ? (
+                  <button type="button" className="rounded-xl bg-[#008D8B] px-3 py-3 text-sm font-extrabold text-white" onClick={() => setShowForm(true)}>
+                    Δήλωσε συμμετοχή
+                  </button>
+                ) : (
+                  <p className="m-0 text-xs font-bold text-[#667875]">Η δράση έχει ολοκληρωθεί</p>
+                )}
               </div>
+            )}
+          </aside>
 
-              <label className="sepsyg-full-field">
-                Σχέση με τον Σύλλογο
-                <select
-                  value={values.membershipStatus}
-                  onChange={(event) => updateValue("membershipStatus", event.target.value)}
-                  required
-                >
-                  <option value="" disabled>Επίλεξε</option>
-                  <option value="none">Δεν είμαι Μέλος ή Φίλος του Συλλόγου</option>
-                  <option value="friend">Είμαι Φίλος του Συλλόγου</option>
-                  <option value="member">Είμαι Μέλος του Συλλόγου</option>
-                  <option value="want_member">Θέλω να γίνω Μέλος του Συλλόγου</option>
-                </select>
-                <small className="sepsyg-discount-note">
-                  * Οι Φίλοι και τα Μέλη έχουν έκπτωση σε όλες τις δράσεις του Συλλόγου.
-                  Η έκπτωση διαμορφώνεται σε συνεννόηση με τον θεραπευτή που διοργανώνει το Σεμινάριο / Εργαστήριο.
-                </small>
-              </label>
+          <main className="rounded-[26px] border border-[#174B49]/10 bg-white p-5 shadow-[0_16px_44px_rgba(23,75,73,.06)] sm:p-7 lg:p-8">
+            <div className="flex flex-wrap gap-2">
+              <span className={`rounded-full px-3 py-1.5 text-xs font-bold ${activityCategoryClass(booking)}`}>
+                {activityCategoryLabel(booking)}
+              </span>
+              {booking.event_type && <span className="rounded-full bg-[#174B49] px-3 py-1.5 text-xs font-bold text-white">{booking.event_type}</span>}
+              {booking.mode && <span className="rounded-full bg-[#008D8B]/10 px-3 py-1.5 text-xs font-bold text-[#006B68]">{booking.mode}</span>}
+            </div>
 
-              <label className="sepsyg-full-field">
-                Σχόλιο <small>(προαιρετικό)</small>
-                <textarea rows={3} value={values.comment} onChange={(event) => updateValue("comment", event.target.value)} maxLength={1000} />
-              </label>
+            <h1 className="mt-5 max-w-[1000px] font-serif text-[clamp(2rem,4.2vw,4.25rem)] font-medium leading-[1.02] text-[#174B49]">
+              {booking.topic || "Δράση Συλλόγου"}
+            </h1>
 
-              <div aria-hidden="true" className="absolute -left-[10000px] h-px w-px overflow-hidden">
-                <input tabIndex={-1} autoComplete="off" value={website} onChange={(event) => setWebsite(event.target.value)} />
-              </div>
+            {booking.description && (
+              <RichTextDisplay value={booking.description} className="mt-4 max-w-[980px] text-[15px] font-medium leading-7 text-[#586A66] sm:text-base" />
+            )}
 
-              <label className="sepsyg-consent">
-                <input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} />
-                <span>Αποδέχομαι τη χρήση των στοιχείων μου αποκλειστικά για τη διαχείριση της συμμετοχής μου και την επικοινωνία από τον Σύλλογο.</span>
-              </label>
+            <div className="mt-5 rounded-2xl border border-[#174B49]/10 bg-[#FFF9F3] px-4 py-3.5">
+              <span className="text-[10px] font-extrabold uppercase tracking-[.12em] text-[#008D8B]">Συντονιστές</span>
+              <p className="mt-1.5 text-sm font-bold text-[#263B39]">{coordinatorsLabel(booking)}</p>
+            </div>
 
-              {notice && <p className={`sepsyg-form-notice ${notice.ok ? "success" : "error"}`}>{notice.text}</p>}
-
-              <div className="sepsyg-form-actions">
-                <button type="button" className="secondary" disabled={submitting} onClick={() => setShowForm(false)}>Πίσω</button>
-                <button type="submit" disabled={submitting || notice?.ok === true}>
-                  {submitting ? "Καταχώριση…" : notice?.ok ? "Η συμμετοχή καταχωρίστηκε" : "Ολοκλήρωση συμμετοχής"}
+            {!isCompleted && !previewMode && !showForm && (
+              <div className="mt-5 flex flex-col gap-3 rounded-2xl border border-[#008D8B]/20 bg-[#F0FAF8] p-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <strong className="block font-serif text-xl font-medium text-[#174B49]">Θέλεις να συμμετέχεις;</strong>
+                  <p className="mt-1 text-xs leading-5 text-[#627472]">Η φόρμα ανοίγει εδώ, χωρίς να σε μεταφέρει σε άλλη σελίδα.</p>
+                </div>
+                <button type="button" onClick={() => setShowForm(true)} className="shrink-0 rounded-full bg-[#008D8B] px-5 py-3 text-sm font-extrabold text-white hover:bg-[#006B68]">
+                  Δήλωσε συμμετοχή
                 </button>
               </div>
-            </form>
-          )}
+            )}
 
-          <div className="mt-7 border-t border-[#174B49]/10 pt-5 text-center">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={submitting}
-              className="text-sm font-bold text-[#627472] hover:text-[#174B49]"
-            >
-              Κλείσιμο
-            </button>
-          </div>
+            <div className="mt-5 grid gap-4 xl:grid-cols-2">
+              {booking.long_description && (
+                <section className="rounded-2xl border border-[#174B49]/10 bg-white p-5 xl:col-span-2">
+                  <p className="text-[10px] font-extrabold uppercase tracking-[.14em] text-[#008D8B]">Η δράση</p>
+                  <h2 className="mt-1.5 font-serif text-2xl font-medium text-[#174B49]">Περισσότερες πληροφορίες</h2>
+                  <RichTextDisplay value={booking.long_description} className="mt-3 text-[14px] leading-7 text-[#566966] sm:text-[15px]" />
+                </section>
+              )}
+
+              {booking.audience && (
+                <section className="rounded-2xl border border-[#174B49]/10 bg-[#F2F5F1] p-5">
+                  <p className="text-[10px] font-extrabold uppercase tracking-[.14em] text-[#008D8B]">Σε ποιους απευθύνεται</p>
+                  <RichTextDisplay value={booking.audience} className="mt-2 text-[14px] leading-6 text-[#425754]" />
+                </section>
+              )}
+
+              {booking.program_details && (
+                <section className="rounded-2xl border border-[#174B49]/10 bg-[#FFF9F3] p-5">
+                  <p className="text-[10px] font-extrabold uppercase tracking-[.14em] text-[#008D8B]">Πρόγραμμα / Θεματικές</p>
+                  <RichTextDisplay value={booking.program_details} className="mt-2 text-[14px] leading-6 text-[#425754]" />
+                </section>
+              )}
+            </div>
+
+            {!previewMode && !isCompleted && showForm && (
+              <form ref={registrationRef} onSubmit={handleRegistration} className="sepsyg-registration-form sepsyg-popup-registration-form mt-5">
+                <div className="form-intro">
+                  <h4>Δήλωση συμμετοχής</h4>
+                  <p>Συμπλήρωσε τα στοιχεία σου. Η φόρμα συνδέεται αυτόματα με αυτή τη δράση.</p>
+                </div>
+
+                <div className="sepsyg-form-grid">
+                  <label>Ονοματεπώνυμο<input value={values.fullName} onChange={(event) => updateValue("fullName", event.target.value)} required maxLength={160} /></label>
+                  <label>Email<input type="email" value={values.email} onChange={(event) => updateValue("email", event.target.value)} required maxLength={220} /></label>
+                  <label>Τηλέφωνο<input type="tel" value={values.phone} onChange={(event) => updateValue("phone", event.target.value)} required maxLength={60} /></label>
+                  <label>Επάγγελμα<input value={values.profession} onChange={(event) => updateValue("profession", event.target.value)} required maxLength={160} /></label>
+                </div>
+
+                <label className="sepsyg-full-field">
+                  Σχέση με τον Σύλλογο
+                  <select value={values.membershipStatus} onChange={(event) => updateValue("membershipStatus", event.target.value)} required>
+                    <option value="" disabled>Επίλεξε</option>
+                    <option value="none">Δεν είμαι Μέλος ή Φίλος του Συλλόγου</option>
+                    <option value="friend">Είμαι Φίλος του Συλλόγου</option>
+                    <option value="member">Είμαι Μέλος του Συλλόγου</option>
+                    <option value="want_member">Θέλω να γίνω Μέλος του Συλλόγου</option>
+                  </select>
+                  <small className="sepsyg-discount-note">
+                    * Οι Φίλοι και τα Μέλη έχουν έκπτωση σε όλες τις δράσεις του Συλλόγου. Η έκπτωση διαμορφώνεται σε συνεννόηση με τον θεραπευτή που διοργανώνει το Σεμινάριο / Εργαστήριο.
+                  </small>
+                </label>
+
+                <label className="sepsyg-full-field">
+                  Σχόλιο <small>(προαιρετικό)</small>
+                  <textarea rows={3} value={values.comment} onChange={(event) => updateValue("comment", event.target.value)} maxLength={1000} />
+                </label>
+
+                <div aria-hidden="true" className="absolute -left-[10000px] h-px w-px overflow-hidden">
+                  <input tabIndex={-1} autoComplete="off" value={website} onChange={(event) => setWebsite(event.target.value)} />
+                </div>
+
+                <label className="sepsyg-consent">
+                  <input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} />
+                  <span>Αποδέχομαι τη χρήση των στοιχείων μου αποκλειστικά για τη διαχείριση της συμμετοχής μου και την επικοινωνία από τον Σύλλογο.</span>
+                </label>
+
+                {notice && <p className={`sepsyg-form-notice ${notice.ok ? "success" : "error"}`}>{notice.text}</p>}
+
+                <div className="sepsyg-form-actions">
+                  <button type="button" className="secondary" disabled={submitting} onClick={() => setShowForm(false)}>Πίσω</button>
+                  <button type="submit" disabled={submitting || notice?.ok === true}>
+                    {submitting ? "Καταχώριση…" : notice?.ok ? "Η συμμετοχή καταχωρίστηκε" : "Ολοκλήρωση συμμετοχής"}
+                  </button>
+                </div>
+              </form>
+            )}
+          </main>
         </div>
       </div>
+    </div>
+  );
+
+  if (inlineMode) {
+    return <section className="min-h-screen w-full bg-[#F7EFE8]">{detailsContent}</section>;
+  }
+
+  return (
+    <Modal onClose={submitting ? undefined : onClose} wide landing>
+      {detailsContent}
     </Modal>
   );
 }
