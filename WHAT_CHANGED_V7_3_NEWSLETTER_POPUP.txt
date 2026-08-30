@@ -1,0 +1,16 @@
+SEPSYG V7.3 — NEWSLETTER POPUP
+
+ΑΛΛΑΓΗ
+- Αφαιρείται η inline φόρμα newsletter από το Hero.
+- Το newsletter εμφανίζεται πλέον ως centered popup 650ms μετά την είσοδο στο site.
+- Δεν κλείνει με click στο σκοτεινό φόντο. Κλείνει με Χ ή «Όχι τώρα».
+- Αν ο επισκέπτης το κλείσει, δεν ξαναεμφανίζεται στην ίδια browser session.
+- Αν εγγραφεί, δεν ξαναεμφανίζεται στον ίδιο browser.
+- Η εγγραφή συνεχίζει να πηγαίνει στο υπάρχον /api/newsletter-signup και στη λίστα Newsletter της Διοίκησης.
+- Τα κείμενα του popup συνεχίζουν να διαβάζονται από τα newsletter πεδία του Hero CMS. Αν τα πεδία δεν έχουν ακόμη δημοσιευτεί, υπάρχουν ασφαλή fallback κείμενα.
+
+CARRD
+Δεν χρειάζεται νέο Carrd Embed. Το popup δημιουργείται από το υπάρχον public/site-cms.js που ήδη φορτώνει το Hero.
+
+TEST
+Για να το ξαναδείς αφού πατήσεις «Όχι τώρα», άνοιξε το site σε νέο Incognito/Private window ή κλείσε και ξανάνοιξε τη browser session.

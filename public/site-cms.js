@@ -105,66 +105,169 @@
       var main = root.querySelector(".syg16-main");
       if (main && bg) main.style.setProperty("--cms-hero-image", 'url("' + String(bg).replace(/"/g, '\\"') + '")');
 
-      var host = root.querySelector(".syg16-main");
-      if (host && !root.querySelector(".sepsyg-newsletter-cms")) {
-        var wrap = document.createElement("div");
-        wrap.className = "sepsyg-newsletter-cms";
-        wrap.innerHTML =
-          '<div class="sepsyg-newsletter-cms-copy">' +
-            '<span class="sepsyg-newsletter-eyebrow"></span>' +
-            '<strong class="sepsyg-newsletter-title"></strong>' +
-            '<p class="sepsyg-newsletter-text"></p>' +
-          '</div>' +
-          '<form class="sepsyg-newsletter-cms-form">' +
-            '<div class="sepsyg-newsletter-cms-row"><input type="email" required autocomplete="email"><button type="submit"></button></div>' +
-            '<label><input type="checkbox" required><span class="sepsyg-newsletter-consent"></span></label>' +
-            '<div class="sepsyg-newsletter-status" role="status" aria-live="polite"></div>' +
-          '</form>';
-        host.appendChild(wrap);
+      /* V7.3 — Newsletter popup instead of inline hero box. */
+      var oldInline = root.querySelector(".sepsyg-newsletter-cms");
+      if (oldInline && oldInline.parentNode) oldInline.parentNode.removeChild(oldInline);
 
-        var form = wrap.querySelector("form");
+      var styleId = "sepsyg-newsletter-popup-style-v73";
+      if (!document.getElementById(styleId)) {
+        var style = document.createElement("style");
+        style.id = styleId;
+        style.textContent = [
+          '#sepsyg-newsletter-popup-v73,#sepsyg-newsletter-popup-v73 *{box-sizing:border-box}',
+          '#sepsyg-newsletter-popup-v73{position:fixed;inset:0;z-index:2147483000;display:flex;align-items:center;justify-content:center;padding:22px;background:rgba(9,42,41,.58);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);opacity:0;visibility:hidden;transition:opacity .22s ease,visibility .22s ease;font-family:Arial,Helvetica,sans-serif}',
+          '#sepsyg-newsletter-popup-v73.is-open{opacity:1;visibility:visible}',
+          '#sepsyg-newsletter-popup-v73 .snp-card{position:relative;width:min(540px,100%);overflow:hidden;border:1px solid rgba(23,75,73,.14);border-radius:20px;background:#FFF9F3;box-shadow:0 30px 85px rgba(4,35,34,.30);transform:translateY(12px) scale(.985);transition:transform .22s ease}',
+          '#sepsyg-newsletter-popup-v73.is-open .snp-card{transform:translateY(0) scale(1)}',
+          '#sepsyg-newsletter-popup-v73 .snp-accent{height:7px;background:linear-gradient(90deg,var(--snp-teal,#008D8B),var(--snp-peach,#E1AF85))}',
+          '#sepsyg-newsletter-popup-v73 .snp-inner{padding:34px 34px 30px}',
+          '#sepsyg-newsletter-popup-v73 .snp-close{position:absolute;top:18px;right:18px;width:36px;height:36px;border:1px solid rgba(23,75,73,.12);border-radius:50%;background:#fff;color:#174B49;font-size:21px;line-height:1;cursor:pointer;display:grid;place-items:center}',
+          '#sepsyg-newsletter-popup-v73 .snp-close:hover{background:#F4ECE5}',
+          '#sepsyg-newsletter-popup-v73 .snp-eyebrow{display:block;margin:0 46px 10px 0;color:#008D8B;font-size:.69rem;font-weight:800;letter-spacing:.17em;text-transform:uppercase}',
+          '#sepsyg-newsletter-popup-v73 h2{margin:0;color:#174B49;font:500 clamp(1.85rem,5vw,2.45rem)/1.08 Georgia,"Times New Roman",serif;letter-spacing:-.02em}',
+          '#sepsyg-newsletter-popup-v73 .snp-text{margin:15px 0 22px;color:#627472;font-size:.95rem;line-height:1.68}',
+          '#sepsyg-newsletter-popup-v73 .snp-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:9px}',
+          '#sepsyg-newsletter-popup-v73 .snp-row input{width:100%;min-width:0;height:48px;border:1px solid rgba(23,75,73,.20);border-radius:10px;background:#fff;color:#263B39;padding:0 14px;font:inherit;font-size:.92rem;outline:none}',
+          '#sepsyg-newsletter-popup-v73 .snp-row input:focus{border-color:#008D8B;box-shadow:0 0 0 3px rgba(0,141,139,.10)}',
+          '#sepsyg-newsletter-popup-v73 .snp-submit{height:48px;border:0;border-radius:10px;padding:0 20px;background:var(--snp-peach,#E1AF85);color:#174B49;font-size:.86rem;font-weight:800;cursor:pointer;white-space:nowrap}',
+          '#sepsyg-newsletter-popup-v73 .snp-submit:hover{filter:brightness(.97)}',
+          '#sepsyg-newsletter-popup-v73 .snp-submit:disabled{opacity:.65;cursor:wait}',
+          '#sepsyg-newsletter-popup-v73 .snp-consent{display:grid;grid-template-columns:18px 1fr;gap:9px;align-items:start;margin-top:13px;color:#71817E;font-size:.72rem;line-height:1.48;text-align:left}',
+          '#sepsyg-newsletter-popup-v73 .snp-consent input{width:16px;height:16px;margin:2px 0 0;accent-color:#008D8B}',
+          '#sepsyg-newsletter-popup-v73 .snp-status{min-height:20px;margin-top:10px;color:#174B49;font-size:.76rem;line-height:1.45}',
+          '#sepsyg-newsletter-popup-v73 .snp-later{display:block;margin:11px auto 0;border:0;background:transparent;color:#71817E;font-size:.76rem;text-decoration:underline;text-underline-offset:3px;cursor:pointer}',
+          '#sepsyg-newsletter-popup-v73 .snp-success{display:none;padding:14px 0 3px;color:#174B49;font-weight:700;text-align:center}',
+          '#sepsyg-newsletter-popup-v73.is-success form,#sepsyg-newsletter-popup-v73.is-success .snp-text{display:none}',
+          '#sepsyg-newsletter-popup-v73.is-success .snp-success{display:block}',
+          '@media(max-width:560px){#sepsyg-newsletter-popup-v73{padding:16px}#sepsyg-newsletter-popup-v73 .snp-inner{padding:30px 22px 24px}#sepsyg-newsletter-popup-v73 .snp-row{grid-template-columns:1fr}#sepsyg-newsletter-popup-v73 .snp-submit{width:100%}}'
+        ].join('');
+        document.head.appendChild(style);
+      }
+
+      var popup = document.getElementById("sepsyg-newsletter-popup-v73");
+      if (!popup) {
+        popup = document.createElement("div");
+        popup.id = "sepsyg-newsletter-popup-v73";
+        popup.setAttribute("role", "dialog");
+        popup.setAttribute("aria-modal", "true");
+        popup.setAttribute("aria-labelledby", "sepsyg-newsletter-popup-title-v73");
+        popup.innerHTML =
+          '<div class="snp-card">' +
+            '<div class="snp-accent" aria-hidden="true"></div>' +
+            '<button type="button" class="snp-close" aria-label="Κλείσιμο">×</button>' +
+            '<div class="snp-inner">' +
+              '<span class="snp-eyebrow"></span>' +
+              '<h2 id="sepsyg-newsletter-popup-title-v73"></h2>' +
+              '<p class="snp-text"></p>' +
+              '<form novalidate>' +
+                '<div class="snp-row"><input type="email" autocomplete="email" required><button class="snp-submit" type="submit"></button></div>' +
+                '<label class="snp-consent"><input type="checkbox" required><span></span></label>' +
+                '<div class="snp-status" role="status" aria-live="polite"></div>' +
+                '<button type="button" class="snp-later">Όχι τώρα</button>' +
+              '</form>' +
+              '<div class="snp-success">✓ Η εγγραφή ολοκληρώθηκε. Ευχαριστούμε!</div>' +
+            '</div>' +
+          '</div>';
+        document.body.appendChild(popup);
+
+        var closePopup = function () {
+          popup.classList.remove("is-open");
+          try { sessionStorage.setItem("sepsyg_newsletter_popup_dismissed", "1"); } catch (error) {}
+          setTimeout(function () { popup.setAttribute("aria-hidden", "true"); }, 240);
+        };
+        popup.querySelector(".snp-close").addEventListener("click", closePopup);
+        popup.querySelector(".snp-later").addEventListener("click", closePopup);
+
+        /* Clicking the dark backdrop intentionally does NOT close the popup. */
+        popup.addEventListener("mousedown", function (event) {
+          if (event.target === popup) event.preventDefault();
+        });
+
+        var form = popup.querySelector("form");
         form.addEventListener("submit", function (event) {
           event.preventDefault();
-          var email = String(wrap.querySelector('input[type="email"]').value || "").trim();
-          var consent = !!wrap.querySelector('input[type="checkbox"]').checked;
-          var status = wrap.querySelector(".sepsyg-newsletter-status");
-          if (!email || !consent) {
-            status.textContent = "Συμπλήρωσε το email και τη συγκατάθεση.";
+          var emailInput = popup.querySelector('input[type="email"]');
+          var consentInput = popup.querySelector('input[type="checkbox"]');
+          var submit = popup.querySelector(".snp-submit");
+          var status = popup.querySelector(".snp-status");
+          var email = String(emailInput.value || "").trim();
+          var consent = !!consentInput.checked;
+
+          if (!email) {
+            status.textContent = "Γράψε το email σου.";
+            emailInput.focus();
             return;
           }
-          status.textContent = "Αποστολή…";
+          if (!consent) {
+            status.textContent = "Χρειάζεται να επιλέξεις τη συγκατάθεση για την ενημέρωση.";
+            consentInput.focus();
+            return;
+          }
+
+          submit.disabled = true;
+          status.textContent = "Γίνεται η εγγραφή…";
           fetch("https://hmerologiosillogou.vercel.app/api/newsletter-signup", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email: email, consent: consent, source: "carrd-hero" })
+            body: JSON.stringify({ email: email, consent: true, source: "carrd-popup" })
           }).then(function (response) {
             return response.json().catch(function () { return {}; }).then(function (payload) {
               if (!response.ok) throw new Error(payload.code || "NEWSLETTER_FAILED");
               return payload;
             });
           }).then(function (payload) {
-            status.textContent = payload.alreadySubscribed ? "Είσαι ήδη στη λίστα ενημέρωσης." : "Η εγγραφή ολοκληρώθηκε. Ευχαριστούμε!";
-            if (!payload.alreadySubscribed) form.reset();
+            try {
+              localStorage.setItem("sepsyg_newsletter_subscribed", "1");
+              sessionStorage.removeItem("sepsyg_newsletter_popup_dismissed");
+            } catch (error) {}
+            popup.classList.add("is-success");
+            var success = popup.querySelector(".snp-success");
+            success.textContent = payload.alreadySubscribed
+              ? "✓ Είσαι ήδη στη λίστα ενημέρωσης."
+              : "✓ Η εγγραφή ολοκληρώθηκε. Ευχαριστούμε!";
+            setTimeout(function () {
+              popup.classList.remove("is-open");
+              popup.setAttribute("aria-hidden", "true");
+            }, 1500);
           }).catch(function () {
             status.textContent = "Δεν ολοκληρώθηκε η εγγραφή. Δοκίμασε ξανά.";
+            submit.disabled = false;
           });
         });
       }
 
-      var newsletter = root.querySelector(".sepsyg-newsletter-cms");
-      if (newsletter) {
-        var set = function (selector, value) {
-          var node = newsletter.querySelector(selector);
-          if (node) node.textContent = value || "";
+      if (popup) {
+        popup.style.setProperty("--snp-teal", fields.style_section_background || "#008D8B");
+        popup.style.setProperty("--snp-peach", fields.style_accent_color || "#E1AF85");
+        var set = function (selector, value, fallback) {
+          var node = popup.querySelector(selector);
+          if (node) node.textContent = value || fallback || "";
         };
-        set(".sepsyg-newsletter-eyebrow", fields.newsletter_eyebrow);
-        set(".sepsyg-newsletter-title", fields.newsletter_title);
-        set(".sepsyg-newsletter-text", fields.newsletter_text);
-        set(".sepsyg-newsletter-consent", fields.newsletter_consent);
-        var input = newsletter.querySelector('input[type="email"]');
+        set(".snp-eyebrow", fields.newsletter_eyebrow, "Newsletter");
+        set("h2", fields.newsletter_title, "Μείνε κοντά στις δράσεις μας");
+        set(".snp-text", fields.newsletter_text, "Εγγράψου στο newsletter μας για να ενημερώνεσαι για νέες δράσεις, σεμινάρια και ανακοινώσεις του Συλλόγου.");
+        set(".snp-consent span", fields.newsletter_consent, "Συμφωνώ να λαμβάνω ενημερώσεις μέσω email από τον Σύλλογο.");
+        var input = popup.querySelector('input[type="email"]');
         if (input) input.placeholder = fields.newsletter_placeholder || "Το email σου";
-        var button = newsletter.querySelector("button");
+        var button = popup.querySelector(".snp-submit");
         if (button) button.textContent = fields.newsletter_button || "Εγγραφή";
+
+        var subscribed = false;
+        var dismissed = false;
+        try {
+          subscribed = localStorage.getItem("sepsyg_newsletter_subscribed") === "1";
+          dismissed = sessionStorage.getItem("sepsyg_newsletter_popup_dismissed") === "1";
+        } catch (error) {}
+
+        if (!subscribed && !dismissed && !popup.dataset.scheduled) {
+          popup.dataset.scheduled = "1";
+          setTimeout(function () {
+            popup.removeAttribute("aria-hidden");
+            popup.classList.add("is-open");
+            var emailField = popup.querySelector('input[type="email"]');
+            setTimeout(function () { if (emailField) emailField.focus(); }, 260);
+          }, 650);
+        }
       }
     }
   }
