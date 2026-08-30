@@ -2274,7 +2274,7 @@ function PublicBookingDetails({
               {booking.mode && <span className="rounded-full bg-[#008D8B]/10 px-3 py-1.5 text-xs font-bold text-[#006B68]">{booking.mode}</span>}
             </div>
 
-            <h1 className="mt-5 max-w-[1000px] font-serif text-[clamp(2rem,4.2vw,4.25rem)] font-medium leading-[1.02] text-[#174B49]">
+            <h1 className="mt-5 max-w-[1000px] font-serif text-[clamp(1.55rem,2.45vw,2.7rem)] font-medium leading-[1.1] text-[#174B49]">
               {booking.topic || "Δράση Συλλόγου"}
             </h1>
 
@@ -2282,10 +2282,6 @@ function PublicBookingDetails({
               <RichTextDisplay value={booking.description} className="mt-4 max-w-[980px] text-[15px] font-medium leading-7 text-[#586A66] sm:text-base" />
             )}
 
-            <div className="mt-5 rounded-2xl border border-[#174B49]/10 bg-[#FFF9F3] px-4 py-3.5">
-              <span className="text-[10px] font-extrabold uppercase tracking-[.12em] text-[#008D8B]">Συντονιστές</span>
-              <p className="mt-1.5 text-sm font-bold text-[#263B39]">{coordinatorsLabel(booking)}</p>
-            </div>
 
             {!isCompleted && !previewMode && !showForm && (
               <div className="mt-5 flex flex-col gap-3 rounded-2xl border border-[#008D8B]/20 bg-[#F0FAF8] p-4 sm:flex-row sm:items-center sm:justify-between">
@@ -2833,17 +2829,44 @@ function PublicArticlesApp({ embedOnly = false }: { embedOnly?: boolean }) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch("/api/articles")
-      .then(async (response) => {
+    let cancelled = false;
+
+    async function loadPublicArticles(firstLoad = false) {
+      try {
+        if (firstLoad) setLoading(true);
+        const response = await fetch(`/api/articles?_=${Date.now()}`, { cache: "no-store" });
         const payload = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(payload.code || "ARTICLES_LOAD_FAILED");
+        if (cancelled) return;
+
         const items = Array.isArray(payload.articles) ? payload.articles : [];
         setArticles(items);
+        setError(null);
+
         const requested = new URLSearchParams(window.location.search).get("article");
-        if (requested) setSelected(items.find((item: ArticleItem) => item.id === requested) || null);
-      })
-      .catch((caught) => setError(`Δεν φορτώθηκαν τα άρθρα (${(caught as Error).message}).`))
-      .finally(() => setLoading(false));
+        if (requested) {
+          setSelected(items.find((item: ArticleItem) => item.id === requested) || null);
+        }
+      } catch (caught) {
+        if (!cancelled) setError(`Δεν φορτώθηκαν τα άρθρα (${(caught as Error).message}).`);
+      } finally {
+        if (!cancelled && firstLoad) setLoading(false);
+      }
+    }
+
+    void loadPublicArticles(true);
+
+    const refresh = () => void loadPublicArticles(false);
+    const timer = window.setInterval(refresh, 30000);
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+    };
   }, []);
 
   const routeBase = embedOnly ? "/articles-embed" : "/articles";
@@ -2860,7 +2883,26 @@ function PublicArticlesApp({ embedOnly = false }: { embedOnly?: boolean }) {
 
   return (
     <div className={`sepsyg-public-articles-page${embedOnly ? " embed-only" : ""}`}>
-      {!embedOnly && (
+      {embedOnly ? (
+        <header className="sepsyg-articles-embed-hero">
+          <div className="sepsyg-articles-embed-copy">
+            <span>Γνώση · Εμπειρία · Εφαρμογή</span>
+            <h1>Άρθρα</h1>
+            <p>
+              Κείμενα για την ανθρώπινη επαφή, την επικοινωνία,
+              τη θεραπευτική σχέση και τη Σωματικά Επικεντρωμένη
+              Ψυχοθεραπεία Gestalt.
+            </p>
+          </div>
+
+          <div className="sepsyg-articles-embed-video">
+            <video autoPlay muted loop playsInline preload="metadata">
+              <source src="https://demo.unityenergetics.org/wp-content/uploads/2026/08/6279423-uhd_3840_2160_24fps-1.mp4" type="video/mp4" />
+            </video>
+            <span>Άρθρα &amp; Προσεγγίσεις</span>
+          </div>
+        </header>
+      ) : (
         <header className="sepsyg-articles-public-hero">
           <AssociationLogo size="sm" />
           <span>Πανευρωπαϊκός Επιστημονικός Σύλλογος Σ.Ε.ΨΥ.G.</span>
