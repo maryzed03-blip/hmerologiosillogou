@@ -1,0 +1,22 @@
+V7.7 — Vercel Hobby Safe + Scroll Fix
+======================================
+
+This version keeps the V7.5 scroll-to-top fix and hardens deployment for the
+Vercel Hobby 12-function limit.
+
+What changed:
+1. Reduced the production API from 12 files to 9 Vercel Functions.
+   - newsletter-signup + send-friend-request -> communications.js
+   - verify-manage-code + approve-event + move-event -> admin-actions.js
+   - Existing public endpoint URLs are preserved through vercel.json rewrites.
+2. Added scripts/vercel-prebuild.mjs.
+   - On Vercel only, it removes obsolete root API files that may still exist in
+     GitHub after browser uploads.
+   - It also removes any nested duplicate api/ directories from the ephemeral
+     Vercel build checkout.
+   - It fails the build early if more than 10 root functions remain.
+3. Added a .vercelignore API allowlist: even if old API files remain committed in GitHub, only the 9 production function files are included in the Vercel deployment. Known duplicate/old repository folders are also excluded.
+4. No Firebase collections, environment-variable names, iframe URLs, or public
+   application routes were changed.
+
+Expected root Vercel Functions in this package: 9.

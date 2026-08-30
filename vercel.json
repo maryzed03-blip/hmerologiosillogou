@@ -9,6 +9,26 @@
       "destination": "/api/event-registrations?resource=payment-declarations"
     },
     {
+      "source": "/api/newsletter-signup",
+      "destination": "/api/communications?resource=newsletter-signup"
+    },
+    {
+      "source": "/api/send-friend-request",
+      "destination": "/api/communications?resource=send-friend-request"
+    },
+    {
+      "source": "/api/verify-manage-code",
+      "destination": "/api/admin-actions?resource=verify-manage-code"
+    },
+    {
+      "source": "/api/approve-event",
+      "destination": "/api/admin-actions?resource=approve-event"
+    },
+    {
+      "source": "/api/move-event",
+      "destination": "/api/admin-actions?resource=move-event"
+    },
+    {
       "source": "/manage/:path*",
       "destination": "/index.html"
     },
