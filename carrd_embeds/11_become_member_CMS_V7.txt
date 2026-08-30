@@ -1,0 +1,485 @@
+<!--
+SEPSYG — ΓΙΝΕ ΜΕΛΟΣ v3.0
+Full-width Carrd Embed
+Type = Code | Style = Inline
+-->
+
+<style>
+#become-member-v3,
+#become-member-v3 * {
+box-sizing: border-box;
+}
+
+#become-member-v3 {
+--peach: #E1AF85;
+--sand: #DBC1AB;
+--sage: #9EB2A6;
+--teal-soft: #569691;
+--teal: #008D8B;
+--teal-deep: #006B68;
+--teal-dark: #174B49;
+--paper: #FFF9F3;
+--card: #FFFFFF;
+--ink: #263B39;
+--ink-soft: #627472;
+--line: rgba(38,59,57,.13);
+
+position: relative;
+width: 100vw;
+max-width: none;
+margin-left: calc(50% - 50vw);
+padding: 96px 0 104px;
+overflow: hidden;
+background: var(--paper);
+color: var(--ink);
+font-family: Arial, Helvetica, sans-serif;
+}
+
+#become-member-v3 .bm-wrap {
+width: min(1180px, calc(100% - 48px));
+margin: 0 auto;
+}
+
+/* INTRO — image + copy */
+#become-member-v3 .bm-intro {
+display: grid;
+grid-template-columns: minmax(0,.9fr) minmax(0,1.1fr);
+gap: 54px;
+align-items: center;
+margin-bottom: 64px;
+}
+
+#become-member-v3 .bm-intro-image {
+position: relative;
+min-height: 380px;
+border-radius: 26px;
+overflow: hidden;
+background: linear-gradient(150deg, var(--sage), var(--sand));
+}
+
+#become-member-v3 .bm-intro-image img {
+width: 100%;
+height: 100%;
+min-height: 380px;
+display: block;
+object-fit: cover;
+}
+
+#become-member-v3 .bm-intro-image::after {
+content: "";
+position: absolute;
+inset: 18px;
+border: 1px solid rgba(255,255,255,.5);
+border-radius: 18px;
+pointer-events: none;
+}
+
+#become-member-v3 .bm-eyebrow {
+display: block;
+margin-bottom: .8rem;
+color: var(--teal);
+font-size: .72rem;
+font-weight: 800;
+letter-spacing: .18em;
+text-transform: uppercase;
+}
+
+#become-member-v3 .bm-intro-copy h1 {
+margin: 0 0 .55em;
+color: var(--teal-dark);
+font-family: Georgia, "Times New Roman", serif;
+font-weight: 500;
+font-size: clamp(2rem,3.6vw,2.9rem);
+line-height: 1.12;
+}
+
+#become-member-v3 .bm-intro-copy p {
+margin: 0 0 1.1em;
+color: var(--ink-soft);
+font-size: 1rem;
+line-height: 1.8;
+}
+
+#become-member-v3 .bm-intro-copy p:last-child {
+margin-bottom: 0;
+}
+
+/* SECTION HEADS */
+#become-member-v3 .bm-section-head {
+max-width: 640px;
+margin: 0 0 30px;
+}
+
+#become-member-v3 .bm-section-head h2 {
+margin: 0;
+color: var(--teal-dark);
+font-family: Georgia, "Times New Roman", serif;
+font-weight: 500;
+font-size: clamp(1.5rem,2.6vw,2rem);
+line-height: 1.2;
+}
+
+#become-member-v3 .bm-section-head p {
+margin: 10px 0 0;
+color: var(--ink-soft);
+font-size: .96rem;
+line-height: 1.75;
+}
+
+/* AUDIENCE CARDS */
+#become-member-v3 .bm-audience-grid {
+display: grid;
+grid-template-columns: repeat(3, minmax(0,1fr));
+gap: 18px;
+margin-bottom: 22px;
+}
+
+#become-member-v3 .bm-audience-card {
+padding: 26px 24px;
+border: 1px solid var(--line);
+border-radius: 20px;
+background: var(--card);
+transition: transform .18s ease, box-shadow .18s ease;
+}
+
+#become-member-v3 .bm-audience-card:hover {
+transform: translateY(-3px);
+box-shadow: 0 16px 34px rgba(23,75,73,.09);
+}
+
+#become-member-v3 .bm-audience-icon {
+width: 40px;
+height: 40px;
+display: grid;
+place-items: center;
+margin-bottom: 14px;
+border-radius: 12px;
+background: rgba(0,141,139,.10);
+font-size: 1.1rem;
+}
+
+#become-member-v3 .bm-audience-card p {
+margin: 0;
+color: var(--ink);
+font-size: .92rem;
+line-height: 1.65;
+}
+
+#become-member-v3 .bm-note {
+display: flex;
+align-items: flex-start;
+gap: 12px;
+padding: 20px 22px;
+border-radius: 18px;
+background: rgba(0,141,139,.08);
+color: var(--teal-dark);
+font-size: .92rem;
+font-weight: 700;
+line-height: 1.65;
+margin-bottom: 70px;
+}
+
+#become-member-v3 .bm-note-emoji {
+flex: 0 0 auto;
+font-size: 1.2rem;
+line-height: 1.4;
+}
+
+/* FRIEND BENEFITS */
+#become-member-v3 .bm-benefits-grid {
+display: grid;
+grid-template-columns: repeat(2, minmax(0,1fr));
+gap: 18px;
+margin-bottom: 30px;
+}
+
+#become-member-v3 .bm-benefit-card {
+padding: 28px 26px;
+border-radius: 22px;
+background: var(--card);
+border: 1px solid var(--line);
+}
+
+#become-member-v3 .bm-benefit-icon {
+width: 44px;
+height: 44px;
+display: grid;
+place-items: center;
+margin-bottom: 16px;
+border-radius: 14px;
+background: rgba(225,175,133,.22);
+font-size: 1.25rem;
+}
+
+#become-member-v3 .bm-benefit-card h3 {
+margin: 0 0 8px;
+color: var(--teal-dark);
+font-family: Georgia, "Times New Roman", serif;
+font-weight: 500;
+font-size: 1.08rem;
+}
+
+#become-member-v3 .bm-benefit-card p {
+margin: 0;
+color: var(--ink-soft);
+font-size: .9rem;
+line-height: 1.7;
+}
+
+#become-member-v3 .bm-closing {
+padding: 26px 28px;
+border-radius: 20px;
+background: var(--teal-dark);
+color: rgba(255,255,255,.92);
+font-size: .96rem;
+line-height: 1.8;
+margin-bottom: 70px;
+}
+
+/* FORM — full width, bottom */
+#become-member-v3 .bm-form-panel {
+padding: 10px;
+border: 1px solid var(--line);
+border-radius: 28px;
+background: var(--card);
+box-shadow: 0 22px 60px rgba(23,75,73,.10);
+overflow: hidden;
+}
+
+#become-member-v3 .bm-form-head {
+padding: 28px 32px 16px;
+text-align: center;
+}
+
+#become-member-v3 .bm-form-head h2 {
+margin: 0 0 8px;
+color: var(--teal-dark);
+font-family: Georgia, "Times New Roman", serif;
+font-weight: 500;
+font-size: clamp(1.4rem,2.4vw,1.9rem);
+}
+
+#become-member-v3 .bm-form-head p {
+margin: 0;
+color: var(--ink-soft);
+font-size: .92rem;
+line-height: 1.65;
+}
+
+#become-member-v3 .bm-form-frame-wrap {
+width: 100%;
+border-radius: 20px;
+overflow: hidden;
+background: #fafafa;
+}
+
+#become-member-v3 .bm-form-frame-wrap iframe {
+display: block;
+width: 100%;
+height: 1100px;
+border: 0;
+}
+
+@media (max-width: 980px) {
+#become-member-v3 .bm-intro {
+grid-template-columns: 1fr;
+}
+
+#become-member-v3 .bm-intro-image {
+min-height: 280px;
+}
+
+#become-member-v3 .bm-audience-grid,
+#become-member-v3 .bm-benefits-grid {
+grid-template-columns: 1fr;
+}
+}
+
+@media (max-width: 600px) {
+#become-member-v3 {
+padding: 72px 0 80px;
+}
+
+#become-member-v3 .bm-wrap {
+width: min(100% - 32px, 1180px);
+}
+
+#become-member-v3 .bm-intro {
+margin-bottom: 48px;
+gap: 30px;
+}
+
+#become-member-v3 .bm-note,
+#become-member-v3 .bm-closing {
+margin-bottom: 48px;
+}
+
+#become-member-v3 .bm-audience-card,
+#become-member-v3 .bm-benefit-card {
+padding: 22px 20px;
+}
+
+#become-member-v3 .bm-form-head {
+padding: 24px 20px 12px;
+}
+
+#become-member-v3 .bm-form-frame-wrap iframe {
+height: 1250px;
+}
+}
+</style>
+
+<section id="become-member" aria-labelledby="become-member-title-v3">
+<div id="become-member-v3">
+<div class="bm-wrap">
+
+<div class="bm-intro">
+<div class="bm-intro-image">
+<!-- Αλλάζεις αργότερα ΜΟΝΟ το src αν θέλεις άλλη εικόνα -->
+<img
+src="https://demo.unityenergetics.org/wp-content/uploads/2026/08/360_F_603211204_pC06ntrzN95QQLs0J0DVTwlNAFqZUjFJ.jpg"Γίνε μέλος του Συλλόγου Σ.Ε.ΨΥ.G."
+loading="lazy"
+>
+</div>
+<div class="bm-intro-copy">
+<span class="bm-eyebrow">Γίνε μέλος</span>
+<h1 id="become-member-title-v3">Μια ανοιχτή κοινότητα</h1>
+<p>
+Ο Πανευρωπαϊκός Επιστημονικός Σύλλογος Σ.Ε.ΨΥ.G. είναι μια ανοιχτή
+κοινότητα ανθρώπων που συναντιούνται μέσα από ένα κοινό ενδιαφέρον
+για το σώμα, τη σχέση, την αυτογνωσία και τη βιωμένη εμπειρία στο
+εδώ και τώρα.
+</p>
+<p>
+Στόχος μας είναι να δημιουργούμε έναν χώρο επικοινωνίας,
+ανταλλαγής, μάθησης και ουσιαστικής επαφής, μέσα από
+εκπαιδευτικές, επιστημονικές και βιωματικές δράσεις που φέρνουν
+τους ανθρώπους πιο κοντά στον εαυτό τους και στους άλλους.
+</p>
+</div>
+</div>
+
+<div class="bm-section-head">
+<h2>Απευθυνόμαστε σε σένα αν είσαι:</h2>
+</div>
+
+<div class="bm-audience-grid">
+<div class="bm-audience-card">
+<div class="bm-audience-icon" aria-hidden="true">🎓</div>
+<p>Επαγγελματίας ή εκπαιδευόμενος/η στην Ψυχοθεραπεία και στη Συμβουλευτική της προσέγγισης Gestalt.</p>
+</div>
+<div class="bm-audience-card">
+<div class="bm-audience-icon" aria-hidden="true">🤝</div>
+<p>Επαγγελματίας συγγενούς πεδίου.</p>
+</div>
+<div class="bm-audience-card">
+<div class="bm-audience-icon" aria-hidden="true">🌱</div>
+<p>Άνθρωπος που ενδιαφέρεται για την αυτογνωσία, την προσωπική ανάπτυξη και τη σχέση σώματος–ψυχισμού.</p>
+</div>
+</div>
+
+<div class="bm-note">
+<span class="bm-note-emoji" aria-hidden="true">🙋‍♀️</span>
+<span>Η συμμετοχή σου στον Σύλλογο δεν προϋποθέτει ειδικές γνώσεις ή επαγγελματική ιδιότητα. Χρειάζεται μόνο ενδιαφέρον, διάθεση για επαφή, συμμετοχή και παρουσία.</span>
+</div>
+
+<div class="bm-section-head">
+<h2>Ως Φίλος του Συλλόγου</h2>
+<p>Οι Φίλοι του Σ.Ε.ΨΥ.G. έχουν τη δυνατότητα να βρίσκονται πιο κοντά στις δράσεις και στην κοινότητά μας.</p>
+</div>
+
+<div class="bm-benefits-grid">
+<div class="bm-benefit-card">
+<div class="bm-benefit-icon" aria-hidden="true">📧</div>
+<h3>Ενημέρωση σε όλες τις δράσεις</h3>
+<p>Μέσω email ενημερώνεσαι για όλα τα βιωματικά εργαστήρια, τα σεμινάρια, τις εκπαιδεύσεις και τις πρωτοβουλίες του Συλλόγου — δωρεάν ή με κόστος συμμετοχής.</p>
+</div>
+<div class="bm-benefit-card">
+<div class="bm-benefit-icon" aria-hidden="true">💶</div>
+<h3>Ειδικές εκπτώσεις</h3>
+<p>Στις δράσεις του Συλλόγου που έχουν οικονομική συμμετοχή, απολαμβάνεις ειδικές εκπτώσεις και προνομιακές τιμές.</p>
+</div>
+<div class="bm-benefit-card">
+<div class="bm-benefit-icon" aria-hidden="true">🩺</div>
+<h3>Συνεργαζόμενοι θεραπευτές</h3>
+<p>Μπορείς να απευθύνεσαι σε θεραπευτές που συνεργάζονται με τον Σύλλογο και, όπου είναι διαθέσιμο, να επωφελείσαι από ειδική τιμή Φίλου.</p>
+</div>
+<div class="bm-benefit-card">
+<div class="bm-benefit-icon" aria-hidden="true">🌿</div>
+<h3>Στηρίζεις την κοινότητα</h3>
+<p>Συμμετέχεις ενεργά σε μια κοινότητα ανθρώπων με κοινές αναζητήσεις και στηρίζεις τη συνέχιση των ανοιχτών, δωρεάν πρωτοβουλιών του Συλλόγου.</p>
+</div>
+</div>
+
+<div class="bm-closing">
+Το να γίνεις Φίλος του Σ.Ε.ΨΥ.G. είναι ένας τρόπος να συμμετέχεις ενεργά σε μια κοινότητα ανθρώπων με κοινές αναζητήσεις, να έχεις πρόσβαση στις δράσεις της και ταυτόχρονα να στηρίζεις την ανάπτυξη των ανοιχτών και δωρεάν πρωτοβουλιών του Συλλόγου.
+</div>
+
+<div class="bm-form-panel">
+<div class="bm-form-head">
+<h2>Δήλωσε ενδιαφέρον</h2>
+<p>Συμπλήρωσε τη φόρμα παρακάτω — τα στοιχεία σου φτάνουν αυτόματα σε εμάς.</p>
+</div>
+<div class="bm-form-frame-wrap">
+<iframe
+src="https://docs.google.com/forms/d/e/1FAIpQLSdFuxPE_hY4hYftsEd-jC2t_lDaB0tFW8I8ZKTI9foopZEJCw/viewform?embedded=true"
+title="Φόρμα ενδιαφέροντος Σ.Ε.ΨΥ.G."
+loading="lazy"
+>Φόρτωση φόρμας…</iframe>
+</div>
+</div>
+
+</div>
+</div>
+</section>
+
+<style>
+/* SEPSYG CMS V7 — appearance bridge */
+#become-member-v3 {
+  background-color: var(--cms-section-background, #FFF9F3) !important;
+  font-family: var(--cms-body-font, Arial, Helvetica, sans-serif) !important;
+}
+#become-member-v3 h1, #become-member-v3 h2, #become-member-v3 h3, #become-member-v3 h4 {
+  color: var(--cms-heading-color, #174B49) !important;
+  font-family: var(--cms-heading-font, Georgia, "Times New Roman", serif) !important;
+}
+#become-member-v3 p {
+  color: var(--cms-body-color, #627472) !important;
+  font-size: var(--cms-body-size, 0.98rem) !important;
+  line-height: var(--cms-line-height, 1.75) !important;
+}
+#become-member-v3 .bm-eyebrow {
+  color: var(--cms-accent-color, #008D8B) !important;
+}
+
+#become-member-v3 .bm-audience-card,#become-member-v3 .bm-benefit-card,#become-member-v3 .bm-form-panel {
+  background-color: var(--cms-card-background, #FFFFFF) !important;
+  border-color: var(--cms-border-color, #DDE4E2) !important;
+  border-radius: var(--cms-card-radius, 24px) !important;
+  box-shadow: var(--cms-card-shadow, 0 16px 38px rgba(23,75,73,.07)) !important;
+}
+#become-member-v3 {
+  padding: var(--cms-section-padding, 94px 0) !important;
+}
+#become-member-v3 h1 {
+  font-size: var(--cms-title-size, clamp(2.45rem,5vw,4.4rem)) !important;
+}
+#become-member-v3 .bm-hero-image img {
+  object-position: var(--cms-image-position, center) !important;
+}
+</style>
+<script>
+(function() {
+  var config = {"section":"become_member","root":"#become-member-v3","mappings":[{"key":"text_01","selector":"span.bm-eyebrow","index":0,"mode":"text"},{"key":"text_02","selector":"#become-member-title-v3","index":0,"mode":"text"},{"key":"text_03","selector":"p","index":0,"mode":"multiline"},{"key":"text_04","selector":"p","index":1,"mode":"multiline"},{"key":"text_05","selector":"h2","index":0,"mode":"text"},{"key":"text_06","selector":"p","index":2,"mode":"text"},{"key":"text_07","selector":"p","index":3,"mode":"text"},{"key":"text_08","selector":"p","index":4,"mode":"text"},{"key":"text_09","selector":"span","index":2,"mode":"text"},{"key":"text_10","selector":"h2","index":1,"mode":"text"},{"key":"text_11","selector":"p","index":5,"mode":"text"},{"key":"text_12","selector":"h3","index":0,"mode":"text"},{"key":"text_13","selector":"p","index":6,"mode":"text"},{"key":"text_14","selector":"h3","index":1,"mode":"text"},{"key":"text_15","selector":"p","index":7,"mode":"text"},{"key":"text_16","selector":"h3","index":2,"mode":"text"},{"key":"text_17","selector":"p","index":8,"mode":"text"},{"key":"text_18","selector":"h3","index":3,"mode":"text"},{"key":"text_19","selector":"p","index":9,"mode":"text"},{"key":"text_20","selector":"h2","index":2,"mode":"text"},{"key":"text_21","selector":"p","index":10,"mode":"text"},{"key":"image_01","selector":"img","index":0,"attr":"src"},{"key":"image_01_alt","selector":"img","index":0,"attr":"alt"},{"key":"frame_01_url","selector":"iframe","index":0,"attr":"src"}],"generalMappings":[]};
+  function run() { if (window.SEPSYGCMS && window.SEPSYGCMS.bind) window.SEPSYGCMS.bind(config); }
+  if (window.SEPSYGCMS && window.SEPSYGCMS.bind) { run(); return; }
+  var existing = document.querySelector('script[data-sepsyg-cms-loader="1"]');
+  if (existing) { existing.addEventListener('load', run, { once:true }); return; }
+  var script = document.createElement('script');
+  script.src = 'https://hmerologiosillogou.vercel.app/site-cms.js?v=7';
+  script.async = true;
+  script.setAttribute('data-sepsyg-cms-loader','1');
+  script.onload = run;
+  document.head.appendChild(script);
+})();
+</script>

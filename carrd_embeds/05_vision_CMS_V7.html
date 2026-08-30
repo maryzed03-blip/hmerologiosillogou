@@ -1,0 +1,327 @@
+<!--
+SEPSYG — 04 ΟΡΑΜΑ ΣΥΛΛΟΓΟΥ v1.1
+Αυτόνομο Carrd Embed.
+Ρυθμίσεις: Type = Code | Style = Inline
+Αλλαγή: οι 2 κάρτες εμφανίζονται η μία κάτω από την άλλη.
+-->
+
+<style>
+#sepsyg-vision-v1,
+#sepsyg-vision-v1 * {
+box-sizing: border-box;
+}
+
+#sepsyg-vision-v1 {
+--sepsyg-peach: #E1AF85;
+--sepsyg-sand: #DBC1AB;
+--sepsyg-sage: #9EB2A6;
+--sepsyg-teal-soft: #569691;
+--sepsyg-teal: #008D8B;
+--sepsyg-teal-deep: #006B68;
+--sepsyg-teal-dark: #174B49;
+--sepsyg-paper: #FFF9F3;
+--sepsyg-card: #FFFFFF;
+--sepsyg-ink: #263B39;
+--sepsyg-ink-soft: #627472;
+--sepsyg-line: rgba(38, 59, 57, 0.13);
+
+position: relative;
+width: 100vw;
+max-width: none;
+margin-left: calc(50% - 50vw);
+padding: 98px 0;
+overflow: hidden;
+background: var(--sepsyg-paper);
+color: var(--sepsyg-ink);
+font-family: Arial, Helvetica, sans-serif;
+}
+
+#sepsyg-vision-v1 .sepsyg-vision-wrap {
+width: min(1180px, calc(100% - 48px));
+margin: 0 auto;
+}
+
+#sepsyg-vision-v1 .sepsyg-vision-head {
+max-width: 740px;
+margin: 0 auto 46px;
+text-align: center;
+}
+
+#sepsyg-vision-v1 .sepsyg-vision-eyebrow {
+display: block;
+margin-bottom: 0.85rem;
+color: var(--sepsyg-teal);
+font-size: 0.72rem;
+font-weight: 700;
+letter-spacing: 0.18em;
+text-transform: uppercase;
+}
+
+#sepsyg-vision-v1 .sepsyg-vision-head h2 {
+margin: 0;
+color: var(--sepsyg-teal-dark);
+font-family: Georgia, "Times New Roman", serif;
+font-size: clamp(1.9rem, 3.8vw, 2.75rem);
+font-weight: 500;
+line-height: 1.14;
+}
+
+/* Η ΜΟΝΗ ΑΛΛΑΓΗ ΣΤΟ DESKTOP:
+1 στήλη αντί για 2, ώστε οι κάρτες να είναι η μία κάτω από την άλλη. */
+#sepsyg-vision-v1 .sepsyg-vision-grid {
+display: grid;
+grid-template-columns: 1fr;
+gap: 28px;
+}
+
+#sepsyg-vision-v1 .sepsyg-vision-card {
+display: grid;
+grid-template-columns: 0.86fr 1.14fr;
+min-height: 318px;
+overflow: hidden;
+border: 1px solid var(--sepsyg-line);
+border-radius: 24px;
+background: var(--sepsyg-card);
+box-shadow: 0 16px 38px rgba(0, 109, 105, 0.08);
+}
+
+#sepsyg-vision-v1 .sepsyg-vision-card.is-reverse {
+grid-template-columns: 1.14fr 0.86fr;
+}
+
+#sepsyg-vision-v1 .sepsyg-vision-card.is-reverse .sepsyg-vision-image {
+order: 2;
+}
+
+#sepsyg-vision-v1 .sepsyg-vision-image {
+position: relative;
+min-height: 250px;
+overflow: hidden;
+background: linear-gradient(145deg, var(--sepsyg-sage), var(--sepsyg-sand));
+}
+
+#sepsyg-vision-v1 .sepsyg-vision-image img {
+width: 100%;
+height: 100%;
+min-height: 250px;
+display: block;
+object-fit: cover;
+}
+
+#sepsyg-vision-v1 .sepsyg-vision-image.first img {
+object-position: 40% center;
+}
+
+#sepsyg-vision-v1 .sepsyg-vision-image.second img {
+object-position: 60% center;
+}
+
+#sepsyg-vision-v1 .sepsyg-vision-image::after {
+content: "";
+position: absolute;
+inset: 18px;
+border: 1px solid rgba(255, 255, 255, 0.46);
+border-radius: 18px;
+pointer-events: none;
+}
+
+#sepsyg-vision-v1 .sepsyg-vision-image-label {
+position: absolute;
+left: 16px;
+bottom: 16px;
+z-index: 2;
+padding: 7px 12px;
+border-radius: 999px;
+background: rgba(255, 255, 255, 0.9);
+color: var(--sepsyg-teal-dark);
+font-size: 0.7rem;
+font-weight: 700;
+}
+
+#sepsyg-vision-v1 .sepsyg-vision-content {
+display: flex;
+flex-direction: column;
+align-items: flex-start;
+justify-content: center;
+padding: 40px 36px;
+}
+
+#sepsyg-vision-v1 .sepsyg-vision-content h3 {
+margin: 0 0 0.6em;
+color: var(--sepsyg-teal-dark);
+font-family: Georgia, "Times New Roman", serif;
+font-size: 1.55rem;
+font-weight: 500;
+line-height: 1.18;
+}
+
+#sepsyg-vision-v1 .sepsyg-vision-content p {
+margin: 0 0 1.1em;
+color: var(--sepsyg-ink-soft);
+font-size: 0.98rem;
+line-height: 1.75;
+}
+
+#sepsyg-vision-v1 .sepsyg-vision-content p:last-child {
+margin-bottom: 0;
+}
+
+#sepsyg-vision-v1 .sepsyg-vision-closing {
+max-width: 740px;
+margin: 44px auto 0;
+padding-top: 36px;
+border-top: 1px solid var(--sepsyg-line);
+text-align: center;
+}
+
+#sepsyg-vision-v1 .sepsyg-vision-closing p {
+margin: 0;
+color: var(--sepsyg-teal-dark);
+font-family: Georgia, "Times New Roman", serif;
+font-style: italic;
+font-size: 1.2rem;
+line-height: 1.6;
+}
+
+@media (max-width: 860px) {
+#sepsyg-vision-v1 .sepsyg-vision-card,
+#sepsyg-vision-v1 .sepsyg-vision-card.is-reverse {
+grid-template-columns: 1fr;
+}
+
+#sepsyg-vision-v1 .sepsyg-vision-card.is-reverse .sepsyg-vision-image {
+order: 0;
+}
+}
+
+@media (max-width: 680px) {
+#sepsyg-vision-v1 {
+padding: 74px 0;
+}
+
+#sepsyg-vision-v1 .sepsyg-vision-wrap {
+width: min(100% - 32px, 1180px);
+}
+
+#sepsyg-vision-v1 .sepsyg-vision-content {
+padding: 30px 24px 34px;
+}
+
+#sepsyg-vision-v1 .sepsyg-vision-image,
+#sepsyg-vision-v1 .sepsyg-vision-image img {
+min-height: 220px;
+}
+
+#sepsyg-vision-v1 .sepsyg-vision-closing p {
+font-size: 1.05rem;
+}
+}
+</style>
+
+<section id="vision" aria-labelledby="sepsyg-vision-title-v1">
+<div id="sepsyg-vision-v1">
+<div class="sepsyg-vision-wrap">
+
+<div class="sepsyg-vision-head">
+<span class="sepsyg-vision-eyebrow">Το όραμά μας</span>
+<h2 id="sepsyg-vision-title-v1">Όραμα Συλλόγου</h2>
+</div>
+
+<div class="sepsyg-vision-grid">
+
+<article class="sepsyg-vision-card">
+<div class="sepsyg-vision-image first">
+<!-- ΕΙΚΟΝΑ 1: βάλε εδώ το src σου -->
+<img
+src="https://demo.unityenergetics.org/wp-content/uploads/2026/08/1000s.jpg"
+alt="Το σώμα ως πηγή εμπειρίας"
+loading="lazy"
+>
+<span class="sepsyg-vision-image-label">Σωματική συνείδηση</span>
+</div>
+
+<div class="sepsyg-vision-content">
+<h3>Το σώμα ως ζωντανή πηγή εμπειρίας</h3>
+<p>Εδώ τιμούμε το σώμα ως ζωντανή πηγή μνήμης, σοφίας και ζωτικής δύναμης. Το σώμα δεν αποτελεί απλώς το «όχημα» της ύπαρξής μας, αλλά τον τόπο όπου καταγράφονται οι εμπειρίες μας, οι σχέσεις μας, τα τραύματα και οι δυνατότητές μας. Μέσα από αυτό εκφράζονται οι ανάγκες, τα όρια, οι επιθυμίες και οι βαθύτερες αλήθειές μας.</p>
+<p>Πιστεύουμε ότι η θεραπεία δεν αφορά μόνο τη γνωστική κατανόηση των δυσκολιών, αλλά τη βιωματική επαφή με ό,τι ζητά να ακουστεί, να αισθανθεί και να επανορθωθεί. Η αλλαγή δεν προκύπτει μόνο μέσα από την ανάλυση, αλλά μέσα από την παρουσία, την επίγνωση και τη ζωντανή εμπειρία στο «εδώ και τώρα».</p>
+</div>
+</article>
+
+<article class="sepsyg-vision-card is-reverse">
+<div class="sepsyg-vision-image second">
+<!-- ΕΙΚΟΝΑ 2: βάλε εδώ το src σου -->
+<img
+src="https://demo.unityenergetics.org/wp-content/uploads/2026/08/depositphotos_60097259-stock-photo-people-celebrating-success-on-sunset.webp"
+alt="Ο σκοπός του Συλλόγου"
+loading="lazy"
+>
+<span class="sepsyg-vision-image-label">Ο σκοπός μας</span>
+</div>
+
+<div class="sepsyg-vision-content">
+<h3>Μια κοινότητα ουσιαστικής θεραπείας και εξέλιξης</h3>
+<p>Η Σωματικά Επικεντρωμένη Ψυχοθεραπεία Gestalt υποστηρίζει το άτομο στο ταξίδι προς την ενοποίηση, την ενδυνάμωση και την αποκατάσταση της βαθύτερης σχέσης με τον εαυτό του. Μέσα από μια ασφαλή, σταθερή και ουσιαστική θεραπευτική σχέση, καλλιεργείται η επίγνωση του σώματος, των συναισθημάτων και των μοτίβων επαφής.</p>
+<p>Ο Σύλλογος δημιουργήθηκε με σκοπό τη διάδοση και την προαγωγή της Σωματικά Επικεντρωμένης Ψυχοθεραπείας Gestalt, την εκπαίδευση και τη συνεχή επιμόρφωση επαγγελματιών, καθώς και τη στήριξη μιας κοινότητας ανθρώπων που αναζητούν ουσιαστική θεραπεία και προσωπική εξέλιξη.</p>
+</div>
+</article>
+
+</div>
+
+<div class="sepsyg-vision-closing">
+<p>Γιατί η θεραπεία ξεκινά από την επαφή — με το σώμα, με το συναίσθημα, με τον Άλλον και, τελικά, με τον ίδιο μας τον εαυτό.</p>
+</div>
+
+</div>
+</div>
+</section>
+
+<style>
+/* SEPSYG CMS V7 — appearance bridge */
+#sepsyg-vision-v1 {
+  background-color: var(--cms-section-background, #FFF9F3) !important;
+  font-family: var(--cms-body-font, Arial, Helvetica, sans-serif) !important;
+}
+#sepsyg-vision-v1 h1, #sepsyg-vision-v1 h2, #sepsyg-vision-v1 h3, #sepsyg-vision-v1 h4 {
+  color: var(--cms-heading-color, #174B49) !important;
+  font-family: var(--cms-heading-font, Georgia, "Times New Roman", serif) !important;
+}
+#sepsyg-vision-v1 p {
+  color: var(--cms-body-color, #627472) !important;
+  font-size: var(--cms-body-size, 0.98rem) !important;
+  line-height: var(--cms-line-height, 1.75) !important;
+}
+.sepsyg-vision-eyebrow,.sepsyg-vision-image-label {
+  color: var(--cms-accent-color, #008D8B) !important;
+}
+
+.sepsyg-vision-card {
+  background-color: var(--cms-card-background, #FFFFFF) !important;
+  border-color: var(--cms-border-color, #DDE4E2) !important;
+  border-radius: var(--cms-card-radius, 24px) !important;
+  box-shadow: var(--cms-card-shadow, 0 16px 38px rgba(0, 109, 105, 0.08)) !important;
+}
+#sepsyg-vision-v1 {
+  padding: var(--cms-section-padding, 98px 0) !important;
+}
+.sepsyg-vision-head h2 {
+  font-size: var(--cms-title-size, clamp(1.9rem, 3.8vw, 2.75rem)) !important;
+}
+#sepsyg-vision-v1 .sepsyg-vision-image img {
+  object-position: var(--cms-image-position, center) !important;
+}
+</style>
+<script>
+(function() {
+  var config = {"section":"vision","root":"#sepsyg-vision-v1","mappings":[{"key":"text_01","selector":"span.sepsyg-vision-eyebrow","index":0,"mode":"text"},{"key":"text_02","selector":"#sepsyg-vision-title-v1","index":0,"mode":"text"},{"key":"text_03","selector":"span.sepsyg-vision-image-label","index":0,"mode":"text"},{"key":"text_04","selector":"h3","index":0,"mode":"text"},{"key":"text_05","selector":"p","index":0,"mode":"text"},{"key":"text_06","selector":"p","index":1,"mode":"text"},{"key":"text_07","selector":"span.sepsyg-vision-image-label","index":1,"mode":"text"},{"key":"text_08","selector":"h3","index":1,"mode":"text"},{"key":"text_09","selector":"p","index":2,"mode":"text"},{"key":"text_10","selector":"p","index":3,"mode":"text"},{"key":"text_11","selector":"p","index":4,"mode":"text"},{"key":"image_01","selector":"img","index":0,"attr":"src"},{"key":"image_01_alt","selector":"img","index":0,"attr":"alt"},{"key":"image_02","selector":"img","index":1,"attr":"src"},{"key":"image_02_alt","selector":"img","index":1,"attr":"alt"}],"generalMappings":[]};
+  function run() { if (window.SEPSYGCMS && window.SEPSYGCMS.bind) window.SEPSYGCMS.bind(config); }
+  if (window.SEPSYGCMS && window.SEPSYGCMS.bind) { run(); return; }
+  var existing = document.querySelector('script[data-sepsyg-cms-loader="1"]');
+  if (existing) { existing.addEventListener('load', run, { once:true }); return; }
+  var script = document.createElement('script');
+  script.src = 'https://hmerologiosillogou.vercel.app/site-cms.js?v=7';
+  script.async = true;
+  script.setAttribute('data-sepsyg-cms-loader','1');
+  script.onload = run;
+  document.head.appendChild(script);
+})();
+</script>

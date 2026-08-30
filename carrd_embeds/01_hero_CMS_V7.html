@@ -1,0 +1,241 @@
+<!-- SEPSYG HERO v1.8 ELEGANT — ΑΝΤΙΚΑΤΑΣΤΑΣΗ ΜΟΝΟ ΤΟΥ HERO -->
+<style>
+#sepsygHeroWideV16,
+#sepsygHeroWideV16 * { box-sizing: border-box; }
+
+#sepsygHeroWideV16 {
+position: relative !important;
+left: 50% !important;
+right: 50% !important;
+width: 100vw !important;
+max-width: 100vw !important;
+margin-left: -50vw !important;
+margin-right: -50vw !important;
+padding: 0 !important;
+overflow: hidden !important;
+color: #ffffff;
+font-family: Arial, Helvetica, sans-serif;
+}
+
+#sepsygHeroWideV16 .syg16-main {
+position: relative;
+width: 100%;
+min-height: 620px;
+display: flex;
+align-items: center;
+justify-content: center;
+padding: 44px 28px 60px;
+overflow: hidden;
+isolation: isolate;
+background-color: #008d8b;
+background-image:
+linear-gradient(90deg, rgba(0,63,62,.78), rgba(0,132,130,.32)),
+url("https://demo.unityenergetics.org/wp-content/uploads/2026/08/%CE%B3%CE%B1%CE%BB%CE%B1%CE%B6%CE%B9%CE%BF.%CF%83%CF%85%CE%BB%CE%BB%CE%BF%CE%B3%CE%BF%CF%82.png");
+background-repeat: no-repeat;
+background-position: center;
+background-size: cover;
+}
+
+#sepsygHeroWideV16 .syg16-main::before {
+content: "";
+position: absolute;
+inset: 0;
+z-index: -1;
+background: linear-gradient(180deg, rgba(0,0,0,.03), rgba(0,39,38,.24));
+}
+
+#sepsygHeroWideV16 .syg16-content {
+width: min(1180px, 100%);
+margin: 0 auto;
+text-align: center;
+}
+
+#sepsygHeroWideV16 .syg16-logo-circle {
+width: 138px;
+height: 138px;
+margin: 0 auto 20px;
+border-radius: 50%;
+overflow: hidden;
+display: flex;
+align-items: center;
+justify-content: center;
+background: rgba(255,252,248,.96);
+box-shadow: 0 10px 26px rgba(0,55,54,.16);
+}
+
+#sepsygHeroWideV16 .syg16-logo-image {
+display: block;
+width: 84%;
+max-width: none !important;
+height: auto;
+margin: 0;
+object-fit: contain;
+image-rendering: auto;
+transform: translateY(2px);
+}
+
+#sepsygHeroWideV16 .syg16-kicker {
+margin: 0 0 14px;
+color: #f3cfb0;
+font-family: Georgia, "Times New Roman", serif;
+font-size: clamp(15px, 1.35vw, 20px);
+font-style: italic;
+line-height: 1.5;
+letter-spacing: .015em;
+}
+
+#sepsygHeroWideV16 .syg16-title {
+max-width: 980px;
+margin: 0 auto;
+color: #ffffff;
+font-family: Georgia, "Times New Roman", serif;
+font-size: clamp(38px, 4.4vw, 60px);
+font-weight: 500;
+line-height: 1.12;
+letter-spacing: -0.015em;
+overflow-wrap: normal;
+word-break: normal;
+hyphens: none;
+text-shadow: 0 3px 16px rgba(0,40,39,.34);
+}
+
+#sepsygHeroWideV16 .syg16-text {
+max-width: 760px;
+margin: 22px auto 0;
+color: #ffffff;
+font-family: Georgia, "Times New Roman", serif;
+font-size: clamp(16px, 1.35vw, 20px);
+line-height: 1.65;
+text-shadow: 0 2px 10px rgba(0,40,39,.30);
+}
+
+#sepsygHeroWideV16 .syg16-line {
+width: 72px;
+height: 2px;
+margin: 24px auto 0;
+border-radius: 999px;
+background: rgba(225,175,133,.92);
+}
+
+@media (max-width: 760px) {
+#sepsygHeroWideV16 .syg16-main {
+min-height: 560px;
+padding: 32px 18px 44px;
+background-position: 58% center;
+}
+#sepsygHeroWideV16 .syg16-logo-circle {
+width: 112px;
+height: 112px;
+margin-bottom: 18px;
+}
+#sepsygHeroWideV16 .syg16-logo-image { width: 86%; }
+#sepsygHeroWideV16 .syg16-title {
+font-size: clamp(32px, 9.5vw, 46px);
+line-height: 1.13;
+}
+#sepsygHeroWideV16 .syg16-kicker { font-size: 15px; }
+#sepsygHeroWideV16 .syg16-text { font-size: 16px; line-height: 1.6; }
+}
+</style>
+
+<div id="sepsygHeroWideV16">
+<div class="syg16-main">
+<div class="syg16-content">
+<div class="syg16-logo-circle">
+<img
+class="syg16-logo-image"
+src="data:image/png;base64,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"
+alt="Λογότυπο Σ.Ε.ΨΥ.G."
+width="144"
+height="121"
+>
+</div>
+
+<p class="syg16-kicker">Σωματικά Επικεντρωμένη Ψυχοθεραπεία Gestalt</p>
+<h1 class="syg16-title">Πανευρωπαϊκός Επιστημονικός Σύλλογος Σ.Ε.ΨΥ.G.</h1>
+<p class="syg16-text">
+Καλωσορίσατε στον Πανευρωπαϊκό Επιστημονικό Σύλλογο Σ.Ε.ΨΥ.G.<br>
+Έναν χώρο συνάντησης, θεραπείας και βαθιάς ανθρώπινης επαφής.
+</p>
+<div class="syg16-line" aria-hidden="true"></div>
+</div>
+</div>
+</div>
+
+<style>
+/* SEPSYG CMS V7 — appearance bridge */
+#sepsygHeroWideV16 {
+  background-color: var(--cms-section-background, #008D8B) !important;
+  font-family: var(--cms-body-font, Arial, Helvetica, sans-serif) !important;
+}
+#sepsygHeroWideV16 h1, #sepsygHeroWideV16 h2, #sepsygHeroWideV16 h3, #sepsygHeroWideV16 h4 {
+  color: var(--cms-heading-color, #FFFFFF) !important;
+  font-family: var(--cms-heading-font, Georgia, "Times New Roman", serif) !important;
+}
+#sepsygHeroWideV16 p {
+  color: var(--cms-body-color, #FFFFFF) !important;
+  font-size: var(--cms-body-size, clamp(16px, 1.35vw, 20px)) !important;
+  line-height: var(--cms-line-height, 1.65) !important;
+}
+.syg16-kicker {
+  color: var(--cms-accent-color, #F3CFB0) !important;
+}
+
+.syg16-main {
+  padding: var(--cms-section-padding, 44px 28px 60px) !important;
+}
+.syg16-title {
+  font-size: var(--cms-title-size, clamp(38px, 4.4vw, 60px)) !important;
+}
+#sepsygHeroWideV16 .syg16-main {
+  background-color: var(--cms-section-background, #008D8B) !important;
+  background-image:
+    linear-gradient(90deg, rgba(0,63,62,.78), rgba(0,132,130,.32)),
+    var(--cms-hero-image, url("https://demo.unityenergetics.org/wp-content/uploads/2026/08/γαλαζιο.συλλογος.png")) !important;
+}
+#sepsygHeroWideV16 .sepsyg-newsletter-cms {
+  width: min(920px, calc(100% - 36px));
+  margin: 28px auto 0;
+  padding: 18px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, .9fr);
+  gap: 22px;
+  align-items: center;
+  border: 1px solid rgba(255,255,255,.34);
+  border-radius: 18px;
+  background: rgba(0,63,62,.35);
+  backdrop-filter: blur(12px);
+  color: #fff;
+}
+#sepsygHeroWideV16 .sepsyg-newsletter-eyebrow {
+  display:block; margin-bottom:5px; color:#F3CFB0; font-size:.66rem; font-weight:800; letter-spacing:.16em; text-transform:uppercase;
+}
+#sepsygHeroWideV16 .sepsyg-newsletter-title {display:block;font:500 1.22rem/1.25 Georgia,"Times New Roman",serif;color:#fff}
+#sepsygHeroWideV16 .sepsyg-newsletter-text {margin:6px 0 0!important;color:rgba(255,255,255,.9)!important;font:400 .82rem/1.55 Arial,Helvetica,sans-serif!important}
+#sepsygHeroWideV16 .sepsyg-newsletter-cms-row {display:flex;gap:8px}
+#sepsygHeroWideV16 .sepsyg-newsletter-cms-row input {min-width:0;flex:1;height:42px;border:1px solid rgba(255,255,255,.5);border-radius:8px;padding:0 12px;background:rgba(255,255,255,.96);color:#174B49;font-size:.84rem;outline:none}
+#sepsygHeroWideV16 .sepsyg-newsletter-cms-row button {height:42px;border:0;border-radius:8px;padding:0 16px;background:#E1AF85;color:#174B49;font-weight:800;cursor:pointer}
+#sepsygHeroWideV16 .sepsyg-newsletter-cms-form label {display:flex;gap:8px;align-items:flex-start;margin-top:8px;color:rgba(255,255,255,.82);font-size:.68rem;line-height:1.4;text-align:left}
+#sepsygHeroWideV16 .sepsyg-newsletter-cms-form label input {margin-top:2px;accent-color:#E1AF85}
+#sepsygHeroWideV16 .sepsyg-newsletter-status {min-height:16px;margin-top:6px;font-size:.68rem;color:#fff;text-align:left}
+@media(max-width:760px){
+  #sepsygHeroWideV16 .sepsyg-newsletter-cms{grid-template-columns:1fr;gap:12px;padding:14px;margin-top:22px}
+  #sepsygHeroWideV16 .sepsyg-newsletter-cms-row{flex-direction:column}
+  #sepsygHeroWideV16 .sepsyg-newsletter-cms-row button{width:100%}
+}
+</style>
+<script>
+(function() {
+  var config = {"section":"hero","root":"#sepsygHeroWideV16","mappings":[{"key":"text_01","selector":"p.syg16-kicker","index":0,"mode":"text"},{"key":"text_02","selector":"h1.syg16-title","index":0,"mode":"text"},{"key":"text_03","selector":"p.syg16-text","index":0,"mode":"multiline"}],"generalMappings":[{"key":"logo_url","selector":".syg16-logo-image","index":0,"attr":"src"}]};
+  function run() { if (window.SEPSYGCMS && window.SEPSYGCMS.bind) window.SEPSYGCMS.bind(config); }
+  if (window.SEPSYGCMS && window.SEPSYGCMS.bind) { run(); return; }
+  var existing = document.querySelector('script[data-sepsyg-cms-loader="1"]');
+  if (existing) { existing.addEventListener('load', run, { once:true }); return; }
+  var script = document.createElement('script');
+  script.src = 'https://hmerologiosillogou.vercel.app/site-cms.js?v=7';
+  script.async = true;
+  script.setAttribute('data-sepsyg-cms-loader','1');
+  script.onload = run;
+  document.head.appendChild(script);
+})();
+</script>

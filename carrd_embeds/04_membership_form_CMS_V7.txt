@@ -1,0 +1,430 @@
+<!--
+06A — ΓΙΝΕ ΜΕΛΟΣ / ΦΟΡΜΑ v1.1
+Β΄ ΕΝΙΚΟ
+Carrd: Embed > Code > Inline
+ID menu: #membership
+-->
+
+<style>
+#membership,
+#membership * {
+box-sizing: border-box;
+}
+
+#membership {
+--cream: #FFF9F3;
+--deep: #174B49;
+--teal: #008D8B;
+--muted: #6F7E7B;
+--line: rgba(23,75,73,.14);
+
+width: 100vw;
+max-width: none;
+margin-left: calc(50% - 50vw);
+
+padding: 90px 0 95px;
+background:
+radial-gradient(circle at 92% 5%, rgba(158,178,166,.18), transparent 27%),
+linear-gradient(180deg,#FFF9F3 0%,#F7EEE7 100%);
+
+color: #263B39;
+font-family: Arial, Helvetica, sans-serif;
+}
+
+#membership .sg-wrap {
+width: calc(100% - 44px);
+max-width: 1160px;
+margin: 0 auto;
+}
+
+#membership .sg-grid {
+display: grid;
+grid-template-columns: .82fr 1.18fr;
+gap: 58px;
+align-items: start;
+}
+
+#membership .sg-intro {
+padding-top: 25px;
+}
+
+#membership .sg-eyebrow {
+display: block;
+margin-bottom: 14px;
+color: var(--teal);
+font-size: .72rem;
+font-weight: 800;
+letter-spacing: .18em;
+text-transform: uppercase;
+}
+
+#membership h2 {
+max-width: 470px;
+margin: 0;
+color: var(--deep);
+font-family: Georgia, "Times New Roman", serif;
+font-size: clamp(2.5rem,5vw,4.3rem);
+line-height: 1.04;
+font-weight: 500;
+}
+
+#membership .sg-intro p {
+max-width: 490px;
+margin: 24px 0 0;
+color: var(--muted);
+font-size: 1rem;
+line-height: 1.8;
+}
+
+#membership .sg-note {
+display: flex;
+gap: 10px;
+align-items: flex-start;
+margin-top: 28px;
+color: var(--deep);
+font-size: .86rem;
+line-height: 1.6;
+}
+
+#membership .sg-dot {
+flex: 0 0 auto;
+width: 9px;
+height: 9px;
+margin-top: 5px;
+border-radius: 50%;
+background: var(--teal);
+}
+
+#membership .sg-form {
+padding: 34px;
+border: 1px solid var(--line);
+border-radius: 28px;
+background: #fff;
+box-shadow: 0 20px 55px rgba(37,65,61,.09);
+}
+
+#membership .sg-fields {
+display: grid;
+grid-template-columns: 1fr 1fr;
+gap: 18px;
+}
+
+#membership .sg-field-full {
+grid-column: 1 / -1;
+}
+
+#membership label {
+display: block;
+margin-bottom: 8px;
+color: var(--deep);
+font-size: .79rem;
+font-weight: 800;
+}
+
+#membership input,
+#membership select,
+#membership textarea {
+width: 100%;
+margin: 0;
+border: 1px solid rgba(23,75,73,.18);
+border-radius: 13px;
+outline: none;
+background: #FFFDFC;
+color: #263B39;
+font: inherit;
+font-size: .94rem;
+}
+
+#membership input,
+#membership select {
+height: 48px;
+padding: 0 14px;
+}
+
+#membership textarea {
+min-height: 115px;
+padding: 13px 14px;
+resize: vertical;
+}
+
+#membership input:focus,
+#membership select:focus,
+#membership textarea:focus {
+border-color: var(--teal);
+box-shadow: 0 0 0 3px rgba(0,141,139,.09);
+}
+
+#membership .sg-consent {
+display: grid;
+grid-template-columns: 18px 1fr;
+gap: 10px;
+align-items: start;
+margin-top: 22px;
+color: var(--muted);
+font-size: .78rem;
+line-height: 1.55;
+}
+
+#membership .sg-consent input {
+width: 16px;
+height: 16px;
+margin: 2px 0 0;
+accent-color: var(--teal);
+}
+
+#membership .sg-submit {
+display: inline-flex;
+align-items: center;
+justify-content: center;
+min-height: 50px;
+margin-top: 24px;
+padding: 12px 28px;
+border: 0;
+border-radius: 999px;
+background: var(--teal);
+color: #fff;
+font-size: .87rem;
+font-weight: 800;
+cursor: pointer;
+}
+
+#membership .sg-submit:hover {
+background: #087B78;
+}
+
+#membership .sg-help {
+margin: 15px 0 0;
+color: #899693;
+font-size: .72rem;
+line-height: 1.55;
+}
+
+@media(max-width:850px) {
+#membership .sg-grid {
+grid-template-columns: 1fr;
+gap: 38px;
+}
+
+#membership .sg-intro {
+padding-top: 0;
+text-align: center;
+}
+
+#membership h2,
+#membership .sg-intro p {
+margin-left: auto;
+margin-right: auto;
+}
+
+#membership .sg-note {
+justify-content: center;
+}
+}
+
+@media(max-width:600px) {
+#membership {
+padding: 70px 0 74px;
+}
+
+#membership .sg-wrap {
+width: calc(100% - 28px);
+}
+
+#membership .sg-form {
+padding: 23px 18px;
+border-radius: 22px;
+}
+
+#membership .sg-fields {
+grid-template-columns: 1fr;
+gap: 15px;
+}
+
+#membership .sg-field-full {
+grid-column: auto;
+}
+
+#membership .sg-submit {
+width: 100%;
+}
+}
+</style>
+
+<section id="membership">
+
+<div class="sg-wrap">
+<div class="sg-grid">
+
+<div class="sg-intro">
+
+<span class="sg-eyebrow">
+Έλα στην κοινότητά μας
+</span>
+
+<h2>
+Θέλεις να γίνεις μέλος;
+</h2>
+
+<p>
+Συμπλήρωσε τη φόρμα και το αίτημά σου θα σταλεί
+στο email του Συλλόγου.
+</p>
+
+<div class="sg-note">
+<span class="sg-dot"></span>
+<span>
+Θα επικοινωνήσουμε μαζί σου για τα επόμενα βήματα.
+</span>
+</div>
+
+</div>
+
+<form
+class="sg-form"
+action="https://formsubmit.co/euassociationsepsyg@gmail.com"
+method="POST"
+>
+
+<input
+type="hidden"
+name="_subject"
+value="Νέα αίτηση μέλους Σ.Ε.ΨΥ.G. από ιστοσελίδα"
+>
+
+<input
+type="hidden"
+name="_template"
+value="table"
+>
+
+<input
+type="text"
+name="_honey"
+style="display:none"
+>
+
+<div class="sg-fields">
+
+<div class="sg-field-full">
+<label>Ονοματεπώνυμο *</label>
+<input type="text" name="Ονοματεπώνυμο" required>
+</div>
+
+<div>
+<label>Email *</label>
+<input type="email" name="Email" required>
+</div>
+
+<div>
+<label>Τηλέφωνο</label>
+<input type="tel" name="Τηλέφωνο">
+</div>
+
+<div>
+<label>Πόλη / Περιοχή *</label>
+<input type="text" name="Πόλη ή περιοχή" required>
+</div>
+
+<div>
+<label>Επάγγελμα / Ιδιότητα</label>
+<input type="text" name="Επάγγελμα ή ιδιότητα">
+</div>
+
+<div class="sg-field-full">
+<label>Ενδιαφέρομαι να γίνω *</label>
+
+<select name="Τύπος ενδιαφέροντος" required>
+<option value="" disabled selected>Επίλεξε</option>
+<option>Μέλος του Συλλόγου</option>
+<option>Φίλος του Συλλόγου</option>
+<option>Θέλω πρώτα περισσότερες πληροφορίες</option>
+</select>
+</div>
+
+<div class="sg-field-full">
+<label>Μήνυμα</label>
+<textarea
+name="Μήνυμα"
+placeholder="Γράψε προαιρετικά λίγα λόγια για το ενδιαφέρον σου."
+></textarea>
+</div>
+
+</div>
+
+<label class="sg-consent">
+<input
+type="checkbox"
+name="Συναίνεση επικοινωνίας"
+value="Ναι"
+required
+>
+
+<span>
+Συμφωνώ να χρησιμοποιηθούν τα στοιχεία μου αποκλειστικά
+για την επικοινωνία σχετικά με το αίτημά μου. *
+</span>
+</label>
+
+<button class="sg-submit" type="submit">
+Αποστολή αιτήματος
+</button>
+
+<p class="sg-help">
+Στην πρώτη δοκιμή ενδέχεται να χρειαστεί μία φορά
+ενεργοποίηση της φόρμας από το email του Συλλόγου.
+</p>
+
+</form>
+
+</div>
+</div>
+
+</section>
+
+<style>
+/* SEPSYG CMS V7 — appearance bridge */
+#membership {
+  background-color: var(--cms-section-background, #FFF9F3) !important;
+  font-family: var(--cms-body-font, Arial, Helvetica, sans-serif) !important;
+}
+#membership h1, #membership h2, #membership h3, #membership h4 {
+  color: var(--cms-heading-color, #174B49) !important;
+  font-family: var(--cms-heading-font, Georgia, "Times New Roman", serif) !important;
+}
+#membership p {
+  color: var(--cms-body-color, #6F7E7B) !important;
+  font-size: var(--cms-body-size, 1rem) !important;
+  line-height: var(--cms-line-height, 1.8) !important;
+}
+#membership .sg-eyebrow {
+  color: var(--cms-accent-color, #008D8B) !important;
+}
+
+#membership .sg-form {
+  background-color: var(--cms-card-background, #FFFFFF) !important;
+  border-color: var(--cms-border-color, #DCE4E1) !important;
+  border-radius: var(--cms-card-radius, 28px) !important;
+  box-shadow: var(--cms-card-shadow, 0 20px 55px rgba(37,65,61,.09)) !important;
+}
+#membership {
+  padding: var(--cms-section-padding, 90px 0 95px) !important;
+}
+#membership h2 {
+  font-size: var(--cms-title-size, clamp(2.5rem,5vw,4.3rem)) !important;
+}
+</style>
+<script>
+(function() {
+  var config = {"section":"membership_form","root":"#membership","mappings":[{"key":"text_01","selector":"span.sg-eyebrow","index":0,"mode":"text"},{"key":"text_02","selector":"h2","index":0,"mode":"text"},{"key":"text_03","selector":"p","index":0,"mode":"multiline"},{"key":"text_04","selector":"span","index":2,"mode":"text"},{"key":"text_05","selector":"label","index":0,"mode":"text"},{"key":"text_06","selector":"label","index":1,"mode":"text"},{"key":"text_07","selector":"label","index":2,"mode":"text"},{"key":"text_08","selector":"label","index":3,"mode":"text"},{"key":"text_09","selector":"label","index":4,"mode":"text"},{"key":"text_10","selector":"label","index":5,"mode":"text"},{"key":"text_11","selector":"option","index":0,"mode":"text"},{"key":"text_12","selector":"option","index":1,"mode":"text"},{"key":"text_13","selector":"option","index":2,"mode":"text"},{"key":"text_14","selector":"option","index":3,"mode":"text"},{"key":"text_15","selector":"label","index":6,"mode":"text"},{"key":"text_16","selector":"span","index":3,"mode":"multiline"},{"key":"text_17","selector":"button.sg-submit","index":0,"mode":"text"},{"key":"text_18","selector":"p.sg-help","index":0,"mode":"multiline"},{"key":"placeholder_01","selector":"textarea","index":0,"attr":"placeholder"},{"key":"recipient_email","selector":"form.sg-form","index":0,"attr":"action","transform":"formsubmit"}],"generalMappings":[]};
+  function run() { if (window.SEPSYGCMS && window.SEPSYGCMS.bind) window.SEPSYGCMS.bind(config); }
+  if (window.SEPSYGCMS && window.SEPSYGCMS.bind) { run(); return; }
+  var existing = document.querySelector('script[data-sepsyg-cms-loader="1"]');
+  if (existing) { existing.addEventListener('load', run, { once:true }); return; }
+  var script = document.createElement('script');
+  script.src = 'https://hmerologiosillogou.vercel.app/site-cms.js?v=7';
+  script.async = true;
+  script.setAttribute('data-sepsyg-cms-loader','1');
+  script.onload = run;
+  document.head.appendChild(script);
+})();
+</script>

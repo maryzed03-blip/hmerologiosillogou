@@ -1,0 +1,389 @@
+<!--
+SEPSYG — ΕΠΙΚΟΙΝΩΝΙΑ v3.0
+Full-width Carrd Embed
+Type = Code | Style = Inline
+-->
+
+<style>
+#contact-us-v3,
+#contact-us-v3 * {
+box-sizing: border-box;
+}
+
+#contact-us-v3 {
+--peach: #E1AF85;
+--sand: #DBC1AB;
+--sage: #9EB2A6;
+--teal-soft: #569691;
+--teal: #008D8B;
+--teal-deep: #006B68;
+--teal-dark: #174B49;
+--paper: #FFF9F3;
+--card: #FFFFFF;
+--ink: #263B39;
+--ink-soft: #627472;
+--line: rgba(38,59,57,.13);
+
+position: relative;
+width: 100vw;
+max-width: none;
+margin-left: calc(50% - 50vw);
+padding: 96px 0 104px;
+overflow: hidden;
+background: var(--paper);
+color: var(--ink);
+font-family: Arial, Helvetica, sans-serif;
+}
+
+#contact-us-v3 a {
+color: inherit;
+}
+
+#contact-us-v3 .cu-wrap {
+width: min(1180px, calc(100% - 48px));
+margin: 0 auto;
+}
+
+/* INTRO — copy + image */
+#contact-us-v3 .cu-intro {
+display: grid;
+grid-template-columns: minmax(0,1.05fr) minmax(0,.95fr);
+gap: 54px;
+align-items: center;
+margin-bottom: 56px;
+}
+
+#contact-us-v3 .cu-eyebrow {
+display: block;
+margin-bottom: .8rem;
+color: var(--teal);
+font-size: .72rem;
+font-weight: 800;
+letter-spacing: .18em;
+text-transform: uppercase;
+}
+
+#contact-us-v3 .cu-intro-copy h1 {
+margin: 0 0 .55em;
+color: var(--teal-dark);
+font-family: Georgia, "Times New Roman", serif;
+font-weight: 500;
+font-size: clamp(2rem,3.6vw,2.9rem);
+line-height: 1.12;
+}
+
+#contact-us-v3 .cu-intro-copy p {
+margin: 0 0 1.1em;
+color: var(--ink-soft);
+font-size: 1rem;
+line-height: 1.8;
+}
+
+#contact-us-v3 .cu-intro-copy p:last-child {
+margin-bottom: 0;
+}
+
+#contact-us-v3 .cu-intro-image {
+position: relative;
+min-height: 340px;
+border-radius: 26px;
+overflow: hidden;
+background: linear-gradient(150deg, var(--sage), var(--sand));
+}
+
+#contact-us-v3 .cu-intro-image img {
+width: 100%;
+height: 100%;
+min-height: 340px;
+display: block;
+object-fit: cover;
+}
+
+#contact-us-v3 .cu-intro-image::after {
+content: "";
+position: absolute;
+inset: 18px;
+border: 1px solid rgba(255,255,255,.5);
+border-radius: 18px;
+pointer-events: none;
+}
+
+/* CONTACT CARDS */
+#contact-us-v3 .cu-grid {
+display: grid;
+grid-template-columns: repeat(4, minmax(0,1fr));
+gap: 18px;
+}
+
+#contact-us-v3 .cu-card {
+padding: 28px 26px;
+border: 1px solid var(--line);
+border-radius: 22px;
+background: var(--card);
+transition: transform .18s ease, box-shadow .18s ease;
+}
+
+#contact-us-v3 .cu-card:hover {
+transform: translateY(-3px);
+box-shadow: 0 16px 34px rgba(23,75,73,.09);
+}
+
+#contact-us-v3 .cu-card-icon {
+width: 44px;
+height: 44px;
+display: grid;
+place-items: center;
+margin-bottom: 16px;
+border-radius: 14px;
+background: rgba(0,141,139,.10);
+font-size: 1.25rem;
+}
+
+#contact-us-v3 .cu-card h3 {
+margin: 0 0 14px;
+color: var(--teal-dark);
+font-family: Georgia, "Times New Roman", serif;
+font-weight: 500;
+font-size: 1.08rem;
+}
+
+#contact-us-v3 .cu-card a.cu-link {
+display: inline-block;
+margin-bottom: 4px;
+color: var(--teal-deep);
+font-weight: 800;
+font-size: .96rem;
+text-decoration: none;
+border-bottom: 1px solid rgba(0,109,104,.25);
+}
+
+#contact-us-v3 .cu-card a.cu-link:hover {
+border-bottom-color: var(--teal-deep);
+}
+
+#contact-us-v3 .cu-person {
+margin: 0 0 12px;
+font-size: .9rem;
+line-height: 1.6;
+color: var(--ink-soft);
+}
+
+#contact-us-v3 .cu-person:last-child {
+margin-bottom: 0;
+}
+
+#contact-us-v3 .cu-person strong {
+display: block;
+color: var(--ink);
+font-weight: 700;
+}
+
+#contact-us-v3 .cu-person a {
+color: var(--teal-deep);
+font-weight: 700;
+text-decoration: none;
+}
+
+#contact-us-v3 .cu-card p.cu-address {
+margin: 0;
+color: var(--ink-soft);
+font-size: .95rem;
+line-height: 1.7;
+}
+
+#contact-us-v3 .cu-fb-btn {
+display: inline-flex;
+align-items: center;
+gap: 10px;
+padding: 10px 16px;
+border: 1px solid var(--line);
+border-radius: 999px;
+background: transparent;
+color: var(--ink);
+text-decoration: none;
+font-size: .88rem;
+font-weight: 800;
+}
+
+#contact-us-v3 .cu-fb-btn:hover {
+border-color: rgba(0,141,139,.4);
+background: rgba(0,141,139,.06);
+}
+
+#contact-us-v3 .cu-fb-btn span {
+display: inline-grid;
+place-items: center;
+width: 22px;
+height: 22px;
+border-radius: 50%;
+background: var(--teal-dark);
+color: #fff;
+font-family: Arial, sans-serif;
+font-size: .85rem;
+}
+
+@media (max-width: 980px) {
+#contact-us-v3 .cu-intro {
+grid-template-columns: 1fr;
+}
+
+#contact-us-v3 .cu-intro-image {
+min-height: 260px;
+order: -1;
+}
+
+#contact-us-v3 .cu-grid {
+grid-template-columns: repeat(2, minmax(0,1fr));
+}
+}
+
+@media (max-width: 600px) {
+#contact-us-v3 {
+padding: 72px 0 80px;
+}
+
+#contact-us-v3 .cu-wrap {
+width: min(100% - 32px, 1180px);
+}
+
+#contact-us-v3 .cu-intro {
+margin-bottom: 40px;
+gap: 30px;
+}
+
+#contact-us-v3 .cu-card {
+padding: 24px 22px;
+}
+
+#contact-us-v3 .cu-grid {
+grid-template-columns: 1fr;
+}
+}
+</style>
+
+<section id="contact" aria-labelledby="contact-title-v3">
+<div id="contact-us-v3">
+<div class="cu-wrap">
+
+<div class="cu-intro">
+<div class="cu-intro-copy">
+<span class="cu-eyebrow">Επικοινωνία</span>
+<h1 id="contact-title-v3">Ελάτε σε επαφή</h1>
+<p>
+Σας προσκαλούμε να επικοινωνήσετε για οποιαδήποτε πληροφορία
+σχετικά με τον Πανευρωπαϊκό Επιστημονικό Σύλλογο Σ.Ε.ΨΥ.G.
+</p>
+<p>
+Είτε έχετε απορίες για τις δραστηριότητές μας, είτε θέλετε να
+ενημερωθείτε για σεμινάρια και ομάδες, είτε απλώς θέλετε να
+μοιραστείτε ένα μήνυμα.
+</p>
+</div>
+
+<div class="cu-intro-image">
+<!-- Αλλάζεις αργότερα ΜΟΝΟ το src αν θέλεις άλλη εικόνα -->
+<img
+src="https://demo.unityenergetics.org/wp-content/uploads/2026/08/contact-us-concept.jpg"
+alt="Επικοινωνία με τον Σύλλογο Σ.Ε.ΨΥ.G."
+loading="lazy"
+>
+</div>
+</div>
+
+<div class="cu-grid">
+
+<div class="cu-card">
+<div class="cu-card-icon" aria-hidden="true">📧</div>
+<h3>Email</h3>
+<a class="cu-link" href="mailto:euassociationsepsyg@gmail.com">euassociationsepsyg@gmail.com</a>
+</div>
+
+<div class="cu-card">
+<div class="cu-card-icon" aria-hidden="true">📞</div>
+<h3>Τηλέφωνα επικοινωνίας</h3>
+<p class="cu-person">
+<strong>Στέφανος Γκιουλτζόγλου</strong>
+Πρόεδρος · <a href="tel:+306937962301">693 796 2301</a>
+</p>
+<p class="cu-person">
+<strong>Μαρία Ζάχου</strong>
+Γραμματέας · <a href="tel:+306940645022">694 064 5022</a>
+</p>
+</div>
+
+<div class="cu-card">
+<div class="cu-card-icon" aria-hidden="true">📍</div>
+<h3>Διεύθυνση</h3>
+<p class="cu-address">Πολυτεχνίου 37<br>Θεσσαλονίκη, ΤΚ 54626</p>
+</div>
+
+<div class="cu-card">
+<div class="cu-card-icon" aria-hidden="true">🌿</div>
+<h3>Ακολουθήστε μας</h3>
+<a
+class="cu-fb-btn"
+href="https://www.facebook.com/share/g/17TTMo8AWK/"
+rel="noopener"
+onclick="event.stopPropagation(); window.location.href=this.href; return false;"
+>
+<span>f</span>
+Facebook
+</a>
+</div>
+
+</div>
+
+</div>
+</div>
+</section>
+
+<style>
+/* SEPSYG CMS V7 — appearance bridge */
+#contact-us-v3 {
+  background-color: var(--cms-section-background, #FFF9F3) !important;
+  font-family: var(--cms-body-font, Arial, Helvetica, sans-serif) !important;
+}
+#contact-us-v3 h1, #contact-us-v3 h2, #contact-us-v3 h3, #contact-us-v3 h4 {
+  color: var(--cms-heading-color, #174B49) !important;
+  font-family: var(--cms-heading-font, Georgia, "Times New Roman", serif) !important;
+}
+#contact-us-v3 p {
+  color: var(--cms-body-color, #627472) !important;
+  font-size: var(--cms-body-size, 0.98rem) !important;
+  line-height: var(--cms-line-height, 1.75) !important;
+}
+#contact-us-v3 .cu-eyebrow {
+  color: var(--cms-accent-color, #008D8B) !important;
+}
+
+#contact-us-v3 .cu-card {
+  background-color: var(--cms-card-background, #FFFFFF) !important;
+  border-color: var(--cms-border-color, #DDE4E2) !important;
+  border-radius: var(--cms-card-radius, 24px) !important;
+  box-shadow: var(--cms-card-shadow, 0 16px 38px rgba(23,75,73,.07)) !important;
+}
+#contact-us-v3 {
+  padding: var(--cms-section-padding, 92px 0) !important;
+}
+#contact-us-v3 h1 {
+  font-size: var(--cms-title-size, clamp(2.4rem,5vw,4.4rem)) !important;
+}
+#contact-us-v3 .cu-visual img {
+  object-position: var(--cms-image-position, center) !important;
+}
+</style>
+<script>
+(function() {
+  var config = {"section":"contact","root":"#contact-us-v3","mappings":[{"key":"text_01","selector":"span.cu-eyebrow","index":0,"mode":"text"},{"key":"text_02","selector":"#contact-title-v3","index":0,"mode":"text"},{"key":"text_03","selector":"p","index":0,"mode":"multiline"},{"key":"text_04","selector":"p","index":1,"mode":"multiline"},{"key":"text_05","selector":"h3","index":0,"mode":"text"},{"key":"text_06","selector":"a.cu-link","index":0,"mode":"text"},{"key":"text_07","selector":"h3","index":1,"mode":"text"},{"key":"text_08","selector":"a","index":1,"mode":"text"},{"key":"text_09","selector":"a","index":2,"mode":"text"},{"key":"text_10","selector":"h3","index":2,"mode":"text"},{"key":"text_11","selector":"p.cu-address","index":0,"mode":"multiline"},{"key":"text_12","selector":"h3","index":3,"mode":"text"},{"key":"text_13","selector":"a.cu-fb-btn","index":0,"mode":"multiline"},{"key":"image_01","selector":"img","index":0,"attr":"src"},{"key":"image_01_alt","selector":"img","index":0,"attr":"alt"},{"key":"link_01_url","selector":"a.cu-link","index":0,"attr":"href"},{"key":"link_02_url","selector":"a","index":1,"attr":"href"},{"key":"link_03_url","selector":"a","index":2,"attr":"href"},{"key":"link_04_url","selector":"a.cu-fb-btn","index":0,"attr":"href"}],"generalMappings":[{"key":"email","selector":"a.cu-link","index":0,"mode":"text"},{"key":"email","selector":"a.cu-link","index":0,"attr":"href","transform":"mailto"},{"key":"president_name","selector":".cu-person strong","index":0,"mode":"text"},{"key":"president_phone","selector":".cu-person a","index":0,"mode":"text"},{"key":"president_phone","selector":".cu-person a","index":0,"attr":"href","transform":"tel"},{"key":"secretary_name","selector":".cu-person strong","index":1,"mode":"text"},{"key":"secretary_phone","selector":".cu-person a","index":1,"mode":"text"},{"key":"secretary_phone","selector":".cu-person a","index":1,"attr":"href","transform":"tel"},{"key":"address","selector":".cu-address","index":0,"mode":"multiline"},{"key":"facebook_url","selector":"a.cu-fb-btn","index":0,"attr":"href"}]};
+  function run() { if (window.SEPSYGCMS && window.SEPSYGCMS.bind) window.SEPSYGCMS.bind(config); }
+  if (window.SEPSYGCMS && window.SEPSYGCMS.bind) { run(); return; }
+  var existing = document.querySelector('script[data-sepsyg-cms-loader="1"]');
+  if (existing) { existing.addEventListener('load', run, { once:true }); return; }
+  var script = document.createElement('script');
+  script.src = 'https://hmerologiosillogou.vercel.app/site-cms.js?v=7';
+  script.async = true;
+  script.setAttribute('data-sepsyg-cms-loader','1');
+  script.onload = run;
+  document.head.appendChild(script);
+})();
+</script>

@@ -1,0 +1,713 @@
+<!--
+SEPSYG — 01 MENU v3.3 — LOGO ADDED
+Carrd fragment only.
+ΔΕΝ περιέχει <!doctype>, <html>, <head>, <body>.
+Carrd: Embed > Code > Inline
+
+ΠΡΟΒΛΕΠΟΜΕΝΑ IDs / HREF:
+#vision
+#sepsyg-approach
+#unity-energetics
+#activities
+#arthra
+#members-association
+#therapists
+#board
+#membership
+#contact-social
+-->
+
+<style>
+#sepsyg-menu-v3,
+#sepsyg-menu-v3 * {
+box-sizing: border-box;
+}
+
+#sepsyg-menu-v3 {
+--sg-paper: #FFF9F3;
+--sg-deep: #174B49;
+--sg-teal: #008D8B;
+--sg-gold: #E1AF85;
+--sg-muted: #667875;
+--sg-line: rgba(23,75,73,.12);
+
+position: sticky;
+top: 0;
+z-index: 9999;
+
+width: 100vw;
+max-width: none;
+margin-left: calc(50% - 50vw);
+
+font-family: Arial, Helvetica, sans-serif;
+color: var(--sg-deep);
+}
+
+/* ---------- MAIN BAR ---------- */
+
+#sepsyg-menu-v3 .sg-header {
+position: relative;
+width: 100%;
+background: #ffffff;
+border-bottom: 1px solid var(--sg-line);
+box-shadow: 0 4px 18px rgba(23,75,73,.035);
+backdrop-filter: blur(12px);
+-webkit-backdrop-filter: blur(12px);
+}
+
+#sepsyg-menu-v3 .sg-row {
+width: calc(100% - 48px);
+max-width: 1180px;
+min-height: 78px;
+margin: 0 auto;
+
+display: flex;
+align-items: center;
+justify-content: space-between;
+gap: 32px;
+}
+
+/* ---------- BRAND ---------- */
+
+#sepsyg-menu-v3 .sg-brand {
+flex: 0 0 auto;
+display: inline-flex;
+align-items: center;
+gap: 12px;
+color: var(--sg-deep);
+text-decoration: none;
+}
+
+#sepsyg-menu-v3 .sg-logo-slot {
+flex: 0 0 auto;
+width: 48px;
+height: 48px;
+overflow: hidden;
+border: 1px solid rgba(23,75,73,.13);
+border-radius: 50%;
+background: #f7f8f6;
+display: grid;
+place-items: center;
+}
+
+#sepsyg-menu-v3 .sg-logo-slot img {
+width: 86%;
+height: 86%;
+display: block;
+object-fit: contain;
+}
+
+#sepsyg-menu-v3 .sg-logo-placeholder {
+color: var(--sg-muted);
+font-size: .53rem;
+font-weight: 700;
+letter-spacing: .04em;
+text-align: center;
+}
+
+#sepsyg-menu-v3 .sg-brand-copy {
+min-width: 0;
+font-family: Georgia, "Times New Roman", serif;
+font-size: 1.24rem;
+line-height: 1.08;
+font-weight: 600;
+letter-spacing: .01em;
+}
+
+#sepsyg-menu-v3 .sg-brand-copy small {
+display: block;
+margin-top: 5px;
+color: var(--sg-muted);
+font-family: Arial, Helvetica, sans-serif;
+font-size: .57rem;
+line-height: 1.25;
+font-weight: 700;
+letter-spacing: .11em;
+text-transform: uppercase;
+}
+
+/* ---------- DESKTOP LINKS ---------- */
+
+#sepsyg-menu-v3 .sg-desktop-nav {
+display: flex;
+align-items: center;
+justify-content: flex-end;
+gap: 25px;
+}
+
+#sepsyg-menu-v3 .sg-link,
+#sepsyg-menu-v3 .sg-drop > summary {
+position: relative;
+display: inline-flex;
+align-items: center;
+gap: 6px;
+
+padding: 28px 0 25px;
+border: 0;
+background: transparent;
+
+color: var(--sg-deep);
+font-size: .83rem;
+line-height: 1.2;
+font-weight: 600;
+text-decoration: none;
+white-space: nowrap;
+cursor: pointer;
+
+list-style: none;
+}
+
+#sepsyg-menu-v3 .sg-drop > summary::-webkit-details-marker {
+display: none;
+}
+
+#sepsyg-menu-v3 .sg-link::after,
+#sepsyg-menu-v3 .sg-drop > summary::after {
+content: "";
+position: absolute;
+left: 0;
+right: 100%;
+bottom: 20px;
+height: 1.5px;
+background: var(--sg-teal);
+transition: right .22s ease;
+}
+
+#sepsyg-menu-v3 .sg-link:hover,
+#sepsyg-menu-v3 .sg-drop > summary:hover,
+#sepsyg-menu-v3 .sg-drop[open] > summary {
+color: var(--sg-teal);
+}
+
+#sepsyg-menu-v3 .sg-link:hover::after,
+#sepsyg-menu-v3 .sg-drop > summary:hover::after,
+#sepsyg-menu-v3 .sg-drop[open] > summary::after {
+right: 0;
+}
+
+#sepsyg-menu-v3 .sg-arrow {
+display: inline-block;
+margin-top: -2px;
+font-size: .68rem;
+transition: transform .18s ease;
+}
+
+#sepsyg-menu-v3 .sg-drop[open] .sg-arrow {
+transform: rotate(180deg);
+}
+
+/* ---------- DROPDOWNS ---------- */
+
+#sepsyg-menu-v3 .sg-drop {
+position: relative;
+}
+
+#sepsyg-menu-v3 .sg-dropdown {
+position: absolute;
+top: calc(100% - 11px);
+left: 50%;
+width: 275px;
+
+padding: 10px;
+border: 1px solid var(--sg-line);
+border-radius: 16px;
+background: #fff;
+
+box-shadow: 0 18px 45px rgba(23,75,73,.13);
+transform: translateX(-50%);
+}
+
+#sepsyg-menu-v3 .sg-dropdown::before {
+content: "";
+position: absolute;
+top: -7px;
+left: 50%;
+width: 13px;
+height: 13px;
+border-top: 1px solid var(--sg-line);
+border-left: 1px solid var(--sg-line);
+background: #fff;
+transform: translateX(-50%) rotate(45deg);
+}
+
+#sepsyg-menu-v3 .sg-dropdown a {
+position: relative;
+z-index: 1;
+display: block;
+
+padding: 13px 14px;
+border-radius: 11px;
+
+color: var(--sg-deep);
+font-size: .82rem;
+line-height: 1.35;
+font-weight: 600;
+text-decoration: none;
+
+transition: background .18s ease, color .18s ease;
+}
+
+#sepsyg-menu-v3 .sg-dropdown a:hover {
+background: rgba(0,141,139,.07);
+color: var(--sg-teal);
+}
+
+#sepsyg-menu-v3 .sg-dropdown a + a {
+margin-top: 2px;
+}
+
+#sepsyg-menu-v3 .sg-dropdown small {
+display: block;
+margin-top: 3px;
+color: var(--sg-muted);
+font-size: .68rem;
+font-weight: 400;
+}
+
+/* ---------- LOGIN ---------- */
+
+#sepsyg-menu-v3 .sg-login-link {
+padding: 11px 17px;
+border: 1px solid #B9DAF4;
+border-radius: 10px;
+background: #EEF7FF;
+color: #2F6FA3;
+box-shadow: 0 4px 12px rgba(47,111,163,.08);
+transition: background .18s ease, border-color .18s ease, color .18s ease, transform .18s ease, box-shadow .18s ease;
+}
+
+#sepsyg-menu-v3 .sg-login-link::after {
+display: none;
+}
+
+#sepsyg-menu-v3 .sg-login-link:hover {
+background: #DDEEFF;
+border-color: #91C4EA;
+color: #1F5D8F;
+transform: translateY(-1px);
+box-shadow: 0 7px 16px rgba(47,111,163,.12);
+}
+
+/* ---------- MOBILE ---------- */
+
+#sepsyg-menu-v3 .sg-mobile-menu {
+display: none;
+}
+
+@media (max-width: 980px) {
+#sepsyg-menu-v3 .sg-desktop-nav {
+display: none;
+}
+
+#sepsyg-menu-v3 .sg-row {
+min-height: 72px;
+}
+
+#sepsyg-menu-v3 .sg-mobile-menu {
+position: relative;
+display: block;
+}
+
+#sepsyg-menu-v3 .sg-mobile-menu > summary {
+width: 42px;
+height: 42px;
+
+display: flex;
+flex-direction: column;
+align-items: center;
+justify-content: center;
+gap: 5px;
+
+border: 1px solid var(--sg-line);
+border-radius: 50%;
+background: transparent;
+cursor: pointer;
+list-style: none;
+}
+
+#sepsyg-menu-v3 .sg-mobile-menu > summary::-webkit-details-marker {
+display: none;
+}
+
+#sepsyg-menu-v3 .sg-mobile-menu > summary span {
+width: 18px;
+height: 1.5px;
+display: block;
+background: var(--sg-deep);
+}
+
+#sepsyg-menu-v3 .sg-mobile-panel {
+position: absolute;
+top: 53px;
+right: 0;
+width: min(330px, calc(100vw - 28px));
+
+padding: 12px;
+border: 1px solid var(--sg-line);
+border-radius: 18px;
+background: #fff;
+box-shadow: 0 18px 46px rgba(23,75,73,.14);
+}
+
+#sepsyg-menu-v3 .sg-mobile-panel > a,
+#sepsyg-menu-v3 .sg-mobile-sub > summary,
+#sepsyg-menu-v3 .sg-mobile-sub a {
+display: block;
+width: 100%;
+padding: 12px 13px;
+border-radius: 10px;
+color: var(--sg-deep);
+font-size: .88rem;
+line-height: 1.35;
+font-weight: 600;
+text-decoration: none;
+}
+
+#sepsyg-menu-v3 .sg-mobile-panel > a:hover,
+#sepsyg-menu-v3 .sg-mobile-sub > summary:hover,
+#sepsyg-menu-v3 .sg-mobile-sub a:hover {
+background: rgba(0,141,139,.07);
+color: var(--sg-teal);
+}
+
+#sepsyg-menu-v3 .sg-mobile-panel .sg-mobile-login {
+margin-top: 8px;
+border: 1px solid #B9DAF4;
+border-radius: 10px;
+background: #EEF7FF;
+color: #2F6FA3;
+text-align: center;
+box-shadow: 0 4px 12px rgba(47,111,163,.07);
+}
+
+#sepsyg-menu-v3 .sg-mobile-panel .sg-mobile-login:hover {
+background: #DDEEFF;
+border-color: #91C4EA;
+color: #1F5D8F;
+}
+
+#sepsyg-menu-v3 .sg-mobile-sub {
+border-top: 1px solid rgba(23,75,73,.08);
+border-bottom: 1px solid rgba(23,75,73,.08);
+}
+
+#sepsyg-menu-v3 .sg-mobile-sub > summary {
+display: flex;
+align-items: center;
+justify-content: space-between;
+list-style: none;
+cursor: pointer;
+}
+
+#sepsyg-menu-v3 .sg-mobile-sub > summary::-webkit-details-marker {
+display: none;
+}
+
+#sepsyg-menu-v3 .sg-mobile-sub-links {
+padding: 0 0 8px 12px;
+}
+
+#sepsyg-menu-v3 .sg-mobile-sub-links a {
+padding: 10px 12px;
+color: var(--sg-muted);
+font-size: .80rem;
+}
+}
+
+@media (max-width: 560px) {
+#sepsyg-menu-v3 .sg-row {
+width: calc(100% - 28px);
+}
+
+#sepsyg-menu-v3 .sg-logo-slot {
+width: 44px;
+height: 44px;
+}
+
+#sepsyg-menu-v3 .sg-brand {
+gap: 9px;
+}
+
+#sepsyg-menu-v3 .sg-brand-copy {
+font-size: 1.05rem;
+}
+
+#sepsyg-menu-v3 .sg-brand-copy small {
+max-width: 190px;
+font-size: .49rem;
+}
+}
+</style>
+
+<header id="sepsyg-menu-v3">
+<div class="sg-header">
+<div class="sg-row">
+
+<a class="sg-brand" href="#home">
+
+<!--
+LOGO:
+Όταν έχεις το URL του logo, αντικατάστησε ΜΟΝΟ το παρακάτω:
+<span class="sg-logo-placeholder">LOGO</span>
+
+με:
+<img src="ΒΑΛΕ-ΕΔΩ-ΤΟ-URL-ΤΟΥ-LOGO" alt="Σ.Ε.ΨΥ.G.">
+-->
+<span class="sg-logo-slot">
+<img
+src="https://demo.unityenergetics.org/wp-content/uploads/2026/07/Στιγμιότυπο-οθόνης-2026-06-27-202314.png"
+alt="Λογότυπο Σ.Ε.ΨΥ.G."
+>
+</span>
+
+<span class="sg-brand-copy">
+Σ.Ε.ΨΥ.G.
+<small>Πανευρωπαϊκός Επιστημονικός Σύλλογος</small>
+</span>
+
+</a>
+
+<!-- DESKTOP MENU -->
+<nav class="sg-desktop-nav" aria-label="Κύριο μενού">
+
+<details class="sg-drop">
+<summary>
+Ο Σύλλογος
+<span class="sg-arrow" aria-hidden="true">⌄</span>
+</summary>
+
+<div class="sg-dropdown">
+<a href="#home">
+Αρχική
+</a>
+
+<a href="#vision">
+Το όραμά μας
+</a>
+</div>
+</details>
+
+<details class="sg-drop">
+<summary>
+Η Προσέγγιση
+<span class="sg-arrow" aria-hidden="true">⌄</span>
+</summary>
+
+<div class="sg-dropdown">
+<a href="#sepsyg-approach">
+Η Προσέγγιση Σ.Ε.ΨΥ.G.
+</a>
+
+<a href="#unity-energetics">
+Unity Energetics Institute
+</a>
+</div>
+</details>
+
+<a class="sg-link" href="#activities">Δράσεις</a>
+
+<a class="sg-link" href="#arthra">Άρθρα</a>
+
+<details class="sg-drop">
+<summary>
+Μέλη Συλλόγου
+<span class="sg-arrow" aria-hidden="true">⌄</span>
+</summary>
+
+<div class="sg-dropdown">
+<a href="#members-association">
+Μέλη Συλλόγου
+</a>
+
+<a href="#therapists">
+Θεραπευτές Συλλόγου
+</a>
+
+<a href="#board">
+Διοικητικό Συμβούλιο
+</a>
+</div>
+</details>
+
+<a class="sg-link" href="#membership">Γίνε Μέλος</a>
+
+<a class="sg-link" href="#contact-social">Επικοινωνία</a>
+
+<a class="sg-link sg-login-link" href="https://hmerologiosillogou.vercel.app/portal">Login</a>
+
+</nav>
+
+<!-- MOBILE MENU -->
+<details class="sg-mobile-menu">
+<summary aria-label="Άνοιγμα μενού">
+<span></span>
+<span></span>
+<span></span>
+</summary>
+
+<nav class="sg-mobile-panel" aria-label="Μενού κινητού">
+
+<details class="sg-mobile-sub">
+<summary>
+Ο Σύλλογος
+<span>＋</span>
+</summary>
+<div class="sg-mobile-sub-links">
+<a href="#home">Αρχική</a>
+<a href="#vision">Το όραμά μας</a>
+</div>
+</details>
+
+<details class="sg-mobile-sub">
+<summary>
+Η Προσέγγιση
+<span>＋</span>
+</summary>
+<div class="sg-mobile-sub-links">
+<a href="#sepsyg-approach">Η Προσέγγιση Σ.Ε.ΨΥ.G.</a>
+<a href="#unity-energetics">Unity Energetics Institute</a>
+</div>
+</details>
+
+<a href="#activities">Δράσεις</a>
+
+<a href="#arthra">Άρθρα</a>
+
+<details class="sg-mobile-sub">
+<summary>
+Μέλη Συλλόγου
+<span>＋</span>
+</summary>
+<div class="sg-mobile-sub-links">
+<a href="#members-association">Μέλη Συλλόγου</a>
+<a href="#therapists">Θεραπευτές Συλλόγου</a>
+<a href="#board">Διοικητικό Συμβούλιο</a>
+</div>
+</details>
+
+<a href="#membership">Γίνε Μέλος</a>
+
+<a href="#contact-social">Επικοινωνία</a>
+
+<a class="sg-mobile-login" href="https://hmerologiosillogou.vercel.app/portal">Login</a>
+
+</nav>
+</details>
+
+</div>
+</div>
+</header>
+
+<script>
+(function () {
+const root = document.getElementById('sepsyg-menu-v3');
+if (!root || root.dataset.accordionReady === '1') return;
+root.dataset.accordionReady = '1';
+
+const desktopDrops = Array.from(root.querySelectorAll('.sg-desktop-nav .sg-drop'));
+const mobileSubs = Array.from(root.querySelectorAll('.sg-mobile-panel .sg-mobile-sub'));
+const mobileMenu = root.querySelector('.sg-mobile-menu');
+
+// Desktop: μόνο ένα dropdown ανοιχτό κάθε φορά.
+desktopDrops.forEach(function (drop) {
+drop.addEventListener('toggle', function () {
+if (!drop.open) return;
+desktopDrops.forEach(function (other) {
+if (other !== drop) other.removeAttribute('open');
+});
+});
+});
+
+// Mobile: μόνο μία υποενότητα ανοιχτή κάθε φορά.
+mobileSubs.forEach(function (sub) {
+sub.addEventListener('toggle', function () {
+if (!sub.open) return;
+mobileSubs.forEach(function (other) {
+if (other !== sub) other.removeAttribute('open');
+});
+});
+});
+
+// Αν πατηθεί κανονικό link, κλείνουν όσα dropdowns ήταν ανοιχτά.
+root.querySelectorAll('.sg-desktop-nav a').forEach(function (link) {
+link.addEventListener('click', function () {
+desktopDrops.forEach(function (drop) {
+drop.removeAttribute('open');
+});
+});
+});
+
+// Στο κινητό, μετά την επιλογή link κλείνει και όλο το hamburger menu.
+root.querySelectorAll('.sg-mobile-panel a').forEach(function (link) {
+link.addEventListener('click', function () {
+mobileSubs.forEach(function (sub) {
+sub.removeAttribute('open');
+});
+if (mobileMenu) mobileMenu.removeAttribute('open');
+});
+});
+
+// Κλικ έξω από το menu = κλείσιμο όλων.
+document.addEventListener('click', function (event) {
+if (root.contains(event.target)) return;
+
+desktopDrops.forEach(function (drop) {
+drop.removeAttribute('open');
+});
+
+mobileSubs.forEach(function (sub) {
+sub.removeAttribute('open');
+});
+
+if (mobileMenu) mobileMenu.removeAttribute('open');
+});
+})();
+</script>
+
+<style>
+/* SEPSYG CMS V7 — appearance bridge */
+#sepsyg-menu-v3 {
+  background-color: var(--cms-section-background, #FFFFFF) !important;
+  font-family: var(--cms-body-font, Arial, Helvetica, sans-serif) !important;
+}
+#sepsyg-menu-v3 h1, #sepsyg-menu-v3 h2, #sepsyg-menu-v3 h3, #sepsyg-menu-v3 h4 {
+  color: var(--cms-heading-color, #174B49) !important;
+  font-family: var(--cms-heading-font, Georgia, "Times New Roman", serif) !important;
+}
+#sepsyg-menu-v3 p {
+  color: var(--cms-body-color, #667875) !important;
+  font-size: var(--cms-body-size, 0.83rem) !important;
+  line-height: var(--cms-line-height, 1.35) !important;
+}
+#sepsyg-menu-v3 .sg-link,#sepsyg-menu-v3 summary {
+  color: var(--cms-accent-color, #008D8B) !important;
+}
+
+#sepsyg-menu-v3 .sg-dropdown,#sepsyg-menu-v3 .sg-mobile-panel {
+  background-color: var(--cms-card-background, #FFFFFF) !important;
+  border-color: var(--cms-border-color, #DDE4E2) !important;
+  border-radius: var(--cms-card-radius, 16px) !important;
+  box-shadow: var(--cms-card-shadow, 0 18px 45px rgba(23,75,73,.13)) !important;
+}
+#sepsyg-menu-v3 .sg-row {
+  padding: var(--cms-section-padding, 0) !important;
+}
+#sepsyg-menu-v3 .sg-brand-copy {
+  font-size: var(--cms-title-size, 1.24rem) !important;
+}
+</style>
+<script>
+(function() {
+  var config = {"section":"menu","root":"#sepsyg-menu-v3","mappings":[{"key":"text_01","selector":"small","index":0,"mode":"text"},{"key":"text_02","selector":"summary","index":0,"mode":"leading"},{"key":"text_03","selector":"a","index":1,"mode":"text"},{"key":"text_04","selector":"a","index":2,"mode":"text"},{"key":"text_05","selector":"summary","index":1,"mode":"leading"},{"key":"text_06","selector":"a","index":3,"mode":"text"},{"key":"text_07","selector":"a","index":4,"mode":"text"},{"key":"text_08","selector":"a.sg-link","index":0,"mode":"text"},{"key":"text_09","selector":"a.sg-link","index":1,"mode":"text"},{"key":"text_10","selector":"summary","index":2,"mode":"leading"},{"key":"text_11","selector":"a","index":7,"mode":"text"},{"key":"text_12","selector":"a","index":8,"mode":"text"},{"key":"text_13","selector":"a","index":9,"mode":"text"},{"key":"text_14","selector":"a.sg-link","index":2,"mode":"text"},{"key":"text_15","selector":"a.sg-link","index":3,"mode":"text"},{"key":"text_16","selector":"a.sg-link.sg-login-link","index":0,"mode":"text"},{"key":"text_17","selector":"summary","index":4,"mode":"leading"},{"key":"text_18","selector":"a","index":13,"mode":"text"},{"key":"text_19","selector":"a","index":14,"mode":"text"},{"key":"text_20","selector":"summary","index":5,"mode":"leading"},{"key":"text_21","selector":"a","index":15,"mode":"text"},{"key":"text_22","selector":"a","index":16,"mode":"text"},{"key":"text_23","selector":"a","index":17,"mode":"text"},{"key":"text_24","selector":"a","index":18,"mode":"text"},{"key":"text_25","selector":"summary","index":6,"mode":"leading"},{"key":"text_26","selector":"a","index":19,"mode":"text"},{"key":"text_27","selector":"a","index":20,"mode":"text"},{"key":"text_28","selector":"a","index":21,"mode":"text"},{"key":"text_29","selector":"a","index":22,"mode":"text"},{"key":"text_30","selector":"a","index":23,"mode":"text"},{"key":"text_31","selector":"a.sg-mobile-login","index":0,"mode":"text"},{"key":"link_01_url","selector":"a.sg-brand","index":0,"attr":"href"},{"key":"link_02_url","selector":"a","index":1,"attr":"href"},{"key":"link_03_url","selector":"a","index":2,"attr":"href"},{"key":"link_04_url","selector":"a","index":3,"attr":"href"},{"key":"link_05_url","selector":"a","index":4,"attr":"href"},{"key":"link_06_url","selector":"a.sg-link","index":0,"attr":"href"},{"key":"link_07_url","selector":"a.sg-link","index":1,"attr":"href"},{"key":"link_08_url","selector":"a","index":7,"attr":"href"},{"key":"link_09_url","selector":"a","index":8,"attr":"href"},{"key":"link_10_url","selector":"a","index":9,"attr":"href"},{"key":"link_11_url","selector":"a.sg-link","index":2,"attr":"href"},{"key":"link_12_url","selector":"a.sg-link","index":3,"attr":"href"},{"key":"link_13_url","selector":"a.sg-link.sg-login-link","index":0,"attr":"href"},{"key":"link_14_url","selector":"a","index":13,"attr":"href"},{"key":"link_15_url","selector":"a","index":14,"attr":"href"},{"key":"link_16_url","selector":"a","index":15,"attr":"href"},{"key":"link_17_url","selector":"a","index":16,"attr":"href"},{"key":"link_18_url","selector":"a","index":17,"attr":"href"},{"key":"link_19_url","selector":"a","index":18,"attr":"href"},{"key":"link_20_url","selector":"a","index":19,"attr":"href"},{"key":"link_21_url","selector":"a","index":20,"attr":"href"},{"key":"link_22_url","selector":"a","index":21,"attr":"href"},{"key":"link_23_url","selector":"a","index":22,"attr":"href"},{"key":"link_24_url","selector":"a","index":23,"attr":"href"},{"key":"link_25_url","selector":"a.sg-mobile-login","index":0,"attr":"href"}],"generalMappings":[{"key":"logo_url","selector":".sg-logo-slot img","index":0,"attr":"src"},{"key":"short_name","selector":".sg-brand-copy","index":0,"mode":"leading"}]};
+  function run() { if (window.SEPSYGCMS && window.SEPSYGCMS.bind) window.SEPSYGCMS.bind(config); }
+  if (window.SEPSYGCMS && window.SEPSYGCMS.bind) { run(); return; }
+  var existing = document.querySelector('script[data-sepsyg-cms-loader="1"]');
+  if (existing) { existing.addEventListener('load', run, { once:true }); return; }
+  var script = document.createElement('script');
+  script.src = 'https://hmerologiosillogou.vercel.app/site-cms.js?v=7';
+  script.async = true;
+  script.setAttribute('data-sepsyg-cms-loader','1');
+  script.onload = run;
+  document.head.appendChild(script);
+})();
+</script>

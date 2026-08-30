@@ -1,0 +1,519 @@
+<!--
+06B — ΕΠΙΚΟΙΝΩΝΙΑ / COMPACT FOOTER v1.1
+Carrd: Embed > Code > Inline
+ID menu: #contact-social
+-->
+
+<style>
+#contact-social,
+#contact-social * {
+box-sizing: border-box;
+}
+
+#contact-social {
+--deep: #174B49;
+--teal: #008D8B;
+--peach: #E1AF85;
+
+width: 100vw;
+max-width: none;
+margin-left: calc(50% - 50vw);
+
+background: var(--deep);
+color: #fff;
+font-family: Arial, Helvetica, sans-serif;
+}
+
+#contact-social .sg-wrap {
+width: calc(100% - 40px);
+max-width: 1120px;
+margin: 0 auto;
+}
+
+/* ---------- HEADER ---------- */
+
+#contact-social .sg-contact-main {
+padding: 46px 0 36px;
+}
+
+#contact-social .sg-heading {
+display: flex;
+align-items: center;
+gap: 16px;
+margin-bottom: 24px;
+}
+
+#contact-social .sg-logo {
+flex: 0 0 auto;
+
+width: 62px;
+height: 62px;
+
+display: grid;
+place-items: center;
+
+overflow: hidden;
+
+border-radius: 50%;
+border: 1px solid rgba(255,255,255,.16);
+
+background: #fff;
+}
+
+#contact-social .sg-logo img {
+width: 84%;
+height: 84%;
+display: block;
+object-fit: contain;
+}
+
+#contact-social .sg-eyebrow {
+display: block;
+margin-bottom: 4px;
+
+color: var(--peach);
+
+font-size: .61rem;
+font-weight: 800;
+letter-spacing: .16em;
+text-transform: uppercase;
+}
+
+#contact-social h2 {
+margin: 0 0 5px;
+
+color: #fff;
+
+font-family: Georgia, "Times New Roman", serif;
+font-size: clamp(1.65rem,3vw,2.35rem);
+line-height: 1.08;
+font-weight: 500;
+}
+
+#contact-social .sg-heading p {
+max-width: 650px;
+margin: 0;
+
+color: rgba(255,255,255,.68);
+
+font-size: .81rem;
+line-height: 1.5;
+}
+
+/* ---------- CARDS ---------- */
+
+#contact-social .sg-cards {
+display: grid;
+grid-template-columns: 1.25fr 1fr .72fr;
+gap: 14px;
+}
+
+#contact-social .sg-card {
+min-height: 178px;
+padding: 18px;
+
+border: 1px solid rgba(255,255,255,.12);
+border-radius: 16px;
+
+background: rgba(255,255,255,.05);
+}
+
+#contact-social .sg-icon {
+width: 34px;
+height: 34px;
+
+display: grid;
+place-items: center;
+
+margin-bottom: 12px;
+
+border: 1px solid rgba(255,255,255,.10);
+border-radius: 10px;
+
+background: rgba(255,255,255,.07);
+
+font-size: 1rem;
+}
+
+#contact-social h3 {
+margin: 0 0 10px;
+
+color: #fff;
+
+font-size: .86rem;
+line-height: 1.35;
+}
+
+#contact-social .sg-card p {
+margin: 5px 0;
+
+color: rgba(255,255,255,.72);
+
+font-size: .76rem;
+line-height: 1.55;
+}
+
+#contact-social .sg-card strong {
+color: #fff;
+}
+
+#contact-social .sg-line {
+display: flex;
+align-items: flex-start;
+gap: 7px;
+
+margin-bottom: 7px;
+}
+
+#contact-social .sg-line > span {
+flex: 0 0 auto;
+width: 18px;
+}
+
+#contact-social .sg-line p {
+margin: 0;
+}
+
+#contact-social a {
+color: #fff;
+text-decoration: none;
+}
+
+#contact-social .sg-email,
+#contact-social .sg-phone {
+border-bottom: 1px solid rgba(255,255,255,.22);
+}
+
+#contact-social .sg-email:hover,
+#contact-social .sg-phone:hover {
+border-bottom-color: #fff;
+}
+
+/* ---------- SOCIAL ---------- */
+
+#contact-social .sg-social-card {
+display: flex;
+flex-direction: column;
+justify-content: space-between;
+}
+
+#contact-social .sg-facebook {
+display: inline-flex;
+align-items: center;
+gap: 7px;
+
+align-self: flex-start;
+
+margin-top: 10px;
+padding: 7px 11px;
+
+border: 1px solid rgba(255,255,255,.17);
+border-radius: 999px;
+
+color: #fff;
+
+font-size: .72rem;
+font-weight: 800;
+}
+
+#contact-social .sg-facebook span {
+width: 18px;
+height: 18px;
+
+display: grid;
+place-items: center;
+
+border-radius: 50%;
+
+background: #fff;
+color: var(--deep);
+
+font-size: .7rem;
+font-weight: 900;
+}
+
+/* ---------- BOTTOM FOOTER ---------- */
+
+#contact-social .sg-footer {
+padding: 11px 16px;
+
+border-top: 1px solid rgba(255,255,255,.08);
+
+color: rgba(255,255,255,.46);
+
+text-align: center;
+font-size: .61rem;
+line-height: 1.4;
+}
+
+@media(max-width:850px) {
+
+#contact-social .sg-cards {
+grid-template-columns: 1fr;
+}
+
+#contact-social .sg-card {
+min-height: auto;
+}
+
+}
+
+@media(max-width:600px) {
+
+#contact-social .sg-wrap {
+width: calc(100% - 26px);
+}
+
+#contact-social .sg-contact-main {
+padding: 38px 0 30px;
+}
+
+#contact-social .sg-heading {
+flex-direction: column;
+text-align: center;
+gap: 11px;
+margin-bottom: 20px;
+}
+
+#contact-social .sg-logo {
+width: 56px;
+height: 56px;
+}
+
+#contact-social .sg-card {
+padding: 16px;
+}
+
+}
+</style>
+
+<section id="contact-social">
+
+<div class="sg-contact-main">
+
+<div class="sg-wrap">
+
+<div class="sg-heading">
+
+<div class="sg-logo">
+
+<img
+src="https://demo.unityenergetics.org/wp-content/uploads/2026/07/Στιγμιότυπο-οθόνης-2026-06-27-202314.png"
+alt="Λογότυπο Σ.Ε.ΨΥ.G."
+>
+
+</div>
+
+<div>
+
+<span class="sg-eyebrow">
+✦ Επικοινωνία
+</span>
+
+<h2>
+Έλα σε επαφή
+</h2>
+
+<p>
+Επικοινώνησε με τον Πανευρωπαϊκό Επιστημονικό Σύλλογο
+Σ.Ε.ΨΥ.G. για πληροφορίες, δράσεις και θέματα συμμετοχής.
+</p>
+
+</div>
+
+</div>
+
+<div class="sg-cards">
+
+<div class="sg-card">
+
+<div class="sg-icon">
+📍
+</div>
+
+<h3>
+Ο Σύλλογός μας
+</h3>
+
+<p>
+<strong>
+Πανευρωπαϊκός Επιστημονικός Σύλλογος Σ.Ε.ΨΥ.G.
+</strong>
+</p>
+
+<p>
+Σωματικά Επικεντρωμένη Ψυχοθεραπεία Gestalt
+</p>
+
+<div class="sg-line">
+
+<span>🏛️</span>
+
+<p>
+Πολυτεχνίου 37,<br>
+Θεσσαλονίκη, ΤΚ 54626
+</p>
+
+</div>
+
+</div>
+
+<div class="sg-card">
+
+<div class="sg-icon">
+💬
+</div>
+
+<h3>
+Επικοινώνησε μαζί μας
+</h3>
+
+<div class="sg-line">
+
+<span>✉️</span>
+
+<p>
+<a
+class="sg-email"
+href="mailto:euassociationsepsyg@gmail.com"
+>
+euassociationsepsyg@gmail.com
+</a>
+</p>
+
+</div>
+
+<div class="sg-line">
+
+<span>📞</span>
+
+<p>
+<a
+class="sg-phone"
+href="tel:+306937962301"
+>
+693 796 2301
+</a>
+
+<br>
+
+Πρόεδρος
+</p>
+
+</div>
+
+<div class="sg-line">
+
+<span>☎️</span>
+
+<p>
+<a
+class="sg-phone"
+href="tel:+306940645022"
+>
+694 064 5022
+</a>
+
+<br>
+
+Γραμματεία
+</p>
+
+</div>
+
+</div>
+
+<div class="sg-card sg-social-card">
+
+<div>
+
+<div class="sg-icon">
+🌿
+</div>
+
+<h3>
+Ακολούθησέ μας
+</h3>
+
+<p>
+Νέα, δράσεις και ανακοινώσεις του Συλλόγου.
+</p>
+
+</div>
+
+<a
+class="sg-facebook"
+href="https://www.facebook.com/"
+target="_blank"
+rel="noopener"
+>
+
+<span>f</span>
+
+Facebook
+
+</a>
+
+</div>
+
+</div>
+
+</div>
+
+</div>
+
+<footer class="sg-footer">
+
+© 2026 Πανευρωπαϊκός Επιστημονικός Σύλλογος Σ.Ε.ΨΥ.G.
+
+</footer>
+
+</section>
+
+<style>
+/* SEPSYG CMS V7 — appearance bridge */
+#contact-social {
+  background-color: var(--cms-section-background, #174B49) !important;
+  font-family: var(--cms-body-font, Arial, Helvetica, sans-serif) !important;
+}
+#contact-social h1, #contact-social h2, #contact-social h3, #contact-social h4 {
+  color: var(--cms-heading-color, #FFFFFF) !important;
+  font-family: var(--cms-heading-font, Georgia, "Times New Roman", serif) !important;
+}
+#contact-social p {
+  color: var(--cms-body-color, #FFFFFF) !important;
+  font-size: var(--cms-body-size, 0.9rem) !important;
+  line-height: var(--cms-line-height, 1.7) !important;
+}
+#contact-social .sg-eyebrow {
+  color: var(--cms-accent-color, #E1AF85) !important;
+}
+
+#contact-social .sg-card {
+  background-color: var(--cms-card-background, #FFFFFF) !important;
+  border-color: var(--cms-border-color, #DDE4E2) !important;
+  border-radius: var(--cms-card-radius, 18px) !important;
+  box-shadow: var(--cms-card-shadow, none) !important;
+}
+#contact-social {
+  padding: var(--cms-section-padding, 72px 0 0) !important;
+}
+#contact-social h2 {
+  font-size: var(--cms-title-size, clamp(2rem,4vw,3.2rem)) !important;
+}
+</style>
+<script>
+(function() {
+  var config = {"section":"footer","root":"#contact-social","mappings":[{"key":"text_01","selector":"span.sg-eyebrow","index":0,"mode":"text"},{"key":"text_02","selector":"h2","index":0,"mode":"text"},{"key":"text_03","selector":"p","index":0,"mode":"multiline"},{"key":"text_04","selector":"h3","index":0,"mode":"text"},{"key":"text_05","selector":"p","index":1,"mode":"text"},{"key":"text_06","selector":"p","index":2,"mode":"text"},{"key":"text_07","selector":"p","index":3,"mode":"multiline"},{"key":"text_08","selector":"h3","index":1,"mode":"text"},{"key":"text_09","selector":"a.sg-email","index":0,"mode":"text"},{"key":"text_10","selector":"a.sg-phone","index":0,"mode":"text"},{"key":"text_11","selector":"a.sg-phone","index":1,"mode":"text"},{"key":"text_12","selector":"h3","index":2,"mode":"text"},{"key":"text_13","selector":"p","index":7,"mode":"text"},{"key":"text_14","selector":"a.sg-facebook","index":0,"mode":"multiline"},{"key":"link_01_url","selector":"a.sg-email","index":0,"attr":"href"},{"key":"link_02_url","selector":"a.sg-phone","index":0,"attr":"href"},{"key":"link_03_url","selector":"a.sg-phone","index":1,"attr":"href"},{"key":"link_04_url","selector":"a.sg-facebook","index":0,"attr":"href"}],"generalMappings":[{"key":"logo_url","selector":"img","index":0,"attr":"src"},{"key":"full_name","selector":".sg-card p","index":0,"mode":"text"},{"key":"approach_name","selector":".sg-card p","index":1,"mode":"text"},{"key":"address","selector":".sg-line p","index":0,"mode":"multiline"},{"key":"email","selector":"a.sg-email","index":0,"mode":"text"},{"key":"email","selector":"a.sg-email","index":0,"attr":"href","transform":"mailto"},{"key":"president_phone","selector":"a.sg-phone","index":0,"mode":"text"},{"key":"president_phone","selector":"a.sg-phone","index":0,"attr":"href","transform":"tel"},{"key":"secretary_phone","selector":"a.sg-phone","index":1,"mode":"text"},{"key":"secretary_phone","selector":"a.sg-phone","index":1,"attr":"href","transform":"tel"},{"key":"facebook_url","selector":"a.sg-facebook","index":0,"attr":"href"}]};
+  function run() { if (window.SEPSYGCMS && window.SEPSYGCMS.bind) window.SEPSYGCMS.bind(config); }
+  if (window.SEPSYGCMS && window.SEPSYGCMS.bind) { run(); return; }
+  var existing = document.querySelector('script[data-sepsyg-cms-loader="1"]');
+  if (existing) { existing.addEventListener('load', run, { once:true }); return; }
+  var script = document.createElement('script');
+  script.src = 'https://hmerologiosillogou.vercel.app/site-cms.js?v=7';
+  script.async = true;
+  script.setAttribute('data-sepsyg-cms-loader','1');
+  script.onload = run;
+  document.head.appendChild(script);
+})();
+</script>

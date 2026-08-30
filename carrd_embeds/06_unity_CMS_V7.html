@@ -1,0 +1,623 @@
+<!--
+SEPSYG — UNITY ENERGETICS INSTITUTE v1.3 — NEW LOGO + PHOTOS
+Carrd fragment only — Embed > Code > Inline
+Menu ID: #unity-energetics
+-->
+
+<style>
+#unity-energetics,
+#unity-energetics *{box-sizing:border-box}
+
+#unity-energetics{
+--peach:#E1AF85;
+--sand:#DBC1AB;
+--sage:#9EB2A6;
+--teal-soft:#569691;
+--teal:#008D8B;
+--deep:#174B49;
+--paper:#FFF9F3;
+--card:#FFFFFF;
+--ink:#263B39;
+--muted:#667875;
+--line:rgba(23,75,73,.13);
+
+width:100vw;
+max-width:none;
+margin-left:calc(50% - 50vw);
+background:var(--paper);
+color:var(--ink);
+font-family:Arial,Helvetica,sans-serif;
+}
+
+#unity-energetics .ue-wrap{
+width:calc(100% - 44px);
+max-width:1160px;
+margin:0 auto;
+}
+
+#unity-energetics h2,
+#unity-energetics h3{
+font-family:Georgia,"Times New Roman",serif;
+}
+
+/* HERO */
+
+#unity-energetics .ue-hero{
+padding:86px 0 72px;
+text-align:center;
+background:
+radial-gradient(circle at 15% 15%,rgba(158,178,166,.17),transparent 28%),
+radial-gradient(circle at 86% 8%,rgba(225,175,133,.16),transparent 26%),
+linear-gradient(180deg,#FFF9F3 0%,#F7EFE8 100%);
+}
+
+#unity-energetics .ue-logo{
+width:142px;
+height:142px;
+margin:0 auto 24px;
+display:grid;
+place-items:center;
+overflow:hidden;
+border:1px solid var(--line);
+border-radius:50%;
+background:#fff;
+box-shadow:0 14px 35px rgba(23,75,73,.08);
+}
+
+/* Όταν έχεις το logo, αντικατάστησε το span με:
+<img src="TO-URL-TOY-LOGO" alt="Unity Energetics Institute">
+*/
+#unity-energetics .ue-logo span{
+color:var(--deep);
+font-size:.65rem;
+font-weight:800;
+letter-spacing:.08em;
+}
+
+#unity-energetics .ue-logo img{
+width:88%;
+height:88%;
+display:block;
+object-fit:contain;
+}
+
+#unity-energetics .ue-kicker{
+display:block;
+margin-bottom:10px;
+color:var(--teal);
+font-size:.7rem;
+font-weight:800;
+letter-spacing:.18em;
+text-transform:uppercase;
+}
+
+#unity-energetics .ue-hero h2{
+margin:0;
+color:var(--deep);
+font-size:clamp(2.4rem,5vw,4.4rem);
+font-weight:500;
+line-height:1.02;
+}
+
+#unity-energetics .ue-subtitle{
+margin:12px 0 0;
+color:var(--teal);
+font-size:1rem;
+font-weight:800;
+letter-spacing:.04em;
+}
+
+#unity-energetics .ue-type{
+margin:6px 0 0;
+color:var(--muted);
+font-size:.78rem;
+font-weight:700;
+letter-spacing:.12em;
+text-transform:uppercase;
+}
+
+/* INTRO */
+
+#unity-energetics .ue-intro{
+padding:64px 0 30px;
+}
+
+#unity-energetics .ue-intro-card{
+max-width:900px;
+margin:0 auto;
+padding:34px 38px;
+border:1px solid var(--line);
+border-radius:24px;
+background:#fff;
+box-shadow:0 16px 38px rgba(23,75,73,.06);
+}
+
+#unity-energetics .ue-intro-card p{
+margin:0;
+color:var(--muted);
+font-size:1rem;
+line-height:1.82;
+}
+
+#unity-energetics .ue-intro-card strong{
+color:var(--deep);
+}
+
+/* CONCEPT CARDS */
+
+#unity-energetics .ue-concepts{
+padding:34px 0 76px;
+}
+
+#unity-energetics .ue-grid{
+display:grid;
+grid-template-columns:repeat(2,minmax(0,1fr));
+gap:20px;
+}
+
+#unity-energetics .ue-card{
+padding:28px 28px 30px;
+border:1px solid var(--line);
+border-radius:22px;
+background:#fff;
+box-shadow:0 14px 32px rgba(23,75,73,.055);
+}
+
+#unity-energetics .ue-num{
+display:inline-flex;
+align-items:center;
+justify-content:center;
+width:34px;
+height:34px;
+margin-bottom:17px;
+border-radius:50%;
+background:rgba(0,141,139,.08);
+color:var(--teal);
+font-family:Georgia,"Times New Roman",serif;
+font-size:.88rem;
+font-style:italic;
+}
+
+#unity-energetics .ue-card h3{
+margin:0 0 13px;
+color:var(--deep);
+font-size:1.32rem;
+font-weight:500;
+line-height:1.2;
+}
+
+#unity-energetics .ue-card p{
+margin:0;
+color:var(--muted);
+font-size:.92rem;
+line-height:1.75;
+}
+
+/* UNITY / SEPARATION */
+
+#unity-energetics .ue-polarity{
+padding:76px 0;
+background:var(--deep);
+}
+
+#unity-energetics .ue-polarity-head{
+max-width:720px;
+margin:0 auto 34px;
+text-align:center;
+}
+
+#unity-energetics .ue-polarity .ue-kicker{
+color:var(--peach);
+}
+
+#unity-energetics .ue-polarity h3{
+margin:0;
+color:#fff;
+font-size:clamp(1.9rem,3.8vw,2.9rem);
+font-weight:500;
+}
+
+#unity-energetics .ue-polarity-grid{
+display:grid;
+grid-template-columns:1fr 1fr;
+gap:20px;
+}
+
+#unity-energetics .ue-polarity-card{
+padding:30px;
+border:1px solid rgba(255,255,255,.13);
+border-radius:22px;
+background:rgba(255,255,255,.055);
+}
+
+#unity-energetics .ue-polarity-card h4{
+margin:0 0 12px;
+color:#fff;
+font-size:1rem;
+}
+
+#unity-energetics .ue-polarity-card p{
+margin:0;
+color:rgba(255,255,255,.74);
+font-size:.92rem;
+line-height:1.75;
+}
+
+/* THERAPEUTIC AXIS */
+
+#unity-energetics .ue-therapy{
+padding:82px 0 90px;
+}
+
+#unity-energetics .ue-therapy-head{
+max-width:760px;
+margin:0 auto 34px;
+text-align:center;
+}
+
+#unity-energetics .ue-therapy-head h3{
+margin:0 0 13px;
+color:var(--deep);
+font-size:clamp(1.9rem,3.8vw,2.9rem);
+font-weight:500;
+}
+
+#unity-energetics .ue-therapy-head p{
+margin:0;
+color:var(--muted);
+font-size:.95rem;
+line-height:1.75;
+}
+
+#unity-energetics .ue-steps{
+display:grid;
+grid-template-columns:repeat(3,minmax(0,1fr));
+gap:18px;
+}
+
+#unity-energetics .ue-step{
+position:relative;
+padding:28px 24px;
+border:1px solid var(--line);
+border-radius:20px;
+background:#fff;
+}
+
+#unity-energetics .ue-step::before{
+content:"";
+display:block;
+width:42px;
+height:3px;
+margin-bottom:17px;
+border-radius:999px;
+background:var(--teal);
+}
+
+#unity-energetics .ue-step h4{
+margin:0 0 10px;
+color:var(--deep);
+font-size:.94rem;
+}
+
+#unity-energetics .ue-step p{
+margin:0;
+color:var(--muted);
+font-size:.87rem;
+line-height:1.72;
+}
+
+/* PHOTO STRIP */
+
+#unity-energetics .ue-photo-section{
+padding:0 0 76px;
+}
+
+#unity-energetics .ue-photo-grid{
+display:grid;
+grid-template-columns:1fr 1fr;
+gap:18px;
+max-width:860px;
+margin:0 auto;
+}
+
+#unity-energetics .ue-photo-box{
+position:relative;
+min-height:260px;
+overflow:hidden;
+border:1px solid var(--line);
+border-radius:24px;
+background:
+linear-gradient(145deg,rgba(158,178,166,.28),rgba(225,175,133,.20)),
+#EDF0EC;
+box-shadow:0 14px 34px rgba(23,75,73,.06);
+}
+
+#unity-energetics .ue-photo-box img{
+width:100%;
+height:100%;
+min-height:260px;
+display:block;
+object-fit:cover;
+}
+
+@media(max-width:850px){
+#unity-energetics .ue-photo-grid{
+grid-template-columns:1fr;
+}
+}
+
+@media(max-width:600px){
+#unity-energetics .ue-photo-box,
+#unity-energetics .ue-photo-box img{
+min-height:210px;
+}
+}
+
+@media(max-width:850px){
+#unity-energetics .ue-grid,
+#unity-energetics .ue-polarity-grid,
+#unity-energetics .ue-steps{
+grid-template-columns:1fr;
+}
+}
+
+@media(max-width:600px){
+#unity-energetics .ue-wrap{width:calc(100% - 28px)}
+#unity-energetics .ue-hero{padding:68px 0 58px}
+#unity-energetics .ue-logo{width:112px;height:112px}
+#unity-energetics .ue-intro-card{padding:26px 22px}
+#unity-energetics .ue-card,
+#unity-energetics .ue-polarity-card,
+#unity-energetics .ue-step{padding:23px 20px}
+}
+</style>
+
+<section id="unity-energetics">
+
+<div class="ue-hero">
+<div class="ue-wrap">
+
+<div class="ue-logo">
+<img
+src="https://demo.unityenergetics.org/wp-content/uploads/2026/05/image.png"
+alt="Unity Energetics Institute"
+>
+</div>
+
+<span class="ue-kicker">International Training School</span>
+
+<h2>Unity Energetics Institute</h2>
+
+<p class="ue-subtitle">ΨΥΧΟΘΕΡΑΠΕΙΑΣ &amp; ΣΥΜΒΟΥΛΕΥΤΙΚΗΣ</p>
+
+</div>
+</div>
+
+<div class="ue-intro">
+<div class="ue-wrap">
+
+<div class="ue-intro-card">
+<p>
+Εμπνευστής και δημιουργός του Unity Energetics, είναι ο ψυχολόγος-ψυχοθεραπευτής
+<strong>Ε. Λάζαρης</strong> ο οποίος από τις απαρχές της επαγγελματικής του πορείας,
+το 1988, χρησιμοποίησε τον όρο αυτό για να αναδείξει:
+</p>
+</div>
+
+</div>
+</div>
+
+<div class="ue-concepts">
+<div class="ue-wrap">
+
+<div class="ue-grid">
+
+<article class="ue-card">
+<span class="ue-num">01</span>
+<h3>Η τάση προς Ένωση και Ατομικότητα</h3>
+<p>
+Την αδιάκοπη και ανυπέρβλητη Τάση της Ζωτικής Δύναμης και του ανθρώπινου ψυχισμού για:
+(Α) την υγιή Ένωσή του (Unity) με τη Ζωτική Δύναμη άλλων ανθρώπων ή/και με άλλα Συστήματα
+που συνυπάρχουν γύρω του και (Β) την εμπέδωση, ανάπτυξη και πραγμάτωση της Ατομικότητάς του.
+</p>
+</article>
+
+<article class="ue-card">
+<span class="ue-num">02</span>
+<h3>Οι δυναμικές διεργασίες</h3>
+<p>
+Τις παραμέτρους &amp; τις δυναμικές διεργασίες που συντελούνται αδιάλειπτα
+(Unity Energetics) σε όλα τα επίπεδα ενός ανθρώπινου οργανισμού κατά την διαδικασία
+της Ένωσης του με άλλα Συστήματα.
+</p>
+</article>
+
+<article class="ue-card">
+<span class="ue-num">03</span>
+<h3>Τα βιώματα Ενότητας</h3>
+<p>
+Ότι αυτές οι δυναμικές διεργασίες (Unity Energetics) επηρεάζουν με μοναδικό κάθε φορά
+τρόπο τα βιώματα της Ενότητας (ενδο-οργανισμικά ή/και διαπροσωπικά), που δημιουργούνται
+κατά την διαδικασία της Ένωσης. Παραδείγματα ενδο-οργανισμικής Ενότητας είναι οι εμπειρίες
+ενοποίησης (Α) του σώματος – ψυχής – νου – συμπεριφοράς ή (Β) του παρελθόντος – παρόντος –
+μέλλοντος, που συνήθως εκλαμβάνονται ως υπερβατικές εμπειρίες, υπό την έννοια ότι
+υπερβαίνουμε την κατάσταση της Χωριστικότητας στην οποία είμαστε συνηθισμένοι.
+</p>
+</article>
+
+<article class="ue-card">
+<span class="ue-num">04</span>
+<h3>Η διαμόρφωση του ανθρώπινου ψυχισμού</h3>
+<p>
+Ότι τα βιώματα Ενότητας καθορίζουν την διαμόρφωση του ανθρώπινου ψυχισμού περισσότερο
+από οποιονδήποτε άλλο παράγοντα, ιδιαιτέρως στα πρώιμα στάδια ανάπτυξης του ατόμου αλλά
+και κατά την ψυχοθεραπευτική διαδικασία, καθώς μέσα από αυτά αναπτύσσεται και ενισχύεται
+η Ατομικότητα.
+</p>
+</article>
+
+</div>
+
+</div>
+</div>
+
+<div class="ue-photo-section">
+<div class="ue-wrap">
+
+<div class="ue-photo-grid">
+
+<div class="ue-photo-box">
+<!-- ΦΩΤΟΓΡΑΦΙΑ 1:
+Αντικατάστησε ΜΟΝΟ το URL μέσα στο src -->
+<img
+src="https://demo.unityenergetics.org/wp-content/uploads/2026/08/71ojUQV9MTL.jpg"
+alt=""
+loading="lazy"
+>
+</div>
+
+<div class="ue-photo-box">
+<!-- ΦΩΤΟΓΡΑΦΙΑ 2:
+Αντικατάστησε ΜΟΝΟ το URL μέσα στο src -->
+<img
+src="https://demo.unityenergetics.org/wp-content/uploads/2026/08/91lDAbpnUbL._AC_UF350350_QL80_.jpg"
+alt=""
+loading="lazy"
+>
+</div>
+
+</div>
+
+</div>
+</div>
+
+<div class="ue-polarity">
+<div class="ue-wrap">
+
+<div class="ue-polarity-head">
+<span class="ue-kicker">Ένωση · Ενότητα · Χωριστικότητα</span>
+<h3>Η σχέση ανάμεσα στην Ατομικότητα και την Ένωση</h3>
+</div>
+
+<div class="ue-polarity-grid">
+
+<div class="ue-polarity-card">
+<h4>Όταν η Ατομικότητα γίνεται πιο ξεκάθαρη</h4>
+<p>
+Κατ’ αναλογία, όσο πιο ξεκάθαρη είναι η βίωση της Ατομικότητας, τόσο πιο διαθέσιμο είναι
+το άτομο για εμπειρίες βαθειάς Ένωσης, τόσο ενδο-οργανισμικά όσο και διαπροσωπικά,
+και της συνεπακόλουθης αίσθησης Ενότητας.
+</p>
+</div>
+
+<div class="ue-polarity-card">
+<h4>Όταν η διαδικασία της Ένωσης μπλοκάρεται</h4>
+<p>
+Όταν η διαδικασία Ένωσης του ανθρώπου με άλλα Συστήματα μπλοκάρεται, τότε παρεκκλίνει
+από το αίσθημα της Ενότητας και βιώνει το αίσθημα της Χωριστικότητας, δηλαδή αποσχισμένος,
+αποκομμένος, απομονωμένος.
+</p>
+</div>
+
+</div>
+
+</div>
+</div>
+
+<div class="ue-therapy">
+<div class="ue-wrap">
+
+<div class="ue-therapy-head">
+<span class="ue-kicker">Ψυχοθεραπευτική διαδικασία</span>
+<h3>Η Ένωση ως κεντρικός θεραπευτικός άξονας</h3>
+<p>
+Ότι η διαδικασία της Ένωσης, οι συντελούμενες δυναμικές διεργασίες και η εμπειρία της
+Ενότητας με άλλα ενεργειακά συστήματα αποτελούν τους καταλυτικούς εκείνους παράγοντες που,
+όταν χρησιμοποιούνται ως κεντρικοί άξονες της ψυχοθεραπευτικής διαδικασίας, τότε ο
+θεραπευόμενος αποκτά την δυνατότητα να:
+</p>
+</div>
+
+<div class="ue-steps">
+
+<div class="ue-step">
+<h4>Υποδεκτικότητα</h4>
+<p>
+Βιώνει το αίσθημα της Υποδεκτικότητας από τον ψυχοθεραπευτή, η οποία αποτελεί τη
+θεμελιώδη προϋπόθεση προκειμένου ο θεραπευόμενος να μετασχηματίζει τα βαθύτερα τραύματα
+του επουλώνοντας τις ψυχικές του σχάσεις και ανακτώντας την απωλεσθείσα Ζωτική του Δύναμη.
+</p>
+</div>
+
+<div class="ue-step">
+<h4>Ένωση με τον Πυρήνα της Ύπαρξης</h4>
+<p>
+Βιώνει Ένωση με τον Πυρήνα της Ύπαρξής του και ως εκ τούτου ξανασυνδέεται με το
+ανεξάντλητο δυναμικό του και την υγιή Ατομικότητα του.
+</p>
+</div>
+
+<div class="ue-step">
+<h4>Εξέλιξη της συνειδητότητας</h4>
+<p>
+Εξελίσσει την συνειδητότητά του σε πολλαπλά επίπεδα.
+</p>
+</div>
+
+</div>
+
+</div>
+</div>
+
+</section>
+
+<style>
+/* SEPSYG CMS V7 — appearance bridge */
+#unity-energetics {
+  background-color: var(--cms-section-background, #FFF9F3) !important;
+  font-family: var(--cms-body-font, Arial, Helvetica, sans-serif) !important;
+}
+#unity-energetics h1, #unity-energetics h2, #unity-energetics h3, #unity-energetics h4 {
+  color: var(--cms-heading-color, #174B49) !important;
+  font-family: var(--cms-heading-font, Georgia, "Times New Roman", serif) !important;
+}
+#unity-energetics p {
+  color: var(--cms-body-color, #667875) !important;
+  font-size: var(--cms-body-size, 0.98rem) !important;
+  line-height: var(--cms-line-height, 1.75) !important;
+}
+#unity-energetics .ue-kicker {
+  color: var(--cms-accent-color, #008D8B) !important;
+}
+
+#unity-energetics .ue-card,#unity-energetics .ue-polarity-card,#unity-energetics .ue-step {
+  background-color: var(--cms-card-background, #FFFFFF) !important;
+  border-color: var(--cms-border-color, #DDE4E2) !important;
+  border-radius: var(--cms-card-radius, 24px) !important;
+  box-shadow: var(--cms-card-shadow, 0 16px 38px rgba(23,75,73,.07)) !important;
+}
+#unity-energetics .ue-hero {
+  padding: var(--cms-section-padding, 88px 0) !important;
+}
+#unity-energetics h2 {
+  font-size: var(--cms-title-size, clamp(2.4rem,5vw,4.6rem)) !important;
+}
+#unity-energetics .ue-photo-box img {
+  object-position: var(--cms-image-position, center) !important;
+}
+</style>
+<script>
+(function() {
+  var config = {"section":"unity","root":"#unity-energetics","mappings":[{"key":"text_01","selector":"span.ue-kicker","index":0,"mode":"text"},{"key":"text_02","selector":"h2","index":0,"mode":"text"},{"key":"text_03","selector":"p.ue-subtitle","index":0,"mode":"text"},{"key":"text_04","selector":"p","index":1,"mode":"multiline"},{"key":"text_05","selector":"h3","index":0,"mode":"text"},{"key":"text_06","selector":"p","index":2,"mode":"multiline"},{"key":"text_07","selector":"h3","index":1,"mode":"text"},{"key":"text_08","selector":"p","index":3,"mode":"multiline"},{"key":"text_09","selector":"h3","index":2,"mode":"text"},{"key":"text_10","selector":"p","index":4,"mode":"multiline"},{"key":"text_11","selector":"h3","index":3,"mode":"text"},{"key":"text_12","selector":"p","index":5,"mode":"multiline"},{"key":"text_13","selector":"span.ue-kicker","index":1,"mode":"text"},{"key":"text_14","selector":"h3","index":4,"mode":"text"},{"key":"text_15","selector":"h4","index":0,"mode":"text"},{"key":"text_16","selector":"p","index":6,"mode":"multiline"},{"key":"text_17","selector":"h4","index":1,"mode":"text"},{"key":"text_18","selector":"p","index":7,"mode":"multiline"},{"key":"text_19","selector":"span.ue-kicker","index":2,"mode":"text"},{"key":"text_20","selector":"h3","index":5,"mode":"text"},{"key":"text_21","selector":"p","index":8,"mode":"multiline"},{"key":"text_22","selector":"h4","index":2,"mode":"text"},{"key":"text_23","selector":"p","index":9,"mode":"multiline"},{"key":"text_24","selector":"h4","index":3,"mode":"text"},{"key":"text_25","selector":"p","index":10,"mode":"multiline"},{"key":"text_26","selector":"h4","index":4,"mode":"text"},{"key":"text_27","selector":"p","index":11,"mode":"text"},{"key":"image_01","selector":"img","index":0,"attr":"src"},{"key":"image_01_alt","selector":"img","index":0,"attr":"alt"},{"key":"image_02","selector":"img","index":1,"attr":"src"},{"key":"image_02_alt","selector":"img","index":1,"attr":"alt"},{"key":"image_03","selector":"img","index":2,"attr":"src"},{"key":"image_03_alt","selector":"img","index":2,"attr":"alt"}],"generalMappings":[]};
+  function run() { if (window.SEPSYGCMS && window.SEPSYGCMS.bind) window.SEPSYGCMS.bind(config); }
+  if (window.SEPSYGCMS && window.SEPSYGCMS.bind) { run(); return; }
+  var existing = document.querySelector('script[data-sepsyg-cms-loader="1"]');
+  if (existing) { existing.addEventListener('load', run, { once:true }); return; }
+  var script = document.createElement('script');
+  script.src = 'https://hmerologiosillogou.vercel.app/site-cms.js?v=7';
+  script.async = true;
+  script.setAttribute('data-sepsyg-cms-loader','1');
+  script.onload = run;
+  document.head.appendChild(script);
+})();
+</script>
