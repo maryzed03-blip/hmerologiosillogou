@@ -48,6 +48,18 @@ export default async function handler(request, response) {
         return response.status(403).json({ error: "Administrator access required", code: "ADMIN_REQUIRED" });
       }
 
+      const loadAll = request.query?.all === "1";
+      if (loadAll) {
+        const documents = await queryCollection("eventRegistrations");
+        const registrations = documents
+          .map(serializeRegistration)
+          .sort((a, b) => {
+            const byEvent = String(b.event_date || b.event_id || "").localeCompare(String(a.event_date || a.event_id || ""));
+            return byEvent || String(b.created_at || "").localeCompare(String(a.created_at || ""));
+          });
+        return response.status(200).json({ registrations, total: registrations.length });
+      }
+
       if (!/^\d{4}-\d{2}-\d{2}$/.test(eventId)) {
         return response.status(400).json({ error: "Invalid event", code: "INVALID_EVENT" });
       }

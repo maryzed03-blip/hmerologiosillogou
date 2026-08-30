@@ -47,10 +47,21 @@ function makeRegistrationId(eventId, email) {
   return `${eventId}_${digest}`;
 }
 
+function parseFixedPaymentAmount(value) {
+  const raw = clean(String(value ?? ""), 80);
+  if (!raw) return 0;
+  // Automatic payment is only enabled for an unambiguous fixed amount,
+  // e.g. "30", "30€", "30,50 €". Free-text such as "Από 135€" is display-only.
+  const compact = raw.replace(/\s+/g, "").replace(/€/g, "");
+  if (!/^\d+(?:[.,]\d{1,2})?$/.test(compact)) return 0;
+  const amount = Number(compact.replace(",", "."));
+  return Number.isFinite(amount) && amount > 0 ? amount : 0;
+}
+
 function paymentAmount(event, membershipStatus) {
   if (event.activity_category === "association_free") return 0;
-  const general = Number(String(event.general_price || "0").replace(",", ".")) || 0;
-  const member = Number(String(event.member_price || "0").replace(",", ".")) || 0;
+  const general = parseFixedPaymentAmount(event.general_price);
+  const member = parseFixedPaymentAmount(event.member_price);
   if (event.offers_member_discount === true && member > 0 && ["member", "friend"].includes(membershipStatus)) return member;
   return general;
 }
@@ -128,6 +139,7 @@ export default async function handler(request, response) {
       event_date: eventId,
       event_topic: clean(event.topic, 500) || "Δράση Συλλόγου",
       event_time: clean(event.action_time, 100),
+      event_location: clean(event.location, 220),
       full_name: fullName,
       email,
       phone,
@@ -161,6 +173,7 @@ export default async function handler(request, response) {
       const formattedDate = formatGreekDate(eventId);
       const eventTopic = registration.event_topic;
       const eventTime = registration.event_time || "Η ώρα θα ανακοινωθεί";
+      const eventLocation = registration.event_location || "Δεν έχει οριστεί";
       const adminSubject = `Νέα συμμετοχή — ${eventTopic} — ${fullName}`;
       const adminHtml = `
         <div style="font-family:Arial,sans-serif;line-height:1.6;color:#172033;max-width:700px;margin:auto">
@@ -168,6 +181,7 @@ export default async function handler(request, response) {
           <p><strong>Δράση:</strong> ${escapeHtml(eventTopic)}</p>
           <p><strong>Ημερομηνία:</strong> ${escapeHtml(formattedDate)}</p>
           <p><strong>Ώρα:</strong> ${escapeHtml(eventTime)}</p>
+          <p><strong>Τοποθεσία:</strong> ${escapeHtml(eventLocation)}</p>
           <hr style="border:none;border-top:1px solid #e5e7eb;margin:20px 0">
           <p><strong>Ονοματεπώνυμο:</strong> ${escapeHtml(fullName)}</p>
           <p><strong>Email:</strong> <a href="mailto:${escapeHtml(email)}">${escapeHtml(email)}</a></p>
@@ -197,7 +211,7 @@ export default async function handler(request, response) {
           <h2>Η συμμετοχή σας καταχωρίστηκε</h2>
           <p>Αγαπητέ/ή ${escapeHtml(fullName)},</p>
           <p>Λάβαμε τη δήλωση συμμετοχής σας για τη δράση:</p>
-          <p><strong>${escapeHtml(eventTopic)}</strong><br>${escapeHtml(formattedDate)}<br>${escapeHtml(eventTime)}</p>
+          <p><strong>${escapeHtml(eventTopic)}</strong><br>${escapeHtml(formattedDate)}<br>${escapeHtml(eventTime)}<br>📍 ${escapeHtml(eventLocation)}</p>
           ${paymentBlock}
           <p>Ο Σύλλογος θα επικοινωνήσει μαζί σας εφόσον χρειάζονται επιπλέον πληροφορίες.</p>
         </div>`;

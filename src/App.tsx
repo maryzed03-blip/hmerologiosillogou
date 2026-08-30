@@ -12,7 +12,7 @@ import {
   type FirestoreError,
   type QueryDocumentSnapshot,
 } from "firebase/firestore";
-import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from "react";
 import { associationDb, db, ensureAnonymousUser, ensureAssociationAnonymousUser } from "./firebase";
 
 type BookingStatus = "booked" | "completed";
@@ -40,6 +40,7 @@ type Booking = {
   description: string | null;
   event_type: string | null;
   mode: string | null;
+  location?: string | null;
   image_url: string | null;
   detail_image_url: string | null;
   long_description: string | null;
@@ -210,6 +211,26 @@ function RichTextEditor({
   placeholder?: string;
 }) {
   const editorRef = useRef<HTMLDivElement | null>(null);
+  const selectionRef = useRef<Range | null>(null);
+
+  function rememberSelection() {
+    const editor = editorRef.current;
+    const selection = window.getSelection();
+    if (!editor || !selection || selection.rangeCount === 0) return;
+    const range = selection.getRangeAt(0);
+    if (!editor.contains(range.commonAncestorContainer)) return;
+    selectionRef.current = range.cloneRange();
+  }
+
+  function restoreSelection() {
+    const editor = editorRef.current;
+    const saved = selectionRef.current;
+    const selection = window.getSelection();
+    if (!editor || !saved || !selection) return;
+    editor.focus({ preventScroll: true });
+    selection.removeAllRanges();
+    selection.addRange(saved);
+  }
 
   useEffect(() => {
     const editor = editorRef.current;
@@ -226,13 +247,18 @@ function RichTextEditor({
 
   function runCommand(command: string, argument?: string) {
     if (disabled) return;
-    editorRef.current?.focus();
+    restoreSelection();
+    const editor = editorRef.current;
+    if (!editor) return;
+    document.execCommand("styleWithCSS", false, "false");
     document.execCommand(command, false, argument);
     emitValue();
+    rememberSelection();
   }
 
   function uppercaseSelection() {
     if (disabled) return;
+    restoreSelection();
     const editor = editorRef.current;
     const selection = window.getSelection();
     if (!editor || !selection || selection.rangeCount === 0) return;
@@ -245,6 +271,7 @@ function RichTextEditor({
 
   return (
     <div className={`sepsyg-rich-editor ${disabled ? "is-disabled" : ""}`}>
+      <div className="sepsyg-rich-controls">
       <div className="sepsyg-rich-toolbar" aria-label="Εργαλεία μορφοποίησης">
         <button type="button" title="Έντονα" disabled={disabled} onMouseDown={(event) => event.preventDefault()} onClick={() => runCommand("bold")}><strong>B</strong></button>
         <button type="button" title="Υπογράμμιση" disabled={disabled} onMouseDown={(event) => event.preventDefault()} onClick={() => runCommand("underline")}><u>U</u></button>
@@ -274,6 +301,7 @@ function RichTextEditor({
           <button key={emoji} type="button" disabled={disabled} onMouseDown={(event) => event.preventDefault()} onClick={() => runCommand("insertText", emoji)}>{emoji}</button>
         ))}
       </div>
+      </div>
       <div
         id={id}
         ref={editorRef}
@@ -284,8 +312,16 @@ function RichTextEditor({
         onInput={() => {
           const editor = editorRef.current;
           if (editor) onChange(editor.innerHTML);
+          rememberSelection();
         }}
-        onBlur={emitValue}
+        onMouseUp={rememberSelection}
+        onKeyUp={rememberSelection}
+        onFocus={rememberSelection}
+        onSelect={rememberSelection}
+        onBlur={() => {
+          rememberSelection();
+          emitValue();
+        }}
         onPaste={(event) => {
           event.preventDefault();
           const text = event.clipboardData.getData("text/plain");
@@ -559,6 +595,7 @@ function bookingFromSnapshot(snapshot: QueryDocumentSnapshot<DocumentData>): Boo
     description: typeof data.description === "string" ? data.description : null,
     event_type: typeof data.event_type === "string" ? data.event_type : null,
     mode: typeof data.mode === "string" ? data.mode : null,
+    location: typeof data.location === "string" && data.location.trim() ? data.location.trim() : null,
     image_url: typeof data.image_url === "string" ? data.image_url : null,
     detail_image_url: typeof data.detail_image_url === "string" ? data.detail_image_url : null,
     long_description: typeof data.long_description === "string" ? data.long_description : null,
@@ -755,8 +792,10 @@ function activityCategoryUnderline(booking: Booking) {
 }
 
 function activityPriceLabel(booking: Booking) {
+  const customPrice = booking.general_price?.trim();
+  if (customPrice) return customPrice;
   if (booking.activity_category === "association_free") return "Δωρεάν";
-  return booking.general_price ? `${booking.general_price} €` : "Δεν έχει οριστεί";
+  return "";
 }
 
 
@@ -775,6 +814,7 @@ async function notifyAdmin(action: NotificationAction, booking: Booking) {
         third_coordinator_name: booking.third_coordinator_name ?? null,
         fourth_coordinator_name: booking.fourth_coordinator_name ?? null,
         action_time: booking.action_time,
+        location: booking.location ?? null,
         topic: booking.topic,
         description: richTextToPlainText(booking.description),
         activity_category: booking.activity_category,
@@ -834,6 +874,35 @@ function getPortalName() {
     return window.sessionStorage.getItem(PORTAL_NAME_KEY)
       || (shouldRememberPortal() ? window.localStorage.getItem(PORTAL_NAME_KEY) || "" : "");
   } catch { return ""; }
+}
+
+function readLocalDraft<T>(key: string): T | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(key);
+    return raw ? JSON.parse(raw) as T : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeLocalDraft(key: string, value: unknown) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(key, JSON.stringify({ value, saved_at: new Date().toISOString() }));
+  } catch {
+    // Local drafts are a safety net. A storage failure must never block editing.
+  }
+}
+
+function readLocalDraftValue<T>(key: string): T | null {
+  const wrapped = readLocalDraft<{ value?: T }>(key);
+  return wrapped?.value ?? null;
+}
+
+function clearLocalDraft(key: string) {
+  if (typeof window === "undefined") return;
+  try { window.localStorage.removeItem(key); } catch { /* ignore */ }
 }
 
 function articlePublicUrl(articleId: string) {
@@ -944,7 +1013,7 @@ function communityControlId(name: string, kind: CommunityKind) {
 }
 
 
-type WebsiteFieldKind = "text" | "textarea" | "url" | "image";
+type WebsiteFieldKind = "text" | "textarea" | "url" | "image" | "color" | "select";
 
 type WebsiteFieldDefinition = {
   key: string;
@@ -952,6 +1021,8 @@ type WebsiteFieldDefinition = {
   kind: WebsiteFieldKind;
   placeholder?: string;
   help?: string;
+  group?: "content" | "appearance";
+  options?: Array<{ value: string; label: string }>;
 };
 
 type WebsiteSectionDefinition = {
@@ -984,89 +1055,1210 @@ type SiteContentVersion = {
   action: string;
 };
 
+const WEBSITE_FONT_OPTIONS = [
+  { value: "Georgia, \"Times New Roman\", serif", label: "Georgia / Times New Roman" },
+  { value: "Arial, Helvetica, sans-serif", label: "Arial / Helvetica" },
+  { value: "Verdana, Arial, sans-serif", label: "Verdana" },
+  { value: "\"Trebuchet MS\", Arial, sans-serif", label: "Trebuchet MS" },
+];
+
 const WEBSITE_SECTION_DEFINITIONS: WebsiteSectionDefinition[] = [
   {
     key: "general",
-    label: "Γενικά & Logo",
-    description: "Τα βασικά στοιχεία ταυτότητας του Συλλόγου. Το Carrd θα συνδεθεί με αυτά όταν μετατρέψουμε το header/footer.",
-    connected: false,
+    label: "Γενικά στοιχεία & Logo",
+    description: "Κεντρικές πληροφορίες που χρησιμοποιούνται σε header, hero, επικοινωνία και footer. Αλλάζοντάς τες εδώ ενημερώνονται τα συνδεδεμένα blocks.",
+    connected: true,
     fields: [
-      { key: "logo_url", label: "Logo", kind: "image", help: "Μπορείς να βάλεις URL ή να ανεβάσεις εικόνα." },
-      { key: "short_name", label: "Σύντομη ονομασία", kind: "text", placeholder: "Σ.Ε.ΨΥ.G." },
+      { key: "logo_url", label: "Logo Συλλόγου", kind: "image" },
+      { key: "short_name", label: "Σύντομη ονομασία", kind: "text" },
       { key: "full_name", label: "Πλήρης ονομασία", kind: "textarea" },
-      { key: "email", label: "Email", kind: "text", placeholder: "email@example.com" },
-      { key: "phone", label: "Τηλέφωνο", kind: "text" },
-      { key: "address", label: "Διεύθυνση", kind: "text" },
+      { key: "approach_name", label: "Ονομασία προσέγγισης", kind: "text" },
+      { key: "email", label: "Email Συλλόγου", kind: "text" },
+      { key: "president_name", label: "Πρόεδρος · Όνομα", kind: "text" },
+      { key: "president_role", label: "Πρόεδρος · Ρόλος", kind: "text" },
+      { key: "president_phone", label: "Πρόεδρος · Τηλέφωνο", kind: "text" },
+      { key: "secretary_name", label: "Γραμματεία · Όνομα", kind: "text" },
+      { key: "secretary_role", label: "Γραμματεία · Ρόλος", kind: "text" },
+      { key: "secretary_phone", label: "Γραμματεία · Τηλέφωνο", kind: "text" },
+      { key: "address", label: "Διεύθυνση", kind: "textarea" },
+      { key: "facebook_url", label: "Facebook URL", kind: "url" },
+      { key: "instagram_url", label: "Instagram URL", kind: "url" },
+      { key: "public_site_url", label: "Δημόσια ιστοσελίδα", kind: "url" },
     ],
     defaults: {
-      logo_url: "https://demo.unityenergetics.org/wp-content/uploads/2026/07/Στιγμιότυπο-οθόνης-2026-06-27-202314.png",
-      short_name: "Σ.Ε.ΨΥ.G.",
-      full_name: "Πανευρωπαϊκός Επιστημονικός Σύλλογος Σ.Ε.ΨΥ.G. Σωματικά Επικεντρωμένης Ψυχοθεραπείας Gestalt",
-      email: "euassociationsepsyg@gmail.com",
-      phone: "693 796 2301",
-      address: "Πολυτεχνείου 37",
+      "logo_url": "https://demo.unityenergetics.org/wp-content/uploads/2026/07/Στιγμιότυπο-οθόνης-2026-06-27-202314.png",
+      "short_name": "Σ.Ε.ΨΥ.G.",
+      "full_name": "Πανευρωπαϊκός Επιστημονικός Σύλλογος Σ.Ε.ΨΥ.G.",
+      "approach_name": "Σωματικά Επικεντρωμένη Ψυχοθεραπεία Gestalt",
+      "email": "euassociationsepsyg@gmail.com",
+      "president_name": "Στέφανος Γκιουλτζόγλου",
+      "president_role": "Πρόεδρος",
+      "president_phone": "693 796 2301",
+      "secretary_name": "Μαρία Ζάχου",
+      "secretary_role": "Γραμματέας",
+      "secretary_phone": "694 064 5022",
+      "address": "Πολυτεχνίου 37\nΘεσσαλονίκη, ΤΚ 54626",
+      "facebook_url": "https://www.facebook.com/share/g/17TTMo8AWK/",
+      "instagram_url": "",
+      "public_site_url": "https://euassociationsepsyg.carrd.co/#",
     },
   },
   {
-    key: "home",
-    label: "Αρχική",
-    description: "Κεντρικός τίτλος, εισαγωγικά κείμενα, εικόνα και βασικό κουμπί της αρχικής σελίδας.",
-    connected: false,
+    key: "hero",
+    label: "Hero / Αρχική",
+    description: "Το κεντρικό hero της αρχικής σελίδας και η νέα εγγραφή στο newsletter.",
+    connected: true,
     fields: [
-      { key: "eyebrow", label: "Μικρός τίτλος πάνω από το hero", kind: "text" },
-      { key: "title", label: "Κεντρικός τίτλος", kind: "textarea" },
-      { key: "subtitle", label: "Υπότιτλος", kind: "textarea" },
-      { key: "body", label: "Κείμενο", kind: "textarea" },
-      { key: "hero_image", label: "Κεντρική εικόνα", kind: "image" },
-      { key: "button_text", label: "Κείμενο κουμπιού", kind: "text" },
-      { key: "button_url", label: "Σύνδεσμος κουμπιού", kind: "url" },
+      { key: "text_01", label: "Κείμενο · Σωματικά Επικεντρωμένη Ψυχοθεραπεία Gestalt", kind: "textarea" },
+      { key: "text_02", label: "Τίτλος · Πανευρωπαϊκός Επιστημονικός Σύλλογος Σ.Ε.ΨΥ.G.", kind: "text" },
+      { key: "text_03", label: "Κείμενο · Καλωσορίσατε στον Πανευρωπαϊκό Επιστημονικό Σύλλογο Σ.Ε.ΨΥ.G. Έν…", kind: "textarea" },
+      { key: "background_image", label: "Εικόνα φόντου hero", kind: "image" },
+      { key: "newsletter_eyebrow", label: "Μικρός τίτλος newsletter", kind: "text" },
+      { key: "newsletter_title", label: "Τίτλος newsletter", kind: "text" },
+      { key: "newsletter_text", label: "Κείμενο newsletter", kind: "textarea" },
+      { key: "newsletter_placeholder", label: "Placeholder email", kind: "text" },
+      { key: "newsletter_button", label: "Κείμενο κουμπιού εγγραφής", kind: "text" },
+      { key: "newsletter_consent", label: "Κείμενο συγκατάθεσης", kind: "textarea" },
+      { key: "style_section_background", label: "Φόντο ενότητας", kind: "color", group: "appearance" },
+      { key: "style_card_background", label: "Φόντο καρτών", kind: "color", group: "appearance" },
+      { key: "style_heading_color", label: "Χρώμα τίτλων", kind: "color", group: "appearance" },
+      { key: "style_body_color", label: "Χρώμα κειμένου", kind: "color", group: "appearance" },
+      { key: "style_accent_color", label: "Accent χρώμα", kind: "color", group: "appearance" },
+      { key: "style_border_color", label: "Χρώμα borders", kind: "color", group: "appearance" },
+      { key: "style_heading_font", label: "Γραμματοσειρά τίτλων", kind: "select", group: "appearance", options: WEBSITE_FONT_OPTIONS },
+      { key: "style_body_font", label: "Γραμματοσειρά κειμένου", kind: "select", group: "appearance", options: WEBSITE_FONT_OPTIONS },
+      { key: "style_title_size", label: "Μέγεθος κύριου τίτλου", kind: "text", group: "appearance" },
+      { key: "style_body_size", label: "Μέγεθος κύριου κειμένου", kind: "text", group: "appearance" },
+      { key: "style_line_height", label: "Διάστιχο", kind: "text", group: "appearance" },
+      { key: "style_section_padding", label: "Κενό / padding ενότητας", kind: "text", group: "appearance" },
+      { key: "style_card_radius", label: "Border radius καρτών", kind: "text", group: "appearance" },
+      { key: "style_card_shadow", label: "Σκιά καρτών", kind: "text", group: "appearance" },
+      { key: "style_image_position", label: "Θέση εικόνας (object-position)", kind: "text", group: "appearance" },
     ],
-    defaults: {},
+    defaults: {
+      "text_01": "Σωματικά Επικεντρωμένη Ψυχοθεραπεία Gestalt",
+      "text_02": "Πανευρωπαϊκός Επιστημονικός Σύλλογος Σ.Ε.ΨΥ.G.",
+      "text_03": "Καλωσορίσατε στον Πανευρωπαϊκό Επιστημονικό Σύλλογο Σ.Ε.ΨΥ.G. Έναν χώρο συνάντησης, θεραπείας και βαθιάς ανθρώπινης επαφής.",
+      "background_image": "https://demo.unityenergetics.org/wp-content/uploads/2026/08/γαλαζιο.συλλογος.png",
+      "newsletter_eyebrow": "Newsletter",
+      "newsletter_title": "Μάθε πρώτος για όλες τις δράσεις",
+      "newsletter_text": "Γράψε το email σου και θα λαμβάνεις ενημέρωση για νέες δράσεις, σεμινάρια και ανακοινώσεις του Συλλόγου.",
+      "newsletter_placeholder": "Το email σου",
+      "newsletter_button": "Εγγραφή",
+      "newsletter_consent": "Συμφωνώ να χρησιμοποιηθεί το email μου αποκλειστικά για ενημερώσεις του Συλλόγου.",
+      "style_section_background": "#008D8B",
+      "style_card_background": "#FFFFFF",
+      "style_heading_color": "#FFFFFF",
+      "style_body_color": "#FFFFFF",
+      "style_accent_color": "#F3CFB0",
+      "style_border_color": "#DDE4E2",
+      "style_heading_font": "Georgia, \"Times New Roman\", serif",
+      "style_body_font": "Arial, Helvetica, sans-serif",
+      "style_title_size": "clamp(38px, 4.4vw, 60px)",
+      "style_body_size": "clamp(16px, 1.35vw, 20px)",
+      "style_line_height": "1.65",
+      "style_section_padding": "44px 28px 60px",
+      "style_card_radius": "0px",
+      "style_card_shadow": "none",
+      "style_image_position": "center",
+    },
   },
   {
-    key: "association",
-    label: "Ο Σύλλογος",
-    description: "Τα κείμενα που παρουσιάζουν τον Σύλλογο και το όραμά του.",
-    connected: false,
+    key: "home_intro",
+    label: "Ο Σύλλογος με μια ματιά",
+    description: "Οι δύο εισαγωγικές κάρτες της αρχικής.",
+    connected: true,
     fields: [
-      { key: "title", label: "Τίτλος", kind: "text" },
-      { key: "intro", label: "Εισαγωγή", kind: "textarea" },
-      { key: "body", label: "Κύριο κείμενο", kind: "textarea" },
-      { key: "vision_title", label: "Τίτλος οράματος", kind: "text" },
-      { key: "vision_body", label: "Κείμενο οράματος", kind: "textarea" },
-      { key: "image", label: "Εικόνα ενότητας", kind: "image" },
+      { key: "text_01", label: "Ετικέτα · Γνωρίστε μας", kind: "text" },
+      { key: "text_02", label: "Τίτλος · Ο Σύλλογος με μια ματιά", kind: "text" },
+      { key: "text_03", label: "Ετικέτα · Το όραμά μας", kind: "text" },
+      { key: "text_04", label: "Ετικέτα · Το όραμά μας", kind: "text" },
+      { key: "text_05", label: "Τίτλος · Ένας χώρος επαφής, παρουσίας και εξέλιξης", kind: "text" },
+      { key: "text_06", label: "Κείμενο · Γνωρίστε τις αξίες, τον σκοπό και την κατεύθυνση του Συλλόγου.", kind: "textarea" },
+      { key: "text_07", label: "Κουμπί / σύνδεσμος · Δες περισσότερα", kind: "text" },
+      { key: "text_08", label: "Ετικέτα · Η προσέγγιση", kind: "text" },
+      { key: "text_09", label: "Ετικέτα · Η προσέγγιση Σ.Ε.ΨΥ.G.", kind: "text" },
+      { key: "text_10", label: "Τίτλος · Το σώμα ως ζωντανή πηγή εμπειρίας", kind: "text" },
+      { key: "text_11", label: "Κείμενο · Διαβάστε για τη θεωρητική βάση και τη θεραπευτική κατεύθυνση της…", kind: "textarea" },
+      { key: "text_12", label: "Κουμπί / σύνδεσμος · Δες περισσότερα", kind: "text" },
+      { key: "image_01", label: "Εικόνα 1", kind: "image" },
+      { key: "image_01_alt", label: "Εικόνα 1 · Alt / περιγραφή", kind: "text" },
+      { key: "image_02", label: "Εικόνα 2", kind: "image" },
+      { key: "image_02_alt", label: "Εικόνα 2 · Alt / περιγραφή", kind: "text" },
+      { key: "link_01_url", label: "URL · Δες περισσότερα", kind: "url" },
+      { key: "link_02_url", label: "URL · Δες περισσότερα", kind: "url" },
+      { key: "style_section_background", label: "Φόντο ενότητας", kind: "color", group: "appearance" },
+      { key: "style_card_background", label: "Φόντο καρτών", kind: "color", group: "appearance" },
+      { key: "style_heading_color", label: "Χρώμα τίτλων", kind: "color", group: "appearance" },
+      { key: "style_body_color", label: "Χρώμα κειμένου", kind: "color", group: "appearance" },
+      { key: "style_accent_color", label: "Accent χρώμα", kind: "color", group: "appearance" },
+      { key: "style_border_color", label: "Χρώμα borders", kind: "color", group: "appearance" },
+      { key: "style_heading_font", label: "Γραμματοσειρά τίτλων", kind: "select", group: "appearance", options: WEBSITE_FONT_OPTIONS },
+      { key: "style_body_font", label: "Γραμματοσειρά κειμένου", kind: "select", group: "appearance", options: WEBSITE_FONT_OPTIONS },
+      { key: "style_title_size", label: "Μέγεθος κύριου τίτλου", kind: "text", group: "appearance" },
+      { key: "style_body_size", label: "Μέγεθος κύριου κειμένου", kind: "text", group: "appearance" },
+      { key: "style_line_height", label: "Διάστιχο", kind: "text", group: "appearance" },
+      { key: "style_section_padding", label: "Κενό / padding ενότητας", kind: "text", group: "appearance" },
+      { key: "style_card_radius", label: "Border radius καρτών", kind: "text", group: "appearance" },
+      { key: "style_card_shadow", label: "Σκιά καρτών", kind: "text", group: "appearance" },
+      { key: "style_image_position", label: "Θέση εικόνας (object-position)", kind: "text", group: "appearance" },
     ],
-    defaults: {},
+    defaults: {
+      "text_01": "Γνωρίστε μας",
+      "text_02": "Ο Σύλλογος με μια ματιά",
+      "text_03": "Το όραμά μας",
+      "text_04": "Το όραμά μας",
+      "text_05": "Ένας χώρος επαφής, παρουσίας και εξέλιξης",
+      "text_06": "Γνωρίστε τις αξίες, τον σκοπό και την κατεύθυνση του Συλλόγου.",
+      "text_07": "Δες περισσότερα",
+      "text_08": "Η προσέγγιση",
+      "text_09": "Η προσέγγιση Σ.Ε.ΨΥ.G.",
+      "text_10": "Το σώμα ως ζωντανή πηγή εμπειρίας",
+      "text_11": "Διαβάστε για τη θεωρητική βάση και τη θεραπευτική κατεύθυνση της Σ.Ε.ΨΥ.G.",
+      "text_12": "Δες περισσότερα",
+      "image_01": "https://demo.unityenergetics.org/wp-content/uploads/2026/08/vision.jpg",
+      "image_01_alt": "Το όραμα του Συλλόγου",
+      "image_02": "https://demo.unityenergetics.org/wp-content/uploads/2026/08/11-Benefits-of-Somatic-Therapy-You-Need-to-Know.webp_0d0c5fda-5579-4392-a3de-66727816fda0_11-Benefits-of-Somatic-Therapy-You-Need-to-Know.webp",
+      "image_02_alt": "Η προσέγγιση Σ.Ε.ΨΥ.G.",
+      "link_01_url": "#vision",
+      "link_02_url": "#sepshyg1",
+      "style_section_background": "#FFF9F3",
+      "style_card_background": "#FFFFFF",
+      "style_heading_color": "#174B49",
+      "style_body_color": "#627472",
+      "style_accent_color": "#008D8B",
+      "style_border_color": "#DDE4E2",
+      "style_heading_font": "Georgia, \"Times New Roman\", serif",
+      "style_body_font": "Arial, Helvetica, sans-serif",
+      "style_title_size": "clamp(1.9rem, 3.8vw, 2.75rem)",
+      "style_body_size": "0.98rem",
+      "style_line_height": "1.7",
+      "style_section_padding": "98px 0",
+      "style_card_radius": "24px",
+      "style_card_shadow": "0 16px 38px rgba(0, 109, 105, 0.08)",
+      "style_image_position": "center",
+    },
+  },
+  {
+    key: "activities_static",
+    label: "Δράσεις · Κάρτες αρχικής",
+    description: "Οι τρεις κάρτες δράσεων και το κείμενο της ενότητας.",
+    connected: true,
+    fields: [
+      { key: "text_01", label: "Ετικέτα · Ημερολόγιο Συλλόγου", kind: "text" },
+      { key: "text_02", label: "Τίτλος · Δράσεις", kind: "text" },
+      { key: "text_03", label: "Κείμενο · Σεμινάρια, βιωματικά εργαστήρια και συναντήσεις που καλλιεργούν …", kind: "textarea" },
+      { key: "text_04", label: "Ετικέτα · Ημερίδα", kind: "text" },
+      { key: "text_05", label: "Ετικέτα · Διαδικτυακά", kind: "text" },
+      { key: "text_06", label: "Τίτλος · Εξειδικευμένη Ημερίδα Διατροφικών Διαταραχών & Σ.Ε.ΨΥ.G.", kind: "text" },
+      { key: "text_07", label: "Κείμενο · Καλοκαιρινή Διατροφή και Εικόνα Σώματος", kind: "textarea" },
+      { key: "text_08", label: "Ετικέτα · Κυριακή, 19 Ιουλίου 2026", kind: "text" },
+      { key: "text_09", label: "Ετικέτα · 11:00 – 20:00", kind: "text" },
+      { key: "text_10", label: "Κουμπί / σύνδεσμος · Πληροφορίες", kind: "text" },
+      { key: "text_11", label: "Ετικέτα · Εργαστήριο", kind: "text" },
+      { key: "text_12", label: "Ετικέτα · Διαδικτυακά", kind: "text" },
+      { key: "text_13", label: "Τίτλος · Βιωματικό Εργαστήριο", kind: "text" },
+      { key: "text_14", label: "Κείμενο · «Από την Εσωτερική Ησυχία στην Αυθεντική Συνάντηση»", kind: "textarea" },
+      { key: "text_15", label: "Ετικέτα · 5 Ιουλίου 2026", kind: "text" },
+      { key: "text_16", label: "Κουμπί / σύνδεσμος · Πληροφορίες", kind: "text" },
+      { key: "text_17", label: "Ετικέτα · Ομαδική θεραπεία", kind: "text" },
+      { key: "text_18", label: "Ετικέτα · Διαδικτυακά & δια ζώσης", kind: "text" },
+      { key: "text_19", label: "Τίτλος · Γνωρίστε την Ομαδική Ψυχοθεραπεία", kind: "text" },
+      { key: "text_20", label: "Κείμενο · Με Σωματική Επικέντρωση σε πόλεις της Ελλάδας και της Κύπρου", kind: "textarea" },
+      { key: "text_21", label: "Ετικέτα · 28 Φεβρουαρίου 2026", kind: "text" },
+      { key: "text_22", label: "Κουμπί / σύνδεσμος · Πληροφορίες", kind: "text" },
+      { key: "text_23", label: "Κουμπί / σύνδεσμος · Δες όλες τις δράσεις", kind: "text" },
+      { key: "image_01", label: "Εικόνα 1", kind: "image" },
+      { key: "image_01_alt", label: "Εικόνα 1 · Alt / περιγραφή", kind: "text" },
+      { key: "image_02", label: "Εικόνα 2", kind: "image" },
+      { key: "image_02_alt", label: "Εικόνα 2 · Alt / περιγραφή", kind: "text" },
+      { key: "image_03", label: "Εικόνα 3", kind: "image" },
+      { key: "image_03_alt", label: "Εικόνα 3 · Alt / περιγραφή", kind: "text" },
+      { key: "link_01_url", label: "URL · Πληροφορίες", kind: "url" },
+      { key: "link_02_url", label: "URL · Πληροφορίες", kind: "url" },
+      { key: "link_03_url", label: "URL · Πληροφορίες", kind: "url" },
+      { key: "link_04_url", label: "URL · Δες όλες τις δράσεις", kind: "url" },
+      { key: "style_section_background", label: "Φόντο ενότητας", kind: "color", group: "appearance" },
+      { key: "style_card_background", label: "Φόντο καρτών", kind: "color", group: "appearance" },
+      { key: "style_heading_color", label: "Χρώμα τίτλων", kind: "color", group: "appearance" },
+      { key: "style_body_color", label: "Χρώμα κειμένου", kind: "color", group: "appearance" },
+      { key: "style_accent_color", label: "Accent χρώμα", kind: "color", group: "appearance" },
+      { key: "style_border_color", label: "Χρώμα borders", kind: "color", group: "appearance" },
+      { key: "style_heading_font", label: "Γραμματοσειρά τίτλων", kind: "select", group: "appearance", options: WEBSITE_FONT_OPTIONS },
+      { key: "style_body_font", label: "Γραμματοσειρά κειμένου", kind: "select", group: "appearance", options: WEBSITE_FONT_OPTIONS },
+      { key: "style_title_size", label: "Μέγεθος κύριου τίτλου", kind: "text", group: "appearance" },
+      { key: "style_body_size", label: "Μέγεθος κύριου κειμένου", kind: "text", group: "appearance" },
+      { key: "style_line_height", label: "Διάστιχο", kind: "text", group: "appearance" },
+      { key: "style_section_padding", label: "Κενό / padding ενότητας", kind: "text", group: "appearance" },
+      { key: "style_card_radius", label: "Border radius καρτών", kind: "text", group: "appearance" },
+      { key: "style_card_shadow", label: "Σκιά καρτών", kind: "text", group: "appearance" },
+      { key: "style_image_position", label: "Θέση εικόνας (object-position)", kind: "text", group: "appearance" },
+    ],
+    defaults: {
+      "text_01": "Ημερολόγιο Συλλόγου",
+      "text_02": "Δράσεις",
+      "text_03": "Σεμινάρια, βιωματικά εργαστήρια και συναντήσεις που καλλιεργούν την επαφή, την επίγνωση και τη ζωντανή εμπειρία.",
+      "text_04": "Ημερίδα",
+      "text_05": "Διαδικτυακά",
+      "text_06": "Εξειδικευμένη Ημερίδα Διατροφικών Διαταραχών & Σ.Ε.ΨΥ.G.",
+      "text_07": "Καλοκαιρινή Διατροφή και Εικόνα Σώματος",
+      "text_08": "Κυριακή, 19 Ιουλίου 2026",
+      "text_09": "11:00 – 20:00",
+      "text_10": "Πληροφορίες",
+      "text_11": "Εργαστήριο",
+      "text_12": "Διαδικτυακά",
+      "text_13": "Βιωματικό Εργαστήριο",
+      "text_14": "«Από την Εσωτερική Ησυχία στην Αυθεντική Συνάντηση»",
+      "text_15": "5 Ιουλίου 2026",
+      "text_16": "Πληροφορίες",
+      "text_17": "Ομαδική θεραπεία",
+      "text_18": "Διαδικτυακά & δια ζώσης",
+      "text_19": "Γνωρίστε την Ομαδική Ψυχοθεραπεία",
+      "text_20": "Με Σωματική Επικέντρωση σε πόλεις της Ελλάδας και της Κύπρου",
+      "text_21": "28 Φεβρουαρίου 2026",
+      "text_22": "Πληροφορίες",
+      "text_23": "Δες όλες τις δράσεις",
+      "image_01": "https://demo.unityenergetics.org/wp-content/uploads/2026/08/Στιγμιότυπο-οθόνης-2026-08-06-194156.png",
+      "image_01_alt": "Εξειδικευμένη Ημερίδα Διατροφικών Διαταραχών και Σ.Ε.ΨΥ.G.",
+      "image_02": "https://demo.unityenergetics.org/wp-content/uploads/2026/08/Στιγμιότυπο-οθόνης-2026-08-06-194130.png",
+      "image_02_alt": "Βιωματικό Εργαστήριο",
+      "image_03": "https://demo.unityenergetics.org/wp-content/uploads/2026/08/Στιγμιότυπο-οθόνης-2026-08-06-194048.png",
+      "image_03_alt": "Γνωρίστε την Ομαδική Ψυχοθεραπεία",
+      "link_01_url": "https://eikonasomatos.heysummit.com/",
+      "link_02_url": "https://kalokeriniempiriaaytognosias.carrd.co/",
+      "link_03_url": "https://app.vbout.com/unity-energetic/preview/354140/?hash=2c783992eeabd13000994a0a65eca9da",
+      "link_04_url": "#activities",
+      "style_section_background": "#F4ECE5",
+      "style_card_background": "#FFFFFF",
+      "style_heading_color": "#174B49",
+      "style_body_color": "#627472",
+      "style_accent_color": "#008D8B",
+      "style_border_color": "#DDE4E2",
+      "style_heading_font": "Georgia, \"Times New Roman\", serif",
+      "style_body_font": "Arial, Helvetica, sans-serif",
+      "style_title_size": "clamp(2rem, 4vw, 2.85rem)",
+      "style_body_size": "0.92rem",
+      "style_line_height": "1.65",
+      "style_section_padding": "98px 0 104px",
+      "style_card_radius": "24px",
+      "style_card_shadow": "0 16px 38px rgba(0, 109, 105, 0.08)",
+      "style_image_position": "center",
+    },
+  },
+  {
+    key: "membership_form",
+    label: "Φόρμα · Γίνε Μέλος",
+    description: "Το κείμενο, οι ετικέτες και η εμφάνιση της φόρμας ενδιαφέροντος.",
+    connected: true,
+    fields: [
+      { key: "text_01", label: "Ετικέτα · Έλα στην κοινότητά μας", kind: "text" },
+      { key: "text_02", label: "Τίτλος · Θέλεις να γίνεις μέλος;", kind: "text" },
+      { key: "text_03", label: "Κείμενο · Συμπλήρωσε τη φόρμα και το αίτημά σου θα σταλεί στο email του Συ…", kind: "textarea" },
+      { key: "text_04", label: "Ετικέτα · Θα επικοινωνήσουμε μαζί σου για τα επόμενα βήματα.", kind: "text" },
+      { key: "text_05", label: "Φόρμα · Ονοματεπώνυμο *", kind: "text" },
+      { key: "text_06", label: "Φόρμα · Email *", kind: "text" },
+      { key: "text_07", label: "Φόρμα · Τηλέφωνο", kind: "text" },
+      { key: "text_08", label: "Φόρμα · Πόλη / Περιοχή *", kind: "text" },
+      { key: "text_09", label: "Φόρμα · Επάγγελμα / Ιδιότητα", kind: "text" },
+      { key: "text_10", label: "Φόρμα · Ενδιαφέρομαι να γίνω *", kind: "text" },
+      { key: "text_11", label: "Φόρμα · Επίλεξε", kind: "text" },
+      { key: "text_12", label: "Φόρμα · Μέλος του Συλλόγου", kind: "text" },
+      { key: "text_13", label: "Φόρμα · Φίλος του Συλλόγου", kind: "text" },
+      { key: "text_14", label: "Φόρμα · Θέλω πρώτα περισσότερες πληροφορίες", kind: "text" },
+      { key: "text_15", label: "Φόρμα · Μήνυμα", kind: "text" },
+      { key: "text_16", label: "Ετικέτα · Συμφωνώ να χρησιμοποιηθούν τα στοιχεία μου αποκλειστικά για την …", kind: "text" },
+      { key: "text_17", label: "Κουμπί / σύνδεσμος · Αποστολή αιτήματος", kind: "text" },
+      { key: "text_18", label: "Κείμενο · Στην πρώτη δοκιμή ενδέχεται να χρειαστεί μία φορά ενεργοποίηση τ…", kind: "textarea" },
+      { key: "placeholder_01", label: "Placeholder φόρμας 1", kind: "text" },
+      { key: "recipient_email", label: "Email παραλήπτη φόρμας", kind: "text" },
+      { key: "style_section_background", label: "Φόντο ενότητας", kind: "color", group: "appearance" },
+      { key: "style_card_background", label: "Φόντο καρτών", kind: "color", group: "appearance" },
+      { key: "style_heading_color", label: "Χρώμα τίτλων", kind: "color", group: "appearance" },
+      { key: "style_body_color", label: "Χρώμα κειμένου", kind: "color", group: "appearance" },
+      { key: "style_accent_color", label: "Accent χρώμα", kind: "color", group: "appearance" },
+      { key: "style_border_color", label: "Χρώμα borders", kind: "color", group: "appearance" },
+      { key: "style_heading_font", label: "Γραμματοσειρά τίτλων", kind: "select", group: "appearance", options: WEBSITE_FONT_OPTIONS },
+      { key: "style_body_font", label: "Γραμματοσειρά κειμένου", kind: "select", group: "appearance", options: WEBSITE_FONT_OPTIONS },
+      { key: "style_title_size", label: "Μέγεθος κύριου τίτλου", kind: "text", group: "appearance" },
+      { key: "style_body_size", label: "Μέγεθος κύριου κειμένου", kind: "text", group: "appearance" },
+      { key: "style_line_height", label: "Διάστιχο", kind: "text", group: "appearance" },
+      { key: "style_section_padding", label: "Κενό / padding ενότητας", kind: "text", group: "appearance" },
+      { key: "style_card_radius", label: "Border radius καρτών", kind: "text", group: "appearance" },
+      { key: "style_card_shadow", label: "Σκιά καρτών", kind: "text", group: "appearance" },
+      { key: "style_image_position", label: "Θέση εικόνας (object-position)", kind: "text", group: "appearance" },
+    ],
+    defaults: {
+      "text_01": "Έλα στην κοινότητά μας",
+      "text_02": "Θέλεις να γίνεις μέλος;",
+      "text_03": "Συμπλήρωσε τη φόρμα και το αίτημά σου θα σταλεί στο email του Συλλόγου.",
+      "text_04": "Θα επικοινωνήσουμε μαζί σου για τα επόμενα βήματα.",
+      "text_05": "Ονοματεπώνυμο *",
+      "text_06": "Email *",
+      "text_07": "Τηλέφωνο",
+      "text_08": "Πόλη / Περιοχή *",
+      "text_09": "Επάγγελμα / Ιδιότητα",
+      "text_10": "Ενδιαφέρομαι να γίνω *",
+      "text_11": "Επίλεξε",
+      "text_12": "Μέλος του Συλλόγου",
+      "text_13": "Φίλος του Συλλόγου",
+      "text_14": "Θέλω πρώτα περισσότερες πληροφορίες",
+      "text_15": "Μήνυμα",
+      "text_16": "Συμφωνώ να χρησιμοποιηθούν τα στοιχεία μου αποκλειστικά για την επικοινωνία σχετικά με το αίτημά μου. *",
+      "text_17": "Αποστολή αιτήματος",
+      "text_18": "Στην πρώτη δοκιμή ενδέχεται να χρειαστεί μία φορά ενεργοποίηση της φόρμας από το email του Συλλόγου.",
+      "placeholder_01": "Γράψε προαιρετικά λίγα λόγια για το ενδιαφέρον σου.",
+      "recipient_email": "euassociationsepsyg@gmail.com",
+      "style_section_background": "#FFF9F3",
+      "style_card_background": "#FFFFFF",
+      "style_heading_color": "#174B49",
+      "style_body_color": "#6F7E7B",
+      "style_accent_color": "#008D8B",
+      "style_border_color": "#DCE4E1",
+      "style_heading_font": "Georgia, \"Times New Roman\", serif",
+      "style_body_font": "Arial, Helvetica, sans-serif",
+      "style_title_size": "clamp(2.5rem,5vw,4.3rem)",
+      "style_body_size": "1rem",
+      "style_line_height": "1.8",
+      "style_section_padding": "90px 0 95px",
+      "style_card_radius": "28px",
+      "style_card_shadow": "0 20px 55px rgba(37,65,61,.09)",
+      "style_image_position": "center",
+    },
+  },
+  {
+    key: "vision",
+    label: "Όραμα Συλλόγου",
+    description: "Η πλήρης ενότητα «Όραμα Συλλόγου».",
+    connected: true,
+    fields: [
+      { key: "text_01", label: "Ετικέτα · Το όραμά μας", kind: "text" },
+      { key: "text_02", label: "Τίτλος · Όραμα Συλλόγου", kind: "text" },
+      { key: "text_03", label: "Ετικέτα · Σωματική συνείδηση", kind: "text" },
+      { key: "text_04", label: "Τίτλος · Το σώμα ως ζωντανή πηγή εμπειρίας", kind: "text" },
+      { key: "text_05", label: "Κείμενο · Εδώ τιμούμε το σώμα ως ζωντανή πηγή μνήμης, σοφίας και ζωτικής δ…", kind: "textarea" },
+      { key: "text_06", label: "Κείμενο · Πιστεύουμε ότι η θεραπεία δεν αφορά μόνο τη γνωστική κατανόηση τ…", kind: "textarea" },
+      { key: "text_07", label: "Ετικέτα · Ο σκοπός μας", kind: "text" },
+      { key: "text_08", label: "Τίτλος · Μια κοινότητα ουσιαστικής θεραπείας και εξέλιξης", kind: "text" },
+      { key: "text_09", label: "Κείμενο · Η Σωματικά Επικεντρωμένη Ψυχοθεραπεία Gestalt υποστηρίζει το άτο…", kind: "textarea" },
+      { key: "text_10", label: "Κείμενο · Ο Σύλλογος δημιουργήθηκε με σκοπό τη διάδοση και την προαγωγή τη…", kind: "textarea" },
+      { key: "text_11", label: "Κείμενο · Γιατί η θεραπεία ξεκινά από την επαφή — με το σώμα, με το συναίσ…", kind: "textarea" },
+      { key: "image_01", label: "Εικόνα 1", kind: "image" },
+      { key: "image_01_alt", label: "Εικόνα 1 · Alt / περιγραφή", kind: "text" },
+      { key: "image_02", label: "Εικόνα 2", kind: "image" },
+      { key: "image_02_alt", label: "Εικόνα 2 · Alt / περιγραφή", kind: "text" },
+      { key: "style_section_background", label: "Φόντο ενότητας", kind: "color", group: "appearance" },
+      { key: "style_card_background", label: "Φόντο καρτών", kind: "color", group: "appearance" },
+      { key: "style_heading_color", label: "Χρώμα τίτλων", kind: "color", group: "appearance" },
+      { key: "style_body_color", label: "Χρώμα κειμένου", kind: "color", group: "appearance" },
+      { key: "style_accent_color", label: "Accent χρώμα", kind: "color", group: "appearance" },
+      { key: "style_border_color", label: "Χρώμα borders", kind: "color", group: "appearance" },
+      { key: "style_heading_font", label: "Γραμματοσειρά τίτλων", kind: "select", group: "appearance", options: WEBSITE_FONT_OPTIONS },
+      { key: "style_body_font", label: "Γραμματοσειρά κειμένου", kind: "select", group: "appearance", options: WEBSITE_FONT_OPTIONS },
+      { key: "style_title_size", label: "Μέγεθος κύριου τίτλου", kind: "text", group: "appearance" },
+      { key: "style_body_size", label: "Μέγεθος κύριου κειμένου", kind: "text", group: "appearance" },
+      { key: "style_line_height", label: "Διάστιχο", kind: "text", group: "appearance" },
+      { key: "style_section_padding", label: "Κενό / padding ενότητας", kind: "text", group: "appearance" },
+      { key: "style_card_radius", label: "Border radius καρτών", kind: "text", group: "appearance" },
+      { key: "style_card_shadow", label: "Σκιά καρτών", kind: "text", group: "appearance" },
+      { key: "style_image_position", label: "Θέση εικόνας (object-position)", kind: "text", group: "appearance" },
+    ],
+    defaults: {
+      "text_01": "Το όραμά μας",
+      "text_02": "Όραμα Συλλόγου",
+      "text_03": "Σωματική συνείδηση",
+      "text_04": "Το σώμα ως ζωντανή πηγή εμπειρίας",
+      "text_05": "Εδώ τιμούμε το σώμα ως ζωντανή πηγή μνήμης, σοφίας και ζωτικής δύναμης. Το σώμα δεν αποτελεί απλώς το «όχημα» της ύπαρξής μας, αλλά τον τόπο όπου καταγράφονται οι εμπειρίες μας, οι σχέσεις μας, τα τραύματα και οι δυνατότητές μας. Μέσα από αυτό εκφράζονται οι ανάγκες, τα όρια, οι επιθυμίες και οι βαθύτερες αλήθειές μας.",
+      "text_06": "Πιστεύουμε ότι η θεραπεία δεν αφορά μόνο τη γνωστική κατανόηση των δυσκολιών, αλλά τη βιωματική επαφή με ό,τι ζητά να ακουστεί, να αισθανθεί και να επανορθωθεί. Η αλλαγή δεν προκύπτει μόνο μέσα από την ανάλυση, αλλά μέσα από την παρουσία, την επίγνωση και τη ζωντανή εμπειρία στο «εδώ και τώρα».",
+      "text_07": "Ο σκοπός μας",
+      "text_08": "Μια κοινότητα ουσιαστικής θεραπείας και εξέλιξης",
+      "text_09": "Η Σωματικά Επικεντρωμένη Ψυχοθεραπεία Gestalt υποστηρίζει το άτομο στο ταξίδι προς την ενοποίηση, την ενδυνάμωση και την αποκατάσταση της βαθύτερης σχέσης με τον εαυτό του. Μέσα από μια ασφαλή, σταθερή και ουσιαστική θεραπευτική σχέση, καλλιεργείται η επίγνωση του σώματος, των συναισθημάτων και των μοτίβων επαφής.",
+      "text_10": "Ο Σύλλογος δημιουργήθηκε με σκοπό τη διάδοση και την προαγωγή της Σωματικά Επικεντρωμένης Ψυχοθεραπείας Gestalt, την εκπαίδευση και τη συνεχή επιμόρφωση επαγγελματιών, καθώς και τη στήριξη μιας κοινότητας ανθρώπων που αναζητούν ουσιαστική θεραπεία και προσωπική εξέλιξη.",
+      "text_11": "Γιατί η θεραπεία ξεκινά από την επαφή — με το σώμα, με το συναίσθημα, με τον Άλλον και, τελικά, με τον ίδιο μας τον εαυτό.",
+      "image_01": "https://demo.unityenergetics.org/wp-content/uploads/2026/08/1000s.jpg",
+      "image_01_alt": "Το σώμα ως πηγή εμπειρίας",
+      "image_02": "https://demo.unityenergetics.org/wp-content/uploads/2026/08/depositphotos_60097259-stock-photo-people-celebrating-success-on-sunset.webp",
+      "image_02_alt": "Ο σκοπός του Συλλόγου",
+      "style_section_background": "#FFF9F3",
+      "style_card_background": "#FFFFFF",
+      "style_heading_color": "#174B49",
+      "style_body_color": "#627472",
+      "style_accent_color": "#008D8B",
+      "style_border_color": "#DDE4E2",
+      "style_heading_font": "Georgia, \"Times New Roman\", serif",
+      "style_body_font": "Arial, Helvetica, sans-serif",
+      "style_title_size": "clamp(1.9rem, 3.8vw, 2.75rem)",
+      "style_body_size": "0.98rem",
+      "style_line_height": "1.75",
+      "style_section_padding": "98px 0",
+      "style_card_radius": "24px",
+      "style_card_shadow": "0 16px 38px rgba(0, 109, 105, 0.08)",
+      "style_image_position": "center",
+    },
+  },
+  {
+    key: "unity",
+    label: "Unity Energetics Institute",
+    description: "Όλα τα στατικά κείμενα και οι εικόνες της ενότητας Unity Energetics.",
+    connected: true,
+    fields: [
+      { key: "text_01", label: "Ετικέτα · International Training School", kind: "text" },
+      { key: "text_02", label: "Τίτλος · Unity Energetics Institute", kind: "text" },
+      { key: "text_03", label: "Κείμενο · ΨΥΧΟΘΕΡΑΠΕΙΑΣ & ΣΥΜΒΟΥΛΕΥΤΙΚΗΣ", kind: "textarea" },
+      { key: "text_04", label: "Κείμενο · Εμπνευστής και δημιουργός του Unity Energetics, είναι ο ψυχολόγο…", kind: "textarea" },
+      { key: "text_05", label: "Τίτλος · Η τάση προς Ένωση και Ατομικότητα", kind: "text" },
+      { key: "text_06", label: "Κείμενο · Την αδιάκοπη και ανυπέρβλητη Τάση της Ζωτικής Δύναμης και του αν…", kind: "textarea" },
+      { key: "text_07", label: "Τίτλος · Οι δυναμικές διεργασίες", kind: "text" },
+      { key: "text_08", label: "Κείμενο · Τις παραμέτρους & τις δυναμικές διεργασίες που συντελούνται αδιά…", kind: "textarea" },
+      { key: "text_09", label: "Τίτλος · Τα βιώματα Ενότητας", kind: "text" },
+      { key: "text_10", label: "Κείμενο · Ότι αυτές οι δυναμικές διεργασίες (Unity Energetics) επηρεάζουν …", kind: "textarea" },
+      { key: "text_11", label: "Τίτλος · Η διαμόρφωση του ανθρώπινου ψυχισμού", kind: "text" },
+      { key: "text_12", label: "Κείμενο · Ότι τα βιώματα Ενότητας καθορίζουν την διαμόρφωση του ανθρώπινου…", kind: "textarea" },
+      { key: "text_13", label: "Ετικέτα · Ένωση · Ενότητα · Χωριστικότητα", kind: "text" },
+      { key: "text_14", label: "Τίτλος · Η σχέση ανάμεσα στην Ατομικότητα και την Ένωση", kind: "text" },
+      { key: "text_15", label: "Τίτλος · Όταν η Ατομικότητα γίνεται πιο ξεκάθαρη", kind: "text" },
+      { key: "text_16", label: "Κείμενο · Κατ’ αναλογία, όσο πιο ξεκάθαρη είναι η βίωση της Ατομικότητας, …", kind: "textarea" },
+      { key: "text_17", label: "Τίτλος · Όταν η διαδικασία της Ένωσης μπλοκάρεται", kind: "text" },
+      { key: "text_18", label: "Κείμενο · Όταν η διαδικασία Ένωσης του ανθρώπου με άλλα Συστήματα μπλοκάρε…", kind: "textarea" },
+      { key: "text_19", label: "Ετικέτα · Ψυχοθεραπευτική διαδικασία", kind: "text" },
+      { key: "text_20", label: "Τίτλος · Η Ένωση ως κεντρικός θεραπευτικός άξονας", kind: "text" },
+      { key: "text_21", label: "Κείμενο · Ότι η διαδικασία της Ένωσης, οι συντελούμενες δυναμικές διεργασί…", kind: "textarea" },
+      { key: "text_22", label: "Τίτλος · Υποδεκτικότητα", kind: "text" },
+      { key: "text_23", label: "Κείμενο · Βιώνει το αίσθημα της Υποδεκτικότητας από τον ψυχοθεραπευτή, η ο…", kind: "textarea" },
+      { key: "text_24", label: "Τίτλος · Ένωση με τον Πυρήνα της Ύπαρξης", kind: "text" },
+      { key: "text_25", label: "Κείμενο · Βιώνει Ένωση με τον Πυρήνα της Ύπαρξής του και ως εκ τούτου ξανα…", kind: "textarea" },
+      { key: "text_26", label: "Τίτλος · Εξέλιξη της συνειδητότητας", kind: "text" },
+      { key: "text_27", label: "Κείμενο · Εξελίσσει την συνειδητότητά του σε πολλαπλά επίπεδα.", kind: "textarea" },
+      { key: "image_01", label: "Εικόνα 1", kind: "image" },
+      { key: "image_01_alt", label: "Εικόνα 1 · Alt / περιγραφή", kind: "text" },
+      { key: "image_02", label: "Εικόνα 2", kind: "image" },
+      { key: "image_02_alt", label: "Εικόνα 2 · Alt / περιγραφή", kind: "text" },
+      { key: "image_03", label: "Εικόνα 3", kind: "image" },
+      { key: "image_03_alt", label: "Εικόνα 3 · Alt / περιγραφή", kind: "text" },
+      { key: "style_section_background", label: "Φόντο ενότητας", kind: "color", group: "appearance" },
+      { key: "style_card_background", label: "Φόντο καρτών", kind: "color", group: "appearance" },
+      { key: "style_heading_color", label: "Χρώμα τίτλων", kind: "color", group: "appearance" },
+      { key: "style_body_color", label: "Χρώμα κειμένου", kind: "color", group: "appearance" },
+      { key: "style_accent_color", label: "Accent χρώμα", kind: "color", group: "appearance" },
+      { key: "style_border_color", label: "Χρώμα borders", kind: "color", group: "appearance" },
+      { key: "style_heading_font", label: "Γραμματοσειρά τίτλων", kind: "select", group: "appearance", options: WEBSITE_FONT_OPTIONS },
+      { key: "style_body_font", label: "Γραμματοσειρά κειμένου", kind: "select", group: "appearance", options: WEBSITE_FONT_OPTIONS },
+      { key: "style_title_size", label: "Μέγεθος κύριου τίτλου", kind: "text", group: "appearance" },
+      { key: "style_body_size", label: "Μέγεθος κύριου κειμένου", kind: "text", group: "appearance" },
+      { key: "style_line_height", label: "Διάστιχο", kind: "text", group: "appearance" },
+      { key: "style_section_padding", label: "Κενό / padding ενότητας", kind: "text", group: "appearance" },
+      { key: "style_card_radius", label: "Border radius καρτών", kind: "text", group: "appearance" },
+      { key: "style_card_shadow", label: "Σκιά καρτών", kind: "text", group: "appearance" },
+      { key: "style_image_position", label: "Θέση εικόνας (object-position)", kind: "text", group: "appearance" },
+    ],
+    defaults: {
+      "text_01": "International Training School",
+      "text_02": "Unity Energetics Institute",
+      "text_03": "ΨΥΧΟΘΕΡΑΠΕΙΑΣ & ΣΥΜΒΟΥΛΕΥΤΙΚΗΣ",
+      "text_04": "Εμπνευστής και δημιουργός του Unity Energetics, είναι ο ψυχολόγος-ψυχοθεραπευτής Ε. Λάζαρης ο οποίος από τις απαρχές της επαγγελματικής του πορείας, το 1988, χρησιμοποίησε τον όρο αυτό για να αναδείξει:",
+      "text_05": "Η τάση προς Ένωση και Ατομικότητα",
+      "text_06": "Την αδιάκοπη και ανυπέρβλητη Τάση της Ζωτικής Δύναμης και του ανθρώπινου ψυχισμού για: (Α) την υγιή Ένωσή του (Unity) με τη Ζωτική Δύναμη άλλων ανθρώπων ή/και με άλλα Συστήματα που συνυπάρχουν γύρω του και (Β) την εμπέδωση, ανάπτυξη και πραγμάτωση της Ατομικότητάς του.",
+      "text_07": "Οι δυναμικές διεργασίες",
+      "text_08": "Τις παραμέτρους & τις δυναμικές διεργασίες που συντελούνται αδιάλειπτα (Unity Energetics) σε όλα τα επίπεδα ενός ανθρώπινου οργανισμού κατά την διαδικασία της Ένωσης του με άλλα Συστήματα.",
+      "text_09": "Τα βιώματα Ενότητας",
+      "text_10": "Ότι αυτές οι δυναμικές διεργασίες (Unity Energetics) επηρεάζουν με μοναδικό κάθε φορά τρόπο τα βιώματα της Ενότητας (ενδο-οργανισμικά ή/και διαπροσωπικά), που δημιουργούνται κατά την διαδικασία της Ένωσης. Παραδείγματα ενδο-οργανισμικής Ενότητας είναι οι εμπειρίες ενοποίησης (Α) του σώματος – ψυχής – νου – συμπεριφοράς ή (Β) του παρελθόντος – παρόντος – μέλλοντος, που συνήθως εκλαμβάνονται ως υπερβατικές εμπειρίες, υπό την έννοια ότι υπερβαίνουμε την κατάσταση της Χωριστικότητας στην οποία είμαστε συνηθισμένοι.",
+      "text_11": "Η διαμόρφωση του ανθρώπινου ψυχισμού",
+      "text_12": "Ότι τα βιώματα Ενότητας καθορίζουν την διαμόρφωση του ανθρώπινου ψυχισμού περισσότερο από οποιονδήποτε άλλο παράγοντα, ιδιαιτέρως στα πρώιμα στάδια ανάπτυξης του ατόμου αλλά και κατά την ψυχοθεραπευτική διαδικασία, καθώς μέσα από αυτά αναπτύσσεται και ενισχύεται η Ατομικότητα.",
+      "text_13": "Ένωση · Ενότητα · Χωριστικότητα",
+      "text_14": "Η σχέση ανάμεσα στην Ατομικότητα και την Ένωση",
+      "text_15": "Όταν η Ατομικότητα γίνεται πιο ξεκάθαρη",
+      "text_16": "Κατ’ αναλογία, όσο πιο ξεκάθαρη είναι η βίωση της Ατομικότητας, τόσο πιο διαθέσιμο είναι το άτομο για εμπειρίες βαθειάς Ένωσης, τόσο ενδο-οργανισμικά όσο και διαπροσωπικά, και της συνεπακόλουθης αίσθησης Ενότητας.",
+      "text_17": "Όταν η διαδικασία της Ένωσης μπλοκάρεται",
+      "text_18": "Όταν η διαδικασία Ένωσης του ανθρώπου με άλλα Συστήματα μπλοκάρεται, τότε παρεκκλίνει από το αίσθημα της Ενότητας και βιώνει το αίσθημα της Χωριστικότητας, δηλαδή αποσχισμένος, αποκομμένος, απομονωμένος.",
+      "text_19": "Ψυχοθεραπευτική διαδικασία",
+      "text_20": "Η Ένωση ως κεντρικός θεραπευτικός άξονας",
+      "text_21": "Ότι η διαδικασία της Ένωσης, οι συντελούμενες δυναμικές διεργασίες και η εμπειρία της Ενότητας με άλλα ενεργειακά συστήματα αποτελούν τους καταλυτικούς εκείνους παράγοντες που, όταν χρησιμοποιούνται ως κεντρικοί άξονες της ψυχοθεραπευτικής διαδικασίας, τότε ο θεραπευόμενος αποκτά την δυνατότητα να:",
+      "text_22": "Υποδεκτικότητα",
+      "text_23": "Βιώνει το αίσθημα της Υποδεκτικότητας από τον ψυχοθεραπευτή, η οποία αποτελεί τη θεμελιώδη προϋπόθεση προκειμένου ο θεραπευόμενος να μετασχηματίζει τα βαθύτερα τραύματα του επουλώνοντας τις ψυχικές του σχάσεις και ανακτώντας την απωλεσθείσα Ζωτική του Δύναμη.",
+      "text_24": "Ένωση με τον Πυρήνα της Ύπαρξης",
+      "text_25": "Βιώνει Ένωση με τον Πυρήνα της Ύπαρξής του και ως εκ τούτου ξανασυνδέεται με το ανεξάντλητο δυναμικό του και την υγιή Ατομικότητα του.",
+      "text_26": "Εξέλιξη της συνειδητότητας",
+      "text_27": "Εξελίσσει την συνειδητότητά του σε πολλαπλά επίπεδα.",
+      "image_01": "https://demo.unityenergetics.org/wp-content/uploads/2026/05/image.png",
+      "image_01_alt": "Unity Energetics Institute",
+      "image_02": "https://demo.unityenergetics.org/wp-content/uploads/2026/08/71ojUQV9MTL.jpg",
+      "image_02_alt": "",
+      "image_03": "https://demo.unityenergetics.org/wp-content/uploads/2026/08/91lDAbpnUbL._AC_UF350350_QL80_.jpg",
+      "image_03_alt": "",
+      "style_section_background": "#FFF9F3",
+      "style_card_background": "#FFFFFF",
+      "style_heading_color": "#174B49",
+      "style_body_color": "#667875",
+      "style_accent_color": "#008D8B",
+      "style_border_color": "#DDE4E2",
+      "style_heading_font": "Georgia, \"Times New Roman\", serif",
+      "style_body_font": "Arial, Helvetica, sans-serif",
+      "style_title_size": "clamp(2.4rem,5vw,4.6rem)",
+      "style_body_size": "0.98rem",
+      "style_line_height": "1.75",
+      "style_section_padding": "88px 0",
+      "style_card_radius": "24px",
+      "style_card_shadow": "0 16px 38px rgba(23,75,73,.07)",
+      "style_image_position": "center",
+    },
   },
   {
     key: "approach",
-    label: "Η Προσέγγιση",
-    description: "Τα κείμενα και οι εικόνες της ενότητας για τη Σωματικά Επικεντρωμένη Ψυχοθεραπεία Gestalt.",
-    connected: false,
+    label: "Η Προσέγγιση Σ.Ε.ΨΥ.G.",
+    description: "Η θεωρητική παρουσίαση της προσέγγισης, οι καταβολές και το Unity Energetics.",
+    connected: true,
     fields: [
-      { key: "title", label: "Τίτλος", kind: "text" },
-      { key: "intro", label: "Εισαγωγή", kind: "textarea" },
-      { key: "body", label: "Κύριο κείμενο", kind: "textarea" },
-      { key: "image", label: "Εικόνα", kind: "image" },
+      { key: "text_01", label: "Ετικέτα · Η προσέγγιση", kind: "text" },
+      { key: "text_02", label: "Τίτλος · Σωματικά Επικεντρωμένη Ψυχοθεραπεία Gestalt (Σ.Ε.ΨΥ.G.)", kind: "text" },
+      { key: "text_03", label: "Κείμενο · Η Σωματικά Επικεντρωμένη Ψυχοθεραπεία Gestalt (Σ.Ε.ΨΥ.G.) αποτελ…", kind: "textarea" },
+      { key: "text_04", label: "Ετικέτα · Αυτοτελής προσέγγιση", kind: "text" },
+      { key: "text_05", label: "Τίτλος · Με δική της θεωρητική θεμελίωση, μεθοδολογία και τεχνικές", kind: "text" },
+      { key: "text_06", label: "Κείμενο · Η Σ.Ε.ΨΥ.G. εντάσσεται στον ευρύτερο χώρο της Ραϊχικής Σωματικής…", kind: "textarea" },
+      { key: "text_07", label: "Ετικέτα · Θεωρητικό πλαίσιο και επιστημονική βάση", kind: "text" },
+      { key: "text_08", label: "Τίτλος · Τρεις βασικές ψυχοθεραπευτικές καταβολές", kind: "text" },
+      { key: "text_09", label: "Κείμενο · Η Σ.Ε.ΨΥ.G. αντλεί γνώση και εμπειρία από τρεις ευρέως αναγνωρισ…", kind: "textarea" },
+      { key: "text_10", label: "Τίτλος · Ραϊχική Σωματική Ψυχοθεραπεία", kind: "text" },
+      { key: "text_11", label: "Κείμενο · Η Ραϊχική Σωματική Ψυχοθεραπεία αποτελεί μία από τις βασικές θεω…", kind: "textarea" },
+      { key: "text_12", label: "Τίτλος · Κλασική Θεραπεία Gestalt", kind: "text" },
+      { key: "text_13", label: "Κείμενο · Η κλασική Θεραπεία Gestalt αποτελεί δεύτερο βασικό πυλώνα γνώσης…", kind: "textarea" },
+      { key: "text_14", label: "Τίτλος · Θεραπεία μέσω Αναδρομής", kind: "text" },
+      { key: "text_15", label: "Κείμενο · Η Θεραπεία μέσω Αναδρομής (Regression Therapy) συνεισφέρει επίση…", kind: "textarea" },
+      { key: "text_16", label: "Ετικέτα · Unity Energetics", kind: "text" },
+      { key: "text_17", label: "Τίτλος · Μια νέα οπτική ενοποίησης και μεθοδολογικής καινοτομίας", kind: "text" },
+      { key: "text_18", label: "Κείμενο · Η σχέση της με τις παραπάνω προσεγγίσεις δεν είναι συνθετική ή ε…", kind: "textarea" },
+      { key: "text_19", label: "Ετικέτα · ενοποιεί τις θεωρητικές τους βάσεις υπό μια νέα οπτική (Unity En…", kind: "text" },
+      { key: "text_20", label: "Ετικέτα · επεκτείνει το θεωρητικό τους πεδίο,", kind: "text" },
+      { key: "text_21", label: "Ετικέτα · και εισάγει μεθοδολογική καινοτομία, μέσα από προηγμένα ψυχοθερα…", kind: "text" },
+      { key: "text_22", label: "Ετικέτα · Κεντρικό οργανικό στοιχείο", kind: "text" },
+      { key: "text_23", label: "Τίτλος · Ψυχο-Ενεργειακή Θεραπεία", kind: "text" },
+      { key: "text_24", label: "Κείμενο · Κεντρικό και οργανικό στοιχείο της προσέγγισης αποτελεί η Ψυχο-Ε…", kind: "textarea" },
+      { key: "image_01", label: "Εικόνα 1", kind: "image" },
+      { key: "image_01_alt", label: "Εικόνα 1 · Alt / περιγραφή", kind: "text" },
+      { key: "image_02", label: "Εικόνα 2", kind: "image" },
+      { key: "image_02_alt", label: "Εικόνα 2 · Alt / περιγραφή", kind: "text" },
+      { key: "style_section_background", label: "Φόντο ενότητας", kind: "color", group: "appearance" },
+      { key: "style_card_background", label: "Φόντο καρτών", kind: "color", group: "appearance" },
+      { key: "style_heading_color", label: "Χρώμα τίτλων", kind: "color", group: "appearance" },
+      { key: "style_body_color", label: "Χρώμα κειμένου", kind: "color", group: "appearance" },
+      { key: "style_accent_color", label: "Accent χρώμα", kind: "color", group: "appearance" },
+      { key: "style_border_color", label: "Χρώμα borders", kind: "color", group: "appearance" },
+      { key: "style_heading_font", label: "Γραμματοσειρά τίτλων", kind: "select", group: "appearance", options: WEBSITE_FONT_OPTIONS },
+      { key: "style_body_font", label: "Γραμματοσειρά κειμένου", kind: "select", group: "appearance", options: WEBSITE_FONT_OPTIONS },
+      { key: "style_title_size", label: "Μέγεθος κύριου τίτλου", kind: "text", group: "appearance" },
+      { key: "style_body_size", label: "Μέγεθος κύριου κειμένου", kind: "text", group: "appearance" },
+      { key: "style_line_height", label: "Διάστιχο", kind: "text", group: "appearance" },
+      { key: "style_section_padding", label: "Κενό / padding ενότητας", kind: "text", group: "appearance" },
+      { key: "style_card_radius", label: "Border radius καρτών", kind: "text", group: "appearance" },
+      { key: "style_card_shadow", label: "Σκιά καρτών", kind: "text", group: "appearance" },
+      { key: "style_image_position", label: "Θέση εικόνας (object-position)", kind: "text", group: "appearance" },
     ],
-    defaults: {},
+    defaults: {
+      "text_01": "Η προσέγγιση",
+      "text_02": "Σωματικά Επικεντρωμένη Ψυχοθεραπεία Gestalt (Σ.Ε.ΨΥ.G.)",
+      "text_03": "Η Σωματικά Επικεντρωμένη Ψυχοθεραπεία Gestalt (Σ.Ε.ΨΥ.G.) αποτελεί μια σύγχρονη, πρωτοπόρα και επανορθωτική ψυχοθεραπευτική προσέγγιση, με άμεση και ουσιαστική θεραπευτική δράση στα βαθύτερα επίπεδα του ψυχικού τραύματος και της Ζωτικής Δύναμης του ανθρώπου. Στόχος της είναι η ενοποίηση, η ενδυνάμωση και η αποκατάσταση της εσωτερικής συνοχής του ατόμου, μέσα από μια βαθιά βιωματική θεραπευτική διαδικασία.",
+      "text_04": "Αυτοτελής προσέγγιση",
+      "text_05": "Με δική της θεωρητική θεμελίωση, μεθοδολογία και τεχνικές",
+      "text_06": "Η Σ.Ε.ΨΥ.G. εντάσσεται στον ευρύτερο χώρο της Ραϊχικής Σωματικής Ψυχοθεραπείας, ωστόσο συνιστά μια αυτοτελή και ολοκληρωμένη ψυχοθεραπευτική πρόταση, με δική της θεωρητική θεμελίωση, μεθοδολογία και εξειδικευμένες τεχνικές. Διακρίνεται για την αποτελεσματικότητά της στην επεξεργασία τόσο του ατομικού όσο και του προγονικού (διαγενεακού) τραύματος, επενεργώντας άμεσα στον τραυματισμένο Ψυχικό Πυρήνα του θεραπευόμενου.",
+      "text_07": "Θεωρητικό πλαίσιο και επιστημονική βάση",
+      "text_08": "Τρεις βασικές ψυχοθεραπευτικές καταβολές",
+      "text_09": "Η Σ.Ε.ΨΥ.G. αντλεί γνώση και εμπειρία από τρεις ευρέως αναγνωρισμένες και επιδραστικές ψυχοθεραπευτικές προσεγγίσεις:",
+      "text_10": "Ραϊχική Σωματική Ψυχοθεραπεία",
+      "text_11": "Η Ραϊχική Σωματική Ψυχοθεραπεία αποτελεί μία από τις βασικές θεωρητικές και βιωματικές καταβολές της προσέγγισης.",
+      "text_12": "Κλασική Θεραπεία Gestalt",
+      "text_13": "Η κλασική Θεραπεία Gestalt αποτελεί δεύτερο βασικό πυλώνα γνώσης και εμπειρίας για την ανάπτυξη της Σ.Ε.ΨΥ.G.",
+      "text_14": "Θεραπεία μέσω Αναδρομής",
+      "text_15": "Η Θεραπεία μέσω Αναδρομής (Regression Therapy) συνεισφέρει επίσης στο θεωρητικό και θεραπευτικό πεδίο της προσέγγισης.",
+      "text_16": "Unity Energetics",
+      "text_17": "Μια νέα οπτική ενοποίησης και μεθοδολογικής καινοτομίας",
+      "text_18": "Η σχέση της με τις παραπάνω προσεγγίσεις δεν είναι συνθετική ή εκλεκτικιστική. Η Σ.Ε.ΨΥ.G.:",
+      "text_19": "ενοποιεί τις θεωρητικές τους βάσεις υπό μια νέα οπτική (Unity Energetics),",
+      "text_20": "επεκτείνει το θεωρητικό τους πεδίο,",
+      "text_21": "και εισάγει μεθοδολογική καινοτομία, μέσα από προηγμένα ψυχοθεραπευτικά εργαλεία και πρωτότυπες τεχνικές.",
+      "text_22": "Κεντρικό οργανικό στοιχείο",
+      "text_23": "Ψυχο-Ενεργειακή Θεραπεία",
+      "text_24": "Κεντρικό και οργανικό στοιχείο της προσέγγισης αποτελεί η Ψυχο-Ενεργειακή Θεραπεία, θεραπευτική γνώση του Unity Energetics Institute (από το 1988), η οποία ενσωματώνεται ουσιαστικά στη θεραπευτική διαδικασία.",
+      "image_01": "https://demo.unityenergetics.org/wp-content/uploads/2026/08/drawing-man-with-words-word-it_944525-52084.avif",
+      "image_01_alt": "",
+      "image_02": "https://demo.unityenergetics.org/wp-content/uploads/2026/08/Breathing-Exercise.avif",
+      "image_02_alt": "",
+      "style_section_background": "#FFF9F3",
+      "style_card_background": "#FFFFFF",
+      "style_heading_color": "#174B49",
+      "style_body_color": "#667875",
+      "style_accent_color": "#008D8B",
+      "style_border_color": "#DDE4E2",
+      "style_heading_font": "Georgia, \"Times New Roman\", serif",
+      "style_body_font": "Arial, Helvetica, sans-serif",
+      "style_title_size": "clamp(2.35rem,5vw,4.4rem)",
+      "style_body_size": "0.98rem",
+      "style_line_height": "1.75",
+      "style_section_padding": "88px 0",
+      "style_card_radius": "24px",
+      "style_card_shadow": "0 16px 38px rgba(23,75,73,.07)",
+      "style_image_position": "center",
+    },
   },
   {
-    key: "activities",
-    label: "Δράσεις",
-    description: "Ο τίτλος και τα σταθερά εισαγωγικά κείμενα γύρω από το ημερολόγιο δράσεων.",
-    connected: false,
+    key: "members_friends",
+    label: "Μέλη & Φίλοι",
+    description: "Το δημόσιο block Μελών & Φίλων. Τα ονόματα/μετρητές παραμένουν δυναμικά από τη Διαχείριση Συλλόγου.",
+    connected: true,
     fields: [
-      { key: "eyebrow", label: "Μικρός τίτλος", kind: "text" },
-      { key: "title", label: "Τίτλος", kind: "text" },
-      { key: "intro", label: "Εισαγωγικό κείμενο", kind: "textarea" },
+      { key: "text_01", label: "Ετικέτα · Η κοινότητά μας", kind: "text" },
+      { key: "text_02", label: "Τίτλος · Μέλη & Φίλοι Συλλόγου", kind: "text" },
+      { key: "text_03", label: "Κείμενο · Οι άνθρωποι που αποτελούν και στηρίζουν την κοινότητα του Πανευρ…", kind: "textarea" },
+      { key: "text_04", label: "Ετικέτα · Η κοινότητά μας", kind: "text" },
+      { key: "text_05", label: "Τίτλος · Μέλη Συλλόγου", kind: "text" },
+      { key: "text_06", label: "Ετικέτα · Στηρίζουν τον Σύλλογο", kind: "text" },
+      { key: "text_07", label: "Τίτλος · Φίλοι Συλλόγου", kind: "text" },
+      { key: "image_01", label: "Εικόνα 1", kind: "image" },
+      { key: "image_01_alt", label: "Εικόνα 1 · Alt / περιγραφή", kind: "text" },
+      { key: "style_section_background", label: "Φόντο ενότητας", kind: "color", group: "appearance" },
+      { key: "style_card_background", label: "Φόντο καρτών", kind: "color", group: "appearance" },
+      { key: "style_heading_color", label: "Χρώμα τίτλων", kind: "color", group: "appearance" },
+      { key: "style_body_color", label: "Χρώμα κειμένου", kind: "color", group: "appearance" },
+      { key: "style_accent_color", label: "Accent χρώμα", kind: "color", group: "appearance" },
+      { key: "style_border_color", label: "Χρώμα borders", kind: "color", group: "appearance" },
+      { key: "style_heading_font", label: "Γραμματοσειρά τίτλων", kind: "select", group: "appearance", options: WEBSITE_FONT_OPTIONS },
+      { key: "style_body_font", label: "Γραμματοσειρά κειμένου", kind: "select", group: "appearance", options: WEBSITE_FONT_OPTIONS },
+      { key: "style_title_size", label: "Μέγεθος κύριου τίτλου", kind: "text", group: "appearance" },
+      { key: "style_body_size", label: "Μέγεθος κύριου κειμένου", kind: "text", group: "appearance" },
+      { key: "style_line_height", label: "Διάστιχο", kind: "text", group: "appearance" },
+      { key: "style_section_padding", label: "Κενό / padding ενότητας", kind: "text", group: "appearance" },
+      { key: "style_card_radius", label: "Border radius καρτών", kind: "text", group: "appearance" },
+      { key: "style_card_shadow", label: "Σκιά καρτών", kind: "text", group: "appearance" },
+      { key: "style_image_position", label: "Θέση εικόνας (object-position)", kind: "text", group: "appearance" },
     ],
-    defaults: {},
+    defaults: {
+      "text_01": "Η κοινότητά μας",
+      "text_02": "Μέλη & Φίλοι Συλλόγου",
+      "text_03": "Οι άνθρωποι που αποτελούν και στηρίζουν την κοινότητα του Πανευρωπαϊκού Επιστημονικού Συλλόγου Σ.Ε.ΨΥ.G.",
+      "text_04": "Η κοινότητά μας",
+      "text_05": "Μέλη Συλλόγου",
+      "text_06": "Στηρίζουν τον Σύλλογο",
+      "text_07": "Φίλοι Συλλόγου",
+      "image_01": "https://demo.unityenergetics.org/wp-content/uploads/2026/08/group-of-business-team-members-raising-hands-in-the-sunset-sky-background-to-depict-teamwork-free-photo-1.jpg",
+      "image_01_alt": "Η κοινότητα του Συλλόγου",
+      "style_section_background": "#FFF9F3",
+      "style_card_background": "#FFFFFF",
+      "style_heading_color": "#174B49",
+      "style_body_color": "#627472",
+      "style_accent_color": "#008D8B",
+      "style_border_color": "#DDE4E2",
+      "style_heading_font": "Georgia, \"Times New Roman\", serif",
+      "style_body_font": "Arial, Helvetica, sans-serif",
+      "style_title_size": "clamp(2.3rem,5vw,4.2rem)",
+      "style_body_size": "0.98rem",
+      "style_line_height": "1.72",
+      "style_section_padding": "72px 7vw",
+      "style_card_radius": "14px",
+      "style_card_shadow": "none",
+      "style_image_position": "center",
+    },
+  },
+  {
+    key: "board_public",
+    label: "Διοικητικό Συμβούλιο · Δημόσιο",
+    description: "Το δημόσιο block του Διοικητικού. Τα πρόσωπα/ρόλοι παραμένουν δυναμικά από τη Διαχείριση Συλλόγου.",
+    connected: true,
+    fields: [
+      { key: "text_01", label: "Ετικέτα · Διοίκηση του Συλλόγου", kind: "text" },
+      { key: "text_02", label: "Τίτλος · Διοικητικό Συμβούλιο", kind: "text" },
+      { key: "text_03", label: "Κείμενο · Τα μέλη του Διοικητικού Συμβουλίου του Πανευρωπαϊκού Επιστημονικ…", kind: "textarea" },
+      { key: "text_04", label: "Ετικέτα · Θητείες", kind: "text" },
+      { key: "text_05", label: "Τίτλος · Διοικητικά Συμβούλια", kind: "text" },
+      { key: "image_01", label: "Εικόνα 1", kind: "image" },
+      { key: "image_01_alt", label: "Εικόνα 1 · Alt / περιγραφή", kind: "text" },
+      { key: "style_section_background", label: "Φόντο ενότητας", kind: "color", group: "appearance" },
+      { key: "style_card_background", label: "Φόντο καρτών", kind: "color", group: "appearance" },
+      { key: "style_heading_color", label: "Χρώμα τίτλων", kind: "color", group: "appearance" },
+      { key: "style_body_color", label: "Χρώμα κειμένου", kind: "color", group: "appearance" },
+      { key: "style_accent_color", label: "Accent χρώμα", kind: "color", group: "appearance" },
+      { key: "style_border_color", label: "Χρώμα borders", kind: "color", group: "appearance" },
+      { key: "style_heading_font", label: "Γραμματοσειρά τίτλων", kind: "select", group: "appearance", options: WEBSITE_FONT_OPTIONS },
+      { key: "style_body_font", label: "Γραμματοσειρά κειμένου", kind: "select", group: "appearance", options: WEBSITE_FONT_OPTIONS },
+      { key: "style_title_size", label: "Μέγεθος κύριου τίτλου", kind: "text", group: "appearance" },
+      { key: "style_body_size", label: "Μέγεθος κύριου κειμένου", kind: "text", group: "appearance" },
+      { key: "style_line_height", label: "Διάστιχο", kind: "text", group: "appearance" },
+      { key: "style_section_padding", label: "Κενό / padding ενότητας", kind: "text", group: "appearance" },
+      { key: "style_card_radius", label: "Border radius καρτών", kind: "text", group: "appearance" },
+      { key: "style_card_shadow", label: "Σκιά καρτών", kind: "text", group: "appearance" },
+      { key: "style_image_position", label: "Θέση εικόνας (object-position)", kind: "text", group: "appearance" },
+    ],
+    defaults: {
+      "text_01": "Διοίκηση του Συλλόγου",
+      "text_02": "Διοικητικό Συμβούλιο",
+      "text_03": "Τα μέλη του Διοικητικού Συμβουλίου του Πανευρωπαϊκού Επιστημονικού Συλλόγου Σ.Ε.ΨΥ.G. ανά περίοδο θητείας.",
+      "text_04": "Θητείες",
+      "text_05": "Διοικητικά Συμβούλια",
+      "image_01": "https://demo.unityenergetics.org/wp-content/uploads/2026/08/group-of-business-team-members-raising-hands-in-the-sunset-sky-background-to-depict-teamwork-free-photo-1.jpg",
+      "image_01_alt": "Διοικητικό Συμβούλιο",
+      "style_section_background": "#FFF9F3",
+      "style_card_background": "#FFFFFF",
+      "style_heading_color": "#174B49",
+      "style_body_color": "#627472",
+      "style_accent_color": "#008D8B",
+      "style_border_color": "#DDE4E2",
+      "style_heading_font": "Georgia, \"Times New Roman\", serif",
+      "style_body_font": "Arial, Helvetica, sans-serif",
+      "style_title_size": "clamp(2.3rem,5vw,4.2rem)",
+      "style_body_size": "0.98rem",
+      "style_line_height": "1.72",
+      "style_section_padding": "72px 7vw",
+      "style_card_radius": "24px",
+      "style_card_shadow": "0 14px 34px rgba(23,75,73,.06)",
+      "style_image_position": "center",
+    },
+  },
+  {
+    key: "therapists_public",
+    label: "Θεραπευτές Συλλόγου · Δημόσιο",
+    description: "Το εισαγωγικό block του χάρτη θεραπευτών. Τα προφίλ παραμένουν στο σύστημα Χάρτη.",
+    connected: true,
+    fields: [
+      { key: "text_01", label: "Ετικέτα · Δίκτυο θεραπευτών", kind: "text" },
+      { key: "text_02", label: "Τίτλος · Θεραπευτές του Συλλόγου", kind: "text" },
+      { key: "text_03", label: "Κείμενο · Γνώρισε τους θεραπευτές του Πανευρωπαϊκού Επιστημονικού Συλλόγου…", kind: "textarea" },
+      { key: "text_04", label: "Κείμενο · Επίλεξε μια πινέζα ή μια περιοχή και δες παρακάτω όλους τους θερ…", kind: "textarea" },
+      { key: "image_01", label: "Εικόνα 1", kind: "image" },
+      { key: "image_01_alt", label: "Εικόνα 1 · Alt / περιγραφή", kind: "text" },
+      { key: "style_section_background", label: "Φόντο ενότητας", kind: "color", group: "appearance" },
+      { key: "style_card_background", label: "Φόντο καρτών", kind: "color", group: "appearance" },
+      { key: "style_heading_color", label: "Χρώμα τίτλων", kind: "color", group: "appearance" },
+      { key: "style_body_color", label: "Χρώμα κειμένου", kind: "color", group: "appearance" },
+      { key: "style_accent_color", label: "Accent χρώμα", kind: "color", group: "appearance" },
+      { key: "style_border_color", label: "Χρώμα borders", kind: "color", group: "appearance" },
+      { key: "style_heading_font", label: "Γραμματοσειρά τίτλων", kind: "select", group: "appearance", options: WEBSITE_FONT_OPTIONS },
+      { key: "style_body_font", label: "Γραμματοσειρά κειμένου", kind: "select", group: "appearance", options: WEBSITE_FONT_OPTIONS },
+      { key: "style_title_size", label: "Μέγεθος κύριου τίτλου", kind: "text", group: "appearance" },
+      { key: "style_body_size", label: "Μέγεθος κύριου κειμένου", kind: "text", group: "appearance" },
+      { key: "style_line_height", label: "Διάστιχο", kind: "text", group: "appearance" },
+      { key: "style_section_padding", label: "Κενό / padding ενότητας", kind: "text", group: "appearance" },
+      { key: "style_card_radius", label: "Border radius καρτών", kind: "text", group: "appearance" },
+      { key: "style_card_shadow", label: "Σκιά καρτών", kind: "text", group: "appearance" },
+      { key: "style_image_position", label: "Θέση εικόνας (object-position)", kind: "text", group: "appearance" },
+    ],
+    defaults: {
+      "text_01": "Δίκτυο θεραπευτών",
+      "text_02": "Θεραπευτές του Συλλόγου",
+      "text_03": "Γνώρισε τους θεραπευτές του Πανευρωπαϊκού Επιστημονικού Συλλόγου Σ.Ε.ΨΥ.G. και αναζήτησε τον επαγγελματία που βρίσκεται στην περιοχή που σε ενδιαφέρει.",
+      "text_04": "Επίλεξε μια πινέζα ή μια περιοχή και δες παρακάτω όλους τους θεραπευτές οργανωμένους ανά περιοχή.",
+      "image_01": "https://demo.unityenergetics.org/wp-content/uploads/2026/08/360_F_603211204_pC06ntrzN95QQLs0J0DVTwlNAFqZUjFJ-1.jpg",
+      "image_01_alt": "Θεραπευτές του Συλλόγου Σ.Ε.ΨΥ.G.",
+      "style_section_background": "#FFF9F3",
+      "style_card_background": "#FFFFFF",
+      "style_heading_color": "#174B49",
+      "style_body_color": "#627472",
+      "style_accent_color": "#008D8B",
+      "style_border_color": "#DDE4E2",
+      "style_heading_font": "Georgia, \"Times New Roman\", serif",
+      "style_body_font": "Arial, Helvetica, sans-serif",
+      "style_title_size": "clamp(2.4rem,5vw,4.4rem)",
+      "style_body_size": "0.98rem",
+      "style_line_height": "1.75",
+      "style_section_padding": "70px 6vw",
+      "style_card_radius": "24px",
+      "style_card_shadow": "none",
+      "style_image_position": "center",
+    },
+  },
+  {
+    key: "become_member",
+    label: "Γίνε Μέλος · Παρουσίαση",
+    description: "Η αναλυτική ενότητα για μέλη/φίλους και τα οφέλη συμμετοχής.",
+    connected: true,
+    fields: [
+      { key: "text_01", label: "Ετικέτα · Γίνε μέλος", kind: "text" },
+      { key: "text_02", label: "Τίτλος · Μια ανοιχτή κοινότητα", kind: "text" },
+      { key: "text_03", label: "Κείμενο · Ο Πανευρωπαϊκός Επιστημονικός Σύλλογος Σ.Ε.ΨΥ.G. είναι μια ανοιχ…", kind: "textarea" },
+      { key: "text_04", label: "Κείμενο · Στόχος μας είναι να δημιουργούμε έναν χώρο επικοινωνίας, ανταλλα…", kind: "textarea" },
+      { key: "text_05", label: "Τίτλος · Απευθυνόμαστε σε σένα αν είσαι:", kind: "text" },
+      { key: "text_06", label: "Κείμενο · Επαγγελματίας ή εκπαιδευόμενος/η στην Ψυχοθεραπεία και στη Συμβο…", kind: "textarea" },
+      { key: "text_07", label: "Κείμενο · Επαγγελματίας συγγενούς πεδίου.", kind: "textarea" },
+      { key: "text_08", label: "Κείμενο · Άνθρωπος που ενδιαφέρεται για την αυτογνωσία, την προσωπική ανάπ…", kind: "textarea" },
+      { key: "text_09", label: "Ετικέτα · Η συμμετοχή σου στον Σύλλογο δεν προϋποθέτει ειδικές γνώσεις ή ε…", kind: "textarea" },
+      { key: "text_10", label: "Τίτλος · Ως Φίλος του Συλλόγου", kind: "text" },
+      { key: "text_11", label: "Κείμενο · Οι Φίλοι του Σ.Ε.ΨΥ.G. έχουν τη δυνατότητα να βρίσκονται πιο κον…", kind: "textarea" },
+      { key: "text_12", label: "Τίτλος · Ενημέρωση σε όλες τις δράσεις", kind: "text" },
+      { key: "text_13", label: "Κείμενο · Μέσω email ενημερώνεσαι για όλα τα βιωματικά εργαστήρια, τα σεμι…", kind: "textarea" },
+      { key: "text_14", label: "Τίτλος · Ειδικές εκπτώσεις", kind: "text" },
+      { key: "text_15", label: "Κείμενο · Στις δράσεις του Συλλόγου που έχουν οικονομική συμμετοχή, απολαμ…", kind: "textarea" },
+      { key: "text_16", label: "Τίτλος · Συνεργαζόμενοι θεραπευτές", kind: "text" },
+      { key: "text_17", label: "Κείμενο · Μπορείς να απευθύνεσαι σε θεραπευτές που συνεργάζονται με τον Σύ…", kind: "textarea" },
+      { key: "text_18", label: "Τίτλος · Στηρίζεις την κοινότητα", kind: "text" },
+      { key: "text_19", label: "Κείμενο · Συμμετέχεις ενεργά σε μια κοινότητα ανθρώπων με κοινές αναζητήσε…", kind: "textarea" },
+      { key: "text_20", label: "Τίτλος · Δήλωσε ενδιαφέρον", kind: "text" },
+      { key: "text_21", label: "Κείμενο · Συμπλήρωσε τη φόρμα παρακάτω — τα στοιχεία σου φτάνουν αυτόματα …", kind: "textarea" },
+      { key: "image_01", label: "Εικόνα 1", kind: "image" },
+      { key: "image_01_alt", label: "Εικόνα 1 · Alt / περιγραφή", kind: "text" },
+      { key: "frame_01_url", label: "URL ενσωματωμένης φόρμας / iframe 1", kind: "url" },
+      { key: "style_section_background", label: "Φόντο ενότητας", kind: "color", group: "appearance" },
+      { key: "style_card_background", label: "Φόντο καρτών", kind: "color", group: "appearance" },
+      { key: "style_heading_color", label: "Χρώμα τίτλων", kind: "color", group: "appearance" },
+      { key: "style_body_color", label: "Χρώμα κειμένου", kind: "color", group: "appearance" },
+      { key: "style_accent_color", label: "Accent χρώμα", kind: "color", group: "appearance" },
+      { key: "style_border_color", label: "Χρώμα borders", kind: "color", group: "appearance" },
+      { key: "style_heading_font", label: "Γραμματοσειρά τίτλων", kind: "select", group: "appearance", options: WEBSITE_FONT_OPTIONS },
+      { key: "style_body_font", label: "Γραμματοσειρά κειμένου", kind: "select", group: "appearance", options: WEBSITE_FONT_OPTIONS },
+      { key: "style_title_size", label: "Μέγεθος κύριου τίτλου", kind: "text", group: "appearance" },
+      { key: "style_body_size", label: "Μέγεθος κύριου κειμένου", kind: "text", group: "appearance" },
+      { key: "style_line_height", label: "Διάστιχο", kind: "text", group: "appearance" },
+      { key: "style_section_padding", label: "Κενό / padding ενότητας", kind: "text", group: "appearance" },
+      { key: "style_card_radius", label: "Border radius καρτών", kind: "text", group: "appearance" },
+      { key: "style_card_shadow", label: "Σκιά καρτών", kind: "text", group: "appearance" },
+      { key: "style_image_position", label: "Θέση εικόνας (object-position)", kind: "text", group: "appearance" },
+    ],
+    defaults: {
+      "text_01": "Γίνε μέλος",
+      "text_02": "Μια ανοιχτή κοινότητα",
+      "text_03": "Ο Πανευρωπαϊκός Επιστημονικός Σύλλογος Σ.Ε.ΨΥ.G. είναι μια ανοιχτή κοινότητα ανθρώπων που συναντιούνται μέσα από ένα κοινό ενδιαφέρον για το σώμα, τη σχέση, την αυτογνωσία και τη βιωμένη εμπειρία στο εδώ και τώρα.",
+      "text_04": "Στόχος μας είναι να δημιουργούμε έναν χώρο επικοινωνίας, ανταλλαγής, μάθησης και ουσιαστικής επαφής, μέσα από εκπαιδευτικές, επιστημονικές και βιωματικές δράσεις που φέρνουν τους ανθρώπους πιο κοντά στον εαυτό τους και στους άλλους.",
+      "text_05": "Απευθυνόμαστε σε σένα αν είσαι:",
+      "text_06": "Επαγγελματίας ή εκπαιδευόμενος/η στην Ψυχοθεραπεία και στη Συμβουλευτική της προσέγγισης Gestalt.",
+      "text_07": "Επαγγελματίας συγγενούς πεδίου.",
+      "text_08": "Άνθρωπος που ενδιαφέρεται για την αυτογνωσία, την προσωπική ανάπτυξη και τη σχέση σώματος–ψυχισμού.",
+      "text_09": "Η συμμετοχή σου στον Σύλλογο δεν προϋποθέτει ειδικές γνώσεις ή επαγγελματική ιδιότητα. Χρειάζεται μόνο ενδιαφέρον, διάθεση για επαφή, συμμετοχή και παρουσία.",
+      "text_10": "Ως Φίλος του Συλλόγου",
+      "text_11": "Οι Φίλοι του Σ.Ε.ΨΥ.G. έχουν τη δυνατότητα να βρίσκονται πιο κοντά στις δράσεις και στην κοινότητά μας.",
+      "text_12": "Ενημέρωση σε όλες τις δράσεις",
+      "text_13": "Μέσω email ενημερώνεσαι για όλα τα βιωματικά εργαστήρια, τα σεμινάρια, τις εκπαιδεύσεις και τις πρωτοβουλίες του Συλλόγου — δωρεάν ή με κόστος συμμετοχής.",
+      "text_14": "Ειδικές εκπτώσεις",
+      "text_15": "Στις δράσεις του Συλλόγου που έχουν οικονομική συμμετοχή, απολαμβάνεις ειδικές εκπτώσεις και προνομιακές τιμές.",
+      "text_16": "Συνεργαζόμενοι θεραπευτές",
+      "text_17": "Μπορείς να απευθύνεσαι σε θεραπευτές που συνεργάζονται με τον Σύλλογο και, όπου είναι διαθέσιμο, να επωφελείσαι από ειδική τιμή Φίλου.",
+      "text_18": "Στηρίζεις την κοινότητα",
+      "text_19": "Συμμετέχεις ενεργά σε μια κοινότητα ανθρώπων με κοινές αναζητήσεις και στηρίζεις τη συνέχιση των ανοιχτών, δωρεάν πρωτοβουλιών του Συλλόγου.",
+      "text_20": "Δήλωσε ενδιαφέρον",
+      "text_21": "Συμπλήρωσε τη φόρμα παρακάτω — τα στοιχεία σου φτάνουν αυτόματα σε εμάς.",
+      "image_01": "https://demo.unityenergetics.org/wp-content/uploads/2026/08/360_F_603211204_pC06ntrzN95QQLs0J0DVTwlNAFqZUjFJ.jpg",
+      "image_01_alt": "",
+      "frame_01_url": "https://docs.google.com/forms/d/e/1FAIpQLSdFuxPE_hY4hYftsEd-jC2t_lDaB0tFW8I8ZKTI9foopZEJCw/viewform?embedded=true",
+      "style_section_background": "#FFF9F3",
+      "style_card_background": "#FFFFFF",
+      "style_heading_color": "#174B49",
+      "style_body_color": "#627472",
+      "style_accent_color": "#008D8B",
+      "style_border_color": "#DDE4E2",
+      "style_heading_font": "Georgia, \"Times New Roman\", serif",
+      "style_body_font": "Arial, Helvetica, sans-serif",
+      "style_title_size": "clamp(2.45rem,5vw,4.4rem)",
+      "style_body_size": "0.98rem",
+      "style_line_height": "1.75",
+      "style_section_padding": "94px 0",
+      "style_card_radius": "24px",
+      "style_card_shadow": "0 16px 38px rgba(23,75,73,.07)",
+      "style_image_position": "center",
+    },
+  },
+  {
+    key: "menu",
+    label: "Header / Menu",
+    description: "Logo, ονομασία, labels και links του κεντρικού menu.",
+    connected: true,
+    fields: [
+      { key: "text_01", label: "Μικρό κείμενο · Πανευρωπαϊκός Επιστημονικός Σύλλογος", kind: "text" },
+      { key: "text_02", label: "Menu · Ο Σύλλογος ⌄", kind: "text" },
+      { key: "text_03", label: "Κουμπί / σύνδεσμος · Αρχική", kind: "text" },
+      { key: "text_04", label: "Κουμπί / σύνδεσμος · Το όραμά μας", kind: "text" },
+      { key: "text_05", label: "Menu · Η Προσέγγιση ⌄", kind: "text" },
+      { key: "text_06", label: "Κουμπί / σύνδεσμος · Η Προσέγγιση Σ.Ε.ΨΥ.G.", kind: "text" },
+      { key: "text_07", label: "Κουμπί / σύνδεσμος · Unity Energetics Institute", kind: "text" },
+      { key: "text_08", label: "Κουμπί / σύνδεσμος · Δράσεις", kind: "text" },
+      { key: "text_09", label: "Κουμπί / σύνδεσμος · Άρθρα", kind: "text" },
+      { key: "text_10", label: "Menu · Μέλη Συλλόγου ⌄", kind: "text" },
+      { key: "text_11", label: "Κουμπί / σύνδεσμος · Μέλη Συλλόγου", kind: "text" },
+      { key: "text_12", label: "Κουμπί / σύνδεσμος · Θεραπευτές Συλλόγου", kind: "text" },
+      { key: "text_13", label: "Κουμπί / σύνδεσμος · Διοικητικό Συμβούλιο", kind: "text" },
+      { key: "text_14", label: "Κουμπί / σύνδεσμος · Γίνε Μέλος", kind: "text" },
+      { key: "text_15", label: "Κουμπί / σύνδεσμος · Επικοινωνία", kind: "text" },
+      { key: "text_16", label: "Κουμπί / σύνδεσμος · Login", kind: "text" },
+      { key: "text_17", label: "Menu · Ο Σύλλογος ＋", kind: "text" },
+      { key: "text_18", label: "Κουμπί / σύνδεσμος · Αρχική", kind: "text" },
+      { key: "text_19", label: "Κουμπί / σύνδεσμος · Το όραμά μας", kind: "text" },
+      { key: "text_20", label: "Menu · Η Προσέγγιση ＋", kind: "text" },
+      { key: "text_21", label: "Κουμπί / σύνδεσμος · Η Προσέγγιση Σ.Ε.ΨΥ.G.", kind: "text" },
+      { key: "text_22", label: "Κουμπί / σύνδεσμος · Unity Energetics Institute", kind: "text" },
+      { key: "text_23", label: "Κουμπί / σύνδεσμος · Δράσεις", kind: "text" },
+      { key: "text_24", label: "Κουμπί / σύνδεσμος · Άρθρα", kind: "text" },
+      { key: "text_25", label: "Menu · Μέλη Συλλόγου ＋", kind: "text" },
+      { key: "text_26", label: "Κουμπί / σύνδεσμος · Μέλη Συλλόγου", kind: "text" },
+      { key: "text_27", label: "Κουμπί / σύνδεσμος · Θεραπευτές Συλλόγου", kind: "text" },
+      { key: "text_28", label: "Κουμπί / σύνδεσμος · Διοικητικό Συμβούλιο", kind: "text" },
+      { key: "text_29", label: "Κουμπί / σύνδεσμος · Γίνε Μέλος", kind: "text" },
+      { key: "text_30", label: "Κουμπί / σύνδεσμος · Επικοινωνία", kind: "text" },
+      { key: "text_31", label: "Κουμπί / σύνδεσμος · Login", kind: "text" },
+      { key: "link_01_url", label: "URL · Σ.Ε.ΨΥ.G. Πανευρωπαϊκός Επιστημονικός Σύλλογος", kind: "url" },
+      { key: "link_02_url", label: "URL · Αρχική", kind: "url" },
+      { key: "link_03_url", label: "URL · Το όραμά μας", kind: "url" },
+      { key: "link_04_url", label: "URL · Η Προσέγγιση Σ.Ε.ΨΥ.G.", kind: "url" },
+      { key: "link_05_url", label: "URL · Unity Energetics Institute", kind: "url" },
+      { key: "link_06_url", label: "URL · Δράσεις", kind: "url" },
+      { key: "link_07_url", label: "URL · Άρθρα", kind: "url" },
+      { key: "link_08_url", label: "URL · Μέλη Συλλόγου", kind: "url" },
+      { key: "link_09_url", label: "URL · Θεραπευτές Συλλόγου", kind: "url" },
+      { key: "link_10_url", label: "URL · Διοικητικό Συμβούλιο", kind: "url" },
+      { key: "link_11_url", label: "URL · Γίνε Μέλος", kind: "url" },
+      { key: "link_12_url", label: "URL · Επικοινωνία", kind: "url" },
+      { key: "link_13_url", label: "URL · Login", kind: "url" },
+      { key: "link_14_url", label: "URL · Αρχική", kind: "url" },
+      { key: "link_15_url", label: "URL · Το όραμά μας", kind: "url" },
+      { key: "link_16_url", label: "URL · Η Προσέγγιση Σ.Ε.ΨΥ.G.", kind: "url" },
+      { key: "link_17_url", label: "URL · Unity Energetics Institute", kind: "url" },
+      { key: "link_18_url", label: "URL · Δράσεις", kind: "url" },
+      { key: "link_19_url", label: "URL · Άρθρα", kind: "url" },
+      { key: "link_20_url", label: "URL · Μέλη Συλλόγου", kind: "url" },
+      { key: "link_21_url", label: "URL · Θεραπευτές Συλλόγου", kind: "url" },
+      { key: "link_22_url", label: "URL · Διοικητικό Συμβούλιο", kind: "url" },
+      { key: "link_23_url", label: "URL · Γίνε Μέλος", kind: "url" },
+      { key: "link_24_url", label: "URL · Επικοινωνία", kind: "url" },
+      { key: "link_25_url", label: "URL · Login", kind: "url" },
+      { key: "style_section_background", label: "Φόντο ενότητας", kind: "color", group: "appearance" },
+      { key: "style_card_background", label: "Φόντο καρτών", kind: "color", group: "appearance" },
+      { key: "style_heading_color", label: "Χρώμα τίτλων", kind: "color", group: "appearance" },
+      { key: "style_body_color", label: "Χρώμα κειμένου", kind: "color", group: "appearance" },
+      { key: "style_accent_color", label: "Accent χρώμα", kind: "color", group: "appearance" },
+      { key: "style_border_color", label: "Χρώμα borders", kind: "color", group: "appearance" },
+      { key: "style_heading_font", label: "Γραμματοσειρά τίτλων", kind: "select", group: "appearance", options: WEBSITE_FONT_OPTIONS },
+      { key: "style_body_font", label: "Γραμματοσειρά κειμένου", kind: "select", group: "appearance", options: WEBSITE_FONT_OPTIONS },
+      { key: "style_title_size", label: "Μέγεθος κύριου τίτλου", kind: "text", group: "appearance" },
+      { key: "style_body_size", label: "Μέγεθος κύριου κειμένου", kind: "text", group: "appearance" },
+      { key: "style_line_height", label: "Διάστιχο", kind: "text", group: "appearance" },
+      { key: "style_section_padding", label: "Κενό / padding ενότητας", kind: "text", group: "appearance" },
+      { key: "style_card_radius", label: "Border radius καρτών", kind: "text", group: "appearance" },
+      { key: "style_card_shadow", label: "Σκιά καρτών", kind: "text", group: "appearance" },
+      { key: "style_image_position", label: "Θέση εικόνας (object-position)", kind: "text", group: "appearance" },
+    ],
+    defaults: {
+      "text_01": "Πανευρωπαϊκός Επιστημονικός Σύλλογος",
+      "text_02": "Ο Σύλλογος ⌄",
+      "text_03": "Αρχική",
+      "text_04": "Το όραμά μας",
+      "text_05": "Η Προσέγγιση ⌄",
+      "text_06": "Η Προσέγγιση Σ.Ε.ΨΥ.G.",
+      "text_07": "Unity Energetics Institute",
+      "text_08": "Δράσεις",
+      "text_09": "Άρθρα",
+      "text_10": "Μέλη Συλλόγου ⌄",
+      "text_11": "Μέλη Συλλόγου",
+      "text_12": "Θεραπευτές Συλλόγου",
+      "text_13": "Διοικητικό Συμβούλιο",
+      "text_14": "Γίνε Μέλος",
+      "text_15": "Επικοινωνία",
+      "text_16": "Login",
+      "text_17": "Ο Σύλλογος ＋",
+      "text_18": "Αρχική",
+      "text_19": "Το όραμά μας",
+      "text_20": "Η Προσέγγιση ＋",
+      "text_21": "Η Προσέγγιση Σ.Ε.ΨΥ.G.",
+      "text_22": "Unity Energetics Institute",
+      "text_23": "Δράσεις",
+      "text_24": "Άρθρα",
+      "text_25": "Μέλη Συλλόγου ＋",
+      "text_26": "Μέλη Συλλόγου",
+      "text_27": "Θεραπευτές Συλλόγου",
+      "text_28": "Διοικητικό Συμβούλιο",
+      "text_29": "Γίνε Μέλος",
+      "text_30": "Επικοινωνία",
+      "text_31": "Login",
+      "link_01_url": "#home",
+      "link_02_url": "#home",
+      "link_03_url": "#vision",
+      "link_04_url": "#sepsyg-approach",
+      "link_05_url": "#unity-energetics",
+      "link_06_url": "#activities",
+      "link_07_url": "#arthra",
+      "link_08_url": "#members-association",
+      "link_09_url": "#therapists",
+      "link_10_url": "#board",
+      "link_11_url": "#membership",
+      "link_12_url": "#contact-social",
+      "link_13_url": "https://hmerologiosillogou.vercel.app/portal",
+      "link_14_url": "#home",
+      "link_15_url": "#vision",
+      "link_16_url": "#sepsyg-approach",
+      "link_17_url": "#unity-energetics",
+      "link_18_url": "#activities",
+      "link_19_url": "#arthra",
+      "link_20_url": "#members-association",
+      "link_21_url": "#therapists",
+      "link_22_url": "#board",
+      "link_23_url": "#membership",
+      "link_24_url": "#contact-social",
+      "link_25_url": "https://hmerologiosillogou.vercel.app/portal",
+      "style_section_background": "#FFFFFF",
+      "style_card_background": "#FFFFFF",
+      "style_heading_color": "#174B49",
+      "style_body_color": "#667875",
+      "style_accent_color": "#008D8B",
+      "style_border_color": "#DDE4E2",
+      "style_heading_font": "Georgia, \"Times New Roman\", serif",
+      "style_body_font": "Arial, Helvetica, sans-serif",
+      "style_title_size": "1.24rem",
+      "style_body_size": "0.83rem",
+      "style_line_height": "1.35",
+      "style_section_padding": "0",
+      "style_card_radius": "16px",
+      "style_card_shadow": "0 18px 45px rgba(23,75,73,.13)",
+      "style_image_position": "center",
+    },
+  },
+  {
+    key: "contact",
+    label: "Επικοινωνία",
+    description: "Το κύριο block επικοινωνίας. Email, τηλέφωνα και διεύθυνση συνδέονται και με τα Γενικά στοιχεία.",
+    connected: true,
+    fields: [
+      { key: "text_01", label: "Ετικέτα · Επικοινωνία", kind: "text" },
+      { key: "text_02", label: "Τίτλος · Ελάτε σε επαφή", kind: "text" },
+      { key: "text_03", label: "Κείμενο · Σας προσκαλούμε να επικοινωνήσετε για οποιαδήποτε πληροφορία σχε…", kind: "textarea" },
+      { key: "text_04", label: "Κείμενο · Είτε έχετε απορίες για τις δραστηριότητές μας, είτε θέλετε να εν…", kind: "textarea" },
+      { key: "text_05", label: "Τίτλος · Email", kind: "text" },
+      { key: "text_06", label: "Κουμπί / σύνδεσμος · euassociationsepsyg@gmail.com", kind: "text" },
+      { key: "text_07", label: "Τίτλος · Τηλέφωνα επικοινωνίας", kind: "text" },
+      { key: "text_08", label: "Κουμπί / σύνδεσμος · 693 796 2301", kind: "text" },
+      { key: "text_09", label: "Κουμπί / σύνδεσμος · 694 064 5022", kind: "text" },
+      { key: "text_10", label: "Τίτλος · Διεύθυνση", kind: "text" },
+      { key: "text_11", label: "Κείμενο · Πολυτεχνίου 37 Θεσσαλονίκη, ΤΚ 54626", kind: "textarea" },
+      { key: "text_12", label: "Τίτλος · Ακολουθήστε μας", kind: "text" },
+      { key: "text_13", label: "Κουμπί / σύνδεσμος · f Facebook", kind: "text" },
+      { key: "image_01", label: "Εικόνα 1", kind: "image" },
+      { key: "image_01_alt", label: "Εικόνα 1 · Alt / περιγραφή", kind: "text" },
+      { key: "link_01_url", label: "URL · euassociationsepsyg@gmail.com", kind: "url" },
+      { key: "link_02_url", label: "URL · 693 796 2301", kind: "url" },
+      { key: "link_03_url", label: "URL · 694 064 5022", kind: "url" },
+      { key: "link_04_url", label: "URL · f Facebook", kind: "url" },
+      { key: "style_section_background", label: "Φόντο ενότητας", kind: "color", group: "appearance" },
+      { key: "style_card_background", label: "Φόντο καρτών", kind: "color", group: "appearance" },
+      { key: "style_heading_color", label: "Χρώμα τίτλων", kind: "color", group: "appearance" },
+      { key: "style_body_color", label: "Χρώμα κειμένου", kind: "color", group: "appearance" },
+      { key: "style_accent_color", label: "Accent χρώμα", kind: "color", group: "appearance" },
+      { key: "style_border_color", label: "Χρώμα borders", kind: "color", group: "appearance" },
+      { key: "style_heading_font", label: "Γραμματοσειρά τίτλων", kind: "select", group: "appearance", options: WEBSITE_FONT_OPTIONS },
+      { key: "style_body_font", label: "Γραμματοσειρά κειμένου", kind: "select", group: "appearance", options: WEBSITE_FONT_OPTIONS },
+      { key: "style_title_size", label: "Μέγεθος κύριου τίτλου", kind: "text", group: "appearance" },
+      { key: "style_body_size", label: "Μέγεθος κύριου κειμένου", kind: "text", group: "appearance" },
+      { key: "style_line_height", label: "Διάστιχο", kind: "text", group: "appearance" },
+      { key: "style_section_padding", label: "Κενό / padding ενότητας", kind: "text", group: "appearance" },
+      { key: "style_card_radius", label: "Border radius καρτών", kind: "text", group: "appearance" },
+      { key: "style_card_shadow", label: "Σκιά καρτών", kind: "text", group: "appearance" },
+      { key: "style_image_position", label: "Θέση εικόνας (object-position)", kind: "text", group: "appearance" },
+    ],
+    defaults: {
+      "text_01": "Επικοινωνία",
+      "text_02": "Ελάτε σε επαφή",
+      "text_03": "Σας προσκαλούμε να επικοινωνήσετε για οποιαδήποτε πληροφορία σχετικά με τον Πανευρωπαϊκό Επιστημονικό Σύλλογο Σ.Ε.ΨΥ.G.",
+      "text_04": "Είτε έχετε απορίες για τις δραστηριότητές μας, είτε θέλετε να ενημερωθείτε για σεμινάρια και ομάδες, είτε απλώς θέλετε να μοιραστείτε ένα μήνυμα.",
+      "text_05": "Email",
+      "text_06": "euassociationsepsyg@gmail.com",
+      "text_07": "Τηλέφωνα επικοινωνίας",
+      "text_08": "693 796 2301",
+      "text_09": "694 064 5022",
+      "text_10": "Διεύθυνση",
+      "text_11": "Πολυτεχνίου 37 Θεσσαλονίκη, ΤΚ 54626",
+      "text_12": "Ακολουθήστε μας",
+      "text_13": "f Facebook",
+      "image_01": "https://demo.unityenergetics.org/wp-content/uploads/2026/08/contact-us-concept.jpg",
+      "image_01_alt": "Επικοινωνία με τον Σύλλογο Σ.Ε.ΨΥ.G.",
+      "link_01_url": "mailto:euassociationsepsyg@gmail.com",
+      "link_02_url": "tel:+306937962301",
+      "link_03_url": "tel:+306940645022",
+      "link_04_url": "https://www.facebook.com/share/g/17TTMo8AWK/",
+      "style_section_background": "#FFF9F3",
+      "style_card_background": "#FFFFFF",
+      "style_heading_color": "#174B49",
+      "style_body_color": "#627472",
+      "style_accent_color": "#008D8B",
+      "style_border_color": "#DDE4E2",
+      "style_heading_font": "Georgia, \"Times New Roman\", serif",
+      "style_body_font": "Arial, Helvetica, sans-serif",
+      "style_title_size": "clamp(2.4rem,5vw,4.4rem)",
+      "style_body_size": "0.98rem",
+      "style_line_height": "1.75",
+      "style_section_padding": "92px 0",
+      "style_card_radius": "24px",
+      "style_card_shadow": "0 16px 38px rgba(23,75,73,.07)",
+      "style_image_position": "center",
+    },
+  },
+  {
+    key: "footer",
+    label: "Footer",
+    description: "Το κάτω μέρος της σελίδας με στοιχεία Συλλόγου, επικοινωνία και social.",
+    connected: true,
+    fields: [
+      { key: "text_01", label: "Ετικέτα · ✦ Επικοινωνία", kind: "text" },
+      { key: "text_02", label: "Τίτλος · Έλα σε επαφή", kind: "text" },
+      { key: "text_03", label: "Κείμενο · Επικοινώνησε με τον Πανευρωπαϊκό Επιστημονικό Σύλλογο Σ.Ε.ΨΥ.G. …", kind: "textarea" },
+      { key: "text_04", label: "Τίτλος · Ο Σύλλογός μας", kind: "text" },
+      { key: "text_05", label: "Κείμενο · Πανευρωπαϊκός Επιστημονικός Σύλλογος Σ.Ε.ΨΥ.G.", kind: "textarea" },
+      { key: "text_06", label: "Κείμενο · Σωματικά Επικεντρωμένη Ψυχοθεραπεία Gestalt", kind: "textarea" },
+      { key: "text_07", label: "Κείμενο · Πολυτεχνίου 37, Θεσσαλονίκη, ΤΚ 54626", kind: "textarea" },
+      { key: "text_08", label: "Τίτλος · Επικοινώνησε μαζί μας", kind: "text" },
+      { key: "text_09", label: "Κουμπί / σύνδεσμος · euassociationsepsyg@gmail.com", kind: "text" },
+      { key: "text_10", label: "Κουμπί / σύνδεσμος · 693 796 2301", kind: "text" },
+      { key: "text_11", label: "Κουμπί / σύνδεσμος · 694 064 5022", kind: "text" },
+      { key: "text_12", label: "Τίτλος · Ακολούθησέ μας", kind: "text" },
+      { key: "text_13", label: "Κείμενο · Νέα, δράσεις και ανακοινώσεις του Συλλόγου.", kind: "textarea" },
+      { key: "text_14", label: "Κουμπί / σύνδεσμος · f Facebook", kind: "text" },
+      { key: "link_01_url", label: "URL · euassociationsepsyg@gmail.com", kind: "url" },
+      { key: "link_02_url", label: "URL · 693 796 2301", kind: "url" },
+      { key: "link_03_url", label: "URL · 694 064 5022", kind: "url" },
+      { key: "link_04_url", label: "URL · f Facebook", kind: "url" },
+      { key: "style_section_background", label: "Φόντο ενότητας", kind: "color", group: "appearance" },
+      { key: "style_card_background", label: "Φόντο καρτών", kind: "color", group: "appearance" },
+      { key: "style_heading_color", label: "Χρώμα τίτλων", kind: "color", group: "appearance" },
+      { key: "style_body_color", label: "Χρώμα κειμένου", kind: "color", group: "appearance" },
+      { key: "style_accent_color", label: "Accent χρώμα", kind: "color", group: "appearance" },
+      { key: "style_border_color", label: "Χρώμα borders", kind: "color", group: "appearance" },
+      { key: "style_heading_font", label: "Γραμματοσειρά τίτλων", kind: "select", group: "appearance", options: WEBSITE_FONT_OPTIONS },
+      { key: "style_body_font", label: "Γραμματοσειρά κειμένου", kind: "select", group: "appearance", options: WEBSITE_FONT_OPTIONS },
+      { key: "style_title_size", label: "Μέγεθος κύριου τίτλου", kind: "text", group: "appearance" },
+      { key: "style_body_size", label: "Μέγεθος κύριου κειμένου", kind: "text", group: "appearance" },
+      { key: "style_line_height", label: "Διάστιχο", kind: "text", group: "appearance" },
+      { key: "style_section_padding", label: "Κενό / padding ενότητας", kind: "text", group: "appearance" },
+      { key: "style_card_radius", label: "Border radius καρτών", kind: "text", group: "appearance" },
+      { key: "style_card_shadow", label: "Σκιά καρτών", kind: "text", group: "appearance" },
+      { key: "style_image_position", label: "Θέση εικόνας (object-position)", kind: "text", group: "appearance" },
+    ],
+    defaults: {
+      "text_01": "✦ Επικοινωνία",
+      "text_02": "Έλα σε επαφή",
+      "text_03": "Επικοινώνησε με τον Πανευρωπαϊκό Επιστημονικό Σύλλογο Σ.Ε.ΨΥ.G. για πληροφορίες, δράσεις και θέματα συμμετοχής.",
+      "text_04": "Ο Σύλλογός μας",
+      "text_05": "Πανευρωπαϊκός Επιστημονικός Σύλλογος Σ.Ε.ΨΥ.G.",
+      "text_06": "Σωματικά Επικεντρωμένη Ψυχοθεραπεία Gestalt",
+      "text_07": "Πολυτεχνίου 37, Θεσσαλονίκη, ΤΚ 54626",
+      "text_08": "Επικοινώνησε μαζί μας",
+      "text_09": "euassociationsepsyg@gmail.com",
+      "text_10": "693 796 2301",
+      "text_11": "694 064 5022",
+      "text_12": "Ακολούθησέ μας",
+      "text_13": "Νέα, δράσεις και ανακοινώσεις του Συλλόγου.",
+      "text_14": "f Facebook",
+      "link_01_url": "mailto:euassociationsepsyg@gmail.com",
+      "link_02_url": "tel:+306937962301",
+      "link_03_url": "tel:+306940645022",
+      "link_04_url": "https://www.facebook.com/",
+      "style_section_background": "#174B49",
+      "style_card_background": "#FFFFFF",
+      "style_heading_color": "#FFFFFF",
+      "style_body_color": "#FFFFFF",
+      "style_accent_color": "#E1AF85",
+      "style_border_color": "#DDE4E2",
+      "style_heading_font": "Georgia, \"Times New Roman\", serif",
+      "style_body_font": "Arial, Helvetica, sans-serif",
+      "style_title_size": "clamp(2rem,4vw,3.2rem)",
+      "style_body_size": "0.9rem",
+      "style_line_height": "1.7",
+      "style_section_padding": "72px 0 0",
+      "style_card_radius": "18px",
+      "style_card_shadow": "none",
+      "style_image_position": "center",
+    },
   },
   {
     key: "articles",
     label: "Άρθρα",
-    description: "Το hero των άρθρων, το video και τα σταθερά κείμενα πριν από τις κάρτες άρθρων.",
+    description: "Hero της ενότητας Άρθρων. Το divider και το video παραμένουν συνδεδεμένα με το δημόσιο embed.",
     connected: true,
     fields: [
       { key: "eyebrow", label: "Μικρός τίτλος", kind: "text" },
@@ -1074,72 +2266,32 @@ const WEBSITE_SECTION_DEFINITIONS: WebsiteSectionDefinition[] = [
       { key: "intro", label: "Περιγραφή", kind: "textarea" },
       { key: "video_url", label: "Video hero", kind: "url" },
       { key: "video_badge", label: "Ετικέτα πάνω στο video", kind: "text" },
+      { key: "style_section_background", label: "Φόντο ενότητας", kind: "color", group: "appearance" },
+      { key: "style_heading_color", label: "Χρώμα τίτλου", kind: "color", group: "appearance" },
+      { key: "style_body_color", label: "Χρώμα κειμένου", kind: "color", group: "appearance" },
+      { key: "style_accent_color", label: "Accent χρώμα", kind: "color", group: "appearance" },
+      { key: "style_heading_font", label: "Γραμματοσειρά τίτλου", kind: "select", group: "appearance", options: WEBSITE_FONT_OPTIONS },
+      { key: "style_body_font", label: "Γραμματοσειρά κειμένου", kind: "select", group: "appearance", options: WEBSITE_FONT_OPTIONS },
+      { key: "style_title_size", label: "Μέγεθος τίτλου", kind: "text", group: "appearance" },
+      { key: "style_body_size", label: "Μέγεθος κειμένου", kind: "text", group: "appearance" },
+      { key: "style_line_height", label: "Διάστιχο", kind: "text", group: "appearance" },
     ],
     defaults: {
-      eyebrow: "Γνώση · Εμπειρία · Εφαρμογή",
-      title: "Άρθρα",
-      intro: "Κείμενα για την ανθρώπινη επαφή, την επικοινωνία, τη θεραπευτική σχέση και τη Σωματικά Επικεντρωμένη Ψυχοθεραπεία Gestalt.",
-      video_url: "https://demo.unityenergetics.org/wp-content/uploads/2026/08/6279423-uhd_3840_2160_24fps-1.mp4",
-      video_badge: "Άρθρα & Προσεγγίσεις",
+      "eyebrow": "Γνώση · Εμπειρία · Εφαρμογή",
+      "title": "Άρθρα",
+      "intro": "Κείμενα για την ανθρώπινη επαφή, την επικοινωνία, τη θεραπευτική σχέση και τη Σωματικά Επικεντρωμένη Ψυχοθεραπεία Gestalt.",
+      "video_url": "https://demo.unityenergetics.org/wp-content/uploads/2026/08/6279423-uhd_3840_2160_24fps-1.mp4",
+      "video_badge": "Άρθρα & Προσεγγίσεις",
+      "style_section_background": "#FFF9F3",
+      "style_heading_color": "#174B49",
+      "style_body_color": "#627472",
+      "style_accent_color": "#008D8B",
+      "style_heading_font": "Georgia, \"Times New Roman\", serif",
+      "style_body_font": "Arial, Helvetica, sans-serif",
+      "style_title_size": "clamp(2.35rem, 4.5vw, 4.15rem)",
+      "style_body_size": "0.95rem",
+      "style_line_height": "1.72",
     },
-  },
-  {
-    key: "members",
-    label: "Μέλη Συλλόγου",
-    description: "Τα σταθερά κείμενα που πλαισιώνουν τα μέλη, τους θεραπευτές και το Διοικητικό Συμβούλιο.",
-    connected: false,
-    fields: [
-      { key: "title", label: "Τίτλος", kind: "text" },
-      { key: "intro", label: "Εισαγωγή", kind: "textarea" },
-    ],
-    defaults: {},
-  },
-  {
-    key: "membership",
-    label: "Γίνε Μέλος",
-    description: "Κείμενα και κουμπιά της ενότητας εγγραφής/συμμετοχής στον Σύλλογο.",
-    connected: false,
-    fields: [
-      { key: "title", label: "Τίτλος", kind: "text" },
-      { key: "intro", label: "Κείμενο", kind: "textarea" },
-      { key: "button_text", label: "Κείμενο κουμπιού", kind: "text" },
-      { key: "button_url", label: "Σύνδεσμος κουμπιού", kind: "url" },
-    ],
-    defaults: {},
-  },
-  {
-    key: "contact",
-    label: "Επικοινωνία",
-    description: "Τίτλοι, κείμενα και στοιχεία επικοινωνίας της τελευταίας ενότητας.",
-    connected: false,
-    fields: [
-      { key: "eyebrow", label: "Μικρός τίτλος", kind: "text" },
-      { key: "title", label: "Τίτλος", kind: "text" },
-      { key: "intro", label: "Κείμενο", kind: "textarea" },
-      { key: "email", label: "Email", kind: "text" },
-      { key: "phone", label: "Τηλέφωνο", kind: "text" },
-      { key: "address", label: "Διεύθυνση", kind: "text" },
-      { key: "facebook_url", label: "Facebook", kind: "url" },
-      { key: "instagram_url", label: "Instagram", kind: "url" },
-    ],
-    defaults: {
-      eyebrow: "Επικοινωνία",
-      title: "Έλα σε επαφή",
-      email: "euassociationsepsyg@gmail.com",
-      phone: "693 796 2301",
-      address: "Πολυτεχνείου 37",
-    },
-  },
-  {
-    key: "footer",
-    label: "Footer",
-    description: "Τα μικρά σταθερά κείμενα στο κάτω μέρος της ιστοσελίδας.",
-    connected: false,
-    fields: [
-      { key: "copyright", label: "Copyright", kind: "text" },
-      { key: "small_text", label: "Μικρό κείμενο", kind: "textarea" },
-    ],
-    defaults: {},
   },
 ];
 
@@ -1682,6 +2834,7 @@ function ActivityCard({
         <div className="sepsyg-event-meta">
           <span>📅 {formatDateGreek(booking.booking_date)}</span>
           <span>🕒 {booking.action_time || "Η ώρα θα ανακοινωθεί"}</span>
+          {booking.location && <span>📍 {booking.location}</span>}
           {booking.therapist_name && (
             <span className="sepsyg-card-coordinator">
               <span className="sepsyg-card-coordinator-photo">
@@ -1694,8 +2847,8 @@ function ActivityCard({
               <span>{coordinatorsLabel(booking)}</span>
             </span>
           )}
-          <span>💶 {activityPriceLabel(booking)}</span>
-          {booking.offers_member_discount && booking.member_price && <span>★ Μέλη / Φίλοι: {booking.member_price} €</span>}
+          {activityPriceLabel(booking) && <span>💶 {activityPriceLabel(booking)}</span>}
+          {booking.offers_member_discount && booking.member_price && <span>★ Μέλη / Φίλοι: {booking.member_price}</span>}
         </div>
         <button type="button" className="sepsyg-event-action" onClick={onOpen}>
           Δείτε περισσότερα
@@ -2445,26 +3598,34 @@ function PublicBookingDetails({
               <div className="h-[180px] rounded-[24px] border border-[#174B49]/10 bg-gradient-to-br from-[#9EB2A6] to-[#E1AF85] sm:h-[220px]" />
             )}
 
-            <div className="grid grid-cols-2 gap-2">
+            <div className={`grid gap-2 ${booking.location ? "grid-cols-1 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3" : "grid-cols-2"}`}>
               <div className="rounded-2xl border border-[#174B49]/10 bg-white p-3.5">
-                <span className="text-[10px] font-extrabold uppercase tracking-[.12em] text-[#008D8B]">Ημερομηνία</span>
+                <span className="text-[10px] font-extrabold uppercase tracking-[.12em] text-[#008D8B]">📅 Ημερομηνία</span>
                 <p className="mt-1.5 text-sm font-bold leading-5 text-[#263B39]">{formatDateGreek(booking.booking_date)}</p>
               </div>
               <div className="rounded-2xl border border-[#174B49]/10 bg-white p-3.5">
-                <span className="text-[10px] font-extrabold uppercase tracking-[.12em] text-[#008D8B]">Ώρα</span>
+                <span className="text-[10px] font-extrabold uppercase tracking-[.12em] text-[#008D8B]">🕒 Ώρα</span>
                 <p className="mt-1.5 text-sm font-bold leading-5 text-[#263B39]">{booking.action_time || "Θα ανακοινωθεί"}</p>
               </div>
+              {booking.location && (
+                <div className="rounded-2xl border border-[#174B49]/10 bg-white p-3.5">
+                  <span className="text-[10px] font-extrabold uppercase tracking-[.12em] text-[#008D8B]">📍 Τοποθεσία</span>
+                  <p className="mt-1.5 text-sm font-bold leading-5 text-[#263B39]">{booking.location}</p>
+                </div>
+              )}
             </div>
 
-            <section className={`rounded-2xl border p-4 ${activityCategoryClass(booking)} price-panel`}>
-              <div className="text-[10px] font-extrabold uppercase tracking-[.13em]">Κόστος συμμετοχής</div>
-              <div className="mt-1.5 flex flex-wrap items-end gap-x-4 gap-y-1">
-                <p className="m-0 text-xl font-extrabold">{activityPriceLabel(booking)}</p>
-                {booking.offers_member_discount && booking.member_price && (
-                  <p className="m-0 text-xs font-extrabold">Μέλη &amp; Φίλοι: {booking.member_price} €</p>
-                )}
-              </div>
-            </section>
+            {(activityPriceLabel(booking) || (booking.offers_member_discount && booking.member_price)) && (
+              <section className={`rounded-2xl border p-4 ${activityCategoryClass(booking)} price-panel`}>
+                <div className="text-[10px] font-extrabold uppercase tracking-[.13em]">Κόστος συμμετοχής</div>
+                <div className="mt-1.5 flex flex-wrap items-end gap-x-4 gap-y-1">
+                  {activityPriceLabel(booking) && <p className="m-0 text-xl font-extrabold">{activityPriceLabel(booking)}</p>}
+                  {booking.offers_member_discount && booking.member_price && (
+                    <p className="m-0 text-xs font-extrabold">Μέλη &amp; Φίλοι: {booking.member_price}</p>
+                  )}
+                </div>
+              </section>
+            )}
 
             {(booking.therapist_name || booking.additional_coordinator_name || booking.third_coordinator_name || booking.fourth_coordinator_name) && (
               <section className="rounded-2xl border border-[#174B49]/10 bg-white p-4">
@@ -2866,6 +4027,49 @@ function ArticlesManager({ role, memberName }: { role: ManageRole; memberName: s
   const authorPhoto = matchedTherapist?.photo || manualAuthorPreview || "";
   const effectiveAuthorRole = authorRole.trim() || matchedTherapist?.profession || "";
   const code = getManageCode();
+  const articleDraftKey = useMemo(
+    () => `sepsyg-draft-article-v1:${normalizeCommunityName(memberName || "portal") || "portal"}`,
+    [memberName],
+  );
+  const articleDraftReadyRef = useRef(false);
+
+  useEffect(() => {
+    const draft = readLocalDraftValue<{
+      title?: string;
+      excerpt?: string;
+      content?: string;
+      authorName?: string;
+      authorRole?: string;
+    }>(articleDraftKey);
+
+    if (draft) {
+      setTitle(String(draft.title || ""));
+      setExcerpt(String(draft.excerpt || ""));
+      setContent(String(draft.content || ""));
+      setAuthorName(String(draft.authorName || memberName || ""));
+      setAuthorRole(String(draft.authorRole || ""));
+      if (draft.title || draft.excerpt || richTextToPlainText(String(draft.content || "")).trim()) {
+        setNotice("✓ Επαναφέρθηκε το προσωρινό πρόχειρο του άρθρου από αυτόν τον browser.");
+      }
+    }
+
+    const timer = window.setTimeout(() => { articleDraftReadyRef.current = true; }, 0);
+    return () => {
+      window.clearTimeout(timer);
+      articleDraftReadyRef.current = false;
+    };
+  }, [articleDraftKey, memberName]);
+
+  useEffect(() => {
+    if (!articleDraftReadyRef.current) return;
+    writeLocalDraft(articleDraftKey, {
+      title,
+      excerpt,
+      content,
+      authorName,
+      authorRole,
+    });
+  }, [articleDraftKey, title, excerpt, content, authorName, authorRole]);
 
   async function loadArticles() {
     if (!code) return;
@@ -2938,6 +4142,7 @@ function ArticlesManager({ role, memberName }: { role: ManageRole; memberName: s
       setContent("");
       setCoverFile(null);
       setAuthorPhotoFile(null);
+      clearLocalDraft(articleDraftKey);
       setNotice(role === "admin" ? "Το άρθρο δημοσιεύτηκε." : "Το άρθρο αποθηκεύτηκε και στάλθηκε για έγκριση στο Διοικητικό.");
       window.setTimeout(() => setNotice(null), 6000);
       await loadArticles();
@@ -3261,6 +4466,186 @@ function PublicSingleArticleApp({ articleId }: { articleId: string }) {
 }
 
 
+
+type NewsletterSubscriber = {
+  id: string;
+  email: string;
+  active: boolean;
+  source: string;
+  consent_at: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+};
+
+function downloadCsvFile(filename: string, rows: Array<Array<string | number | null | undefined>>) {
+  const quote = (value: string) => `"${value.replaceAll('"', '""')}"`;
+  const csv = `\uFEFF${rows.map((row) => row.map((cell) => quote(String(cell ?? ""))).join(",")).join("\n")}`;
+  const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function AllEventRegistrationsManager() {
+  const [items, setItems] = useState<EventRegistration[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+
+  async function load() {
+    const code = getManageCode();
+    if (!code) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/event-registrations?all=1&code=${encodeURIComponent(code)}&_=${Date.now()}`, { cache: "no-store" });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.code || "REGISTRATIONS_LOAD_FAILED");
+      setItems(Array.isArray(payload.registrations) ? payload.registrations : []);
+    } catch (caught) {
+      setError(`Δεν φορτώθηκαν οι συγκεντρωτικές συμμετοχές (${(caught as Error).message}).`);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => { void load(); }, []);
+
+  const filtered = useMemo(() => {
+    const needle = query.trim().toLocaleLowerCase("el-GR");
+    if (!needle) return items;
+    return items.filter((item) => [item.full_name, item.email, item.phone, item.profession, item.event_topic, item.event_date]
+      .join(" ").toLocaleLowerCase("el-GR").includes(needle));
+  }, [items, query]);
+
+  const eventCount = useMemo(() => new Set(items.map((item) => item.event_id || item.event_date).filter(Boolean)).size, [items]);
+
+  function exportCsv() {
+    downloadCsvFile("symmetoxes-olon-ton-draseon.csv", [
+      ["Ημερομηνία δράσης", "Δράση", "Ώρα", "Ονοματεπώνυμο", "Email", "Τηλέφωνο", "Επάγγελμα", "Σχέση με Σύλλογο", "Σχόλιο", "Υποβολή"],
+      ...items.map((item) => [
+        item.event_date || item.event_id,
+        item.event_topic,
+        item.event_time,
+        item.full_name,
+        item.email,
+        item.phone,
+        item.profession,
+        item.membership_status,
+        item.comment,
+        item.created_at ? new Date(item.created_at).toLocaleString("el-GR") : "",
+      ]),
+    ]);
+  }
+
+  return (
+    <section className="sepsyg-admin-panel sepsyg-admin-registrations-panel">
+      <div className="sepsyg-admin-panel-head">
+        <div><span>Συμμετοχές</span><h3>Όλες οι δράσεις συγκεντρωτικά</h3></div>
+        <div className="sepsyg-admin-head-actions">
+          <button type="button" onClick={() => void load()} disabled={loading}>Ανανέωση</button>
+          <button type="button" onClick={exportCsv} disabled={!items.length}>Εξαγωγή CSV</button>
+        </div>
+      </div>
+
+      <div className="sepsyg-admin-summary-cards">
+        <div><strong>{items.length}</strong><span>συνολικές συμμετοχές</span></div>
+        <div><strong>{eventCount}</strong><span>δράσεις με συμμετοχές</span></div>
+      </div>
+
+      <label className="sepsyg-admin-search-field">
+        <span>Αναζήτηση</span>
+        <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Όνομα, email, δράση, επάγγελμα…" />
+      </label>
+
+      {loading && <p className="sepsyg-admin-inline-state">Φόρτωση συμμετοχών…</p>}
+      {error && <div className="sepsyg-admin-error">{error}</div>}
+      {!loading && !error && !filtered.length && <p className="sepsyg-admin-inline-state">Δεν υπάρχουν συμμετοχές που να ταιριάζουν.</p>}
+
+      {!loading && filtered.length > 0 && (
+        <div className="sepsyg-admin-data-table-wrap">
+          <table className="sepsyg-admin-data-table">
+            <thead><tr><th>Δράση</th><th>Συμμετέχων</th><th>Επικοινωνία</th><th>Επάγγελμα</th><th>Σχέση</th></tr></thead>
+            <tbody>
+              {filtered.map((item) => (
+                <tr key={item.id}>
+                  <td><strong>{item.event_topic || "Δράση Συλλόγου"}</strong><span>{item.event_date ? formatDateGreek(item.event_date) : item.event_id}</span></td>
+                  <td><strong>{item.full_name}</strong>{item.created_at && <span>{new Date(item.created_at).toLocaleString("el-GR")}</span>}</td>
+                  <td><a href={`mailto:${item.email}`}>{item.email}</a><a href={`tel:${item.phone}`}>{item.phone}</a></td>
+                  <td>{item.profession || "—"}</td>
+                  <td>{item.membership_status || "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function NewsletterSubscribersManager() {
+  const [items, setItems] = useState<NewsletterSubscriber[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  async function load() {
+    const code = getManageCode();
+    if (!code) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/newsletter-signup?code=${encodeURIComponent(code)}&_=${Date.now()}`, { cache: "no-store" });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.code || "NEWSLETTER_LOAD_FAILED");
+      setItems(Array.isArray(payload.subscribers) ? payload.subscribers : []);
+    } catch (caught) {
+      setError(`Δεν φορτώθηκε η λίστα newsletter (${(caught as Error).message}).`);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => { void load(); }, []);
+
+  function exportCsv() {
+    downloadCsvFile("newsletter-sepsyg.csv", [
+      ["Email", "Πηγή", "Ημερομηνία συγκατάθεσης", "Ημερομηνία εγγραφής"],
+      ...items.map((item) => [
+        item.email,
+        item.source,
+        item.consent_at ? new Date(item.consent_at).toLocaleString("el-GR") : "",
+        item.created_at ? new Date(item.created_at).toLocaleString("el-GR") : "",
+      ]),
+    ]);
+  }
+
+  return (
+    <section className="sepsyg-admin-panel sepsyg-admin-newsletter-panel">
+      <div className="sepsyg-admin-panel-head">
+        <div><span>Newsletter</span><h3>Εγγραφές ενημέρωσης</h3></div>
+        <div className="sepsyg-admin-head-actions">
+          <button type="button" onClick={() => void load()} disabled={loading}>Ανανέωση</button>
+          <button type="button" onClick={exportCsv} disabled={!items.length}>Εξαγωγή CSV</button>
+        </div>
+      </div>
+      <div className="sepsyg-admin-summary-cards single"><div><strong>{items.length}</strong><span>ενεργές εγγραφές</span></div></div>
+      {loading && <p className="sepsyg-admin-inline-state">Φόρτωση newsletter…</p>}
+      {error && <div className="sepsyg-admin-error">{error}</div>}
+      {!loading && !error && !items.length && <p className="sepsyg-admin-inline-state">Δεν υπάρχει ακόμη εγγραφή.</p>}
+      {!loading && items.length > 0 && (
+        <div className="sepsyg-admin-newsletter-list">
+          {items.map((item) => <div key={item.id}><a href={`mailto:${item.email}`}>{item.email}</a><span>{item.created_at ? new Date(item.created_at).toLocaleDateString("el-GR") : "—"}</span></div>)}
+        </div>
+      )}
+    </section>
+  );
+}
+
 function AdministrationManager() {
   const [boardRemote, setBoardRemote] = useState<BoardTermAdmin[]>([]);
   const [communityRemote, setCommunityRemote] = useState<Array<{ id: string; name: string; type: CommunityKind; hidden: boolean }>>([]);
@@ -3272,6 +4657,21 @@ function AdministrationManager() {
   const [personName, setPersonName] = useState("");
   const [personType, setPersonType] = useState<CommunityKind>("member");
   const [saving, setSaving] = useState(false);
+  const boardBaselineRef = useRef("");
+  const personBaselineRef = useRef("");
+
+  useEffect(() => {
+    if (!boardEditing) return;
+    writeLocalDraft(`sepsyg-draft-board-v1:${boardEditing === "new" ? "new" : boardEditing.id}`, boardForm);
+  }, [boardEditing, boardForm]);
+
+  useEffect(() => {
+    if (!personEditing) return;
+    writeLocalDraft(`sepsyg-draft-community-v1:${personEditing === "new" ? "new" : personEditing.id}`, {
+      name: personName,
+      type: personType,
+    });
+  }, [personEditing, personName, personType]);
 
   useEffect(() => {
     let stopBoard: (() => void) | undefined;
@@ -3382,21 +4782,31 @@ function AdministrationManager() {
   const friends = community.filter((item) => item.type === "friend");
 
   function openBoard(item?: BoardTermAdmin) {
-    if (item) {
-      setBoardEditing(item);
-      setBoardForm({
-        from_year: item.from_year,
-        to_year: item.to_year,
-        president: item.president,
-        vice_president: item.vice_president,
-        secretary: item.secretary,
-        treasurer: item.treasurer,
-        member: item.member,
-      });
-    } else {
-      setBoardEditing("new");
-      setBoardForm({ from_year: 2026, to_year: 2028, president: "", vice_president: "", secretary: "", treasurer: "", member: "" });
-    }
+    const target = item || "new";
+    const base = item
+      ? {
+          from_year: item.from_year,
+          to_year: item.to_year,
+          president: item.president,
+          vice_president: item.vice_president,
+          secretary: item.secretary,
+          treasurer: item.treasurer,
+          member: item.member,
+        }
+      : { from_year: 2026, to_year: 2028, president: "", vice_president: "", secretary: "", treasurer: "", member: "" };
+
+    boardBaselineRef.current = JSON.stringify(base);
+    const key = `sepsyg-draft-board-v1:${target === "new" ? "new" : target.id}`;
+    const draft = readLocalDraftValue<typeof base>(key);
+    setBoardForm(draft ? { ...base, ...draft } : base);
+    setBoardEditing(target);
+  }
+
+  function closeBoardEditorSafely() {
+    if (saving) return;
+    const changed = JSON.stringify(boardForm) !== boardBaselineRef.current;
+    if (changed && !window.confirm("Υπάρχουν μη αποθηκευμένες αλλαγές. Έχουν κρατηθεί προσωρινά σε αυτόν τον browser. Θέλεις να βγεις;")) return;
+    setBoardEditing(null);
   }
 
   async function saveBoard(event: FormEvent) {
@@ -3411,6 +4821,7 @@ function AdministrationManager() {
       await ensureAssociationAnonymousUser();
       const id = boardEditing && boardEditing !== "new" ? boardEditing.id : `custom-${Date.now()}`;
       await setDoc(doc(associationDb, "association_board", id), { ...boardForm, hidden: false, updated_at: serverTimestamp() }, { merge: true });
+      clearLocalDraft(`sepsyg-draft-board-v1:${boardEditing === "new" ? "new" : boardEditing?.id || "new"}`);
       setBoardEditing(null);
     } catch (caught) {
       console.error(caught);
@@ -3437,15 +4848,21 @@ function AdministrationManager() {
   }
 
   function openPerson(item?: CommunityPersonAdmin) {
-    if (item) {
-      setPersonEditing(item);
-      setPersonName(item.name);
-      setPersonType(item.type);
-    } else {
-      setPersonEditing("new");
-      setPersonName("");
-      setPersonType("member");
-    }
+    const target = item || "new";
+    const base = item ? { name: item.name, type: item.type } : { name: "", type: "member" as CommunityKind };
+    personBaselineRef.current = JSON.stringify(base);
+    const key = `sepsyg-draft-community-v1:${target === "new" ? "new" : target.id}`;
+    const draft = readLocalDraftValue<{ name?: string; type?: CommunityKind }>(key);
+    setPersonName(typeof draft?.name === "string" ? draft.name : base.name);
+    setPersonType(draft?.type === "friend" ? "friend" : base.type);
+    setPersonEditing(target);
+  }
+
+  function closePersonEditorSafely() {
+    if (saving) return;
+    const changed = JSON.stringify({ name: personName, type: personType }) !== personBaselineRef.current;
+    if (changed && !window.confirm("Υπάρχουν μη αποθηκευμένες αλλαγές. Έχουν κρατηθεί προσωρινά σε αυτόν τον browser. Θέλεις να βγεις;")) return;
+    setPersonEditing(null);
   }
 
   async function hideStaticCommunity(name: string, type: CommunityKind) {
@@ -3484,6 +4901,7 @@ function AdministrationManager() {
       } else {
         await addDoc(collection(associationDb, "association_members"), { name: nextName, type: personType, hidden: false, created_at: serverTimestamp(), updated_at: serverTimestamp() });
       }
+      clearLocalDraft(`sepsyg-draft-community-v1:${personEditing === "new" ? "new" : personEditing?.id || "new"}`);
       setPersonEditing(null);
       setPersonName("");
     } catch (caught) {
@@ -3521,7 +4939,7 @@ function AdministrationManager() {
       <div className="sepsyg-admin-intro">
         <span>Μόνο Διοικητικό</span>
         <h2>Διοίκηση Συλλόγου</h2>
-        <p>Εδώ διαχειρίζεσαι το Διοικητικό Συμβούλιο και τα Μέλη & Φίλους. Για τα κείμενα, τις εικόνες και το logo της ιστοσελίδας χρησιμοποίησε τη νέα καρτέλα «Επεξεργασία ιστοσελίδας».</p>
+        <p>Εδώ διαχειρίζεσαι το Διοικητικό Συμβούλιο, τα Μέλη & Φίλους, τις συγκεντρωτικές συμμετοχές από όλες τις δράσεις και τις εγγραφές newsletter. Για τα κείμενα, τις εικόνες και το logo της ιστοσελίδας χρησιμοποίησε την καρτέλα «Επεξεργασία ιστοσελίδας».</p>
       </div>
       {error && <div className="sepsyg-admin-error">{error}</div>}
       {loading && <div className="sepsyg-admin-loading">Φόρτωση στοιχείων…</div>}
@@ -3551,10 +4969,12 @@ function AdministrationManager() {
         </div>
       </section>
 
+      <AllEventRegistrationsManager />
+      <NewsletterSubscribersManager />
+
       {boardEditing && (
-        <div className="sepsyg-admin-modal" onMouseDown={(event) => event.target === event.currentTarget && !saving && setBoardEditing(null)}>
+        <div className="sepsyg-admin-modal">
           <form className="sepsyg-admin-modal-card" onSubmit={saveBoard}>
-            <button type="button" className="sepsyg-admin-modal-close" onClick={() => setBoardEditing(null)}>×</button>
             <span>Διοικητικό Συμβούλιο</span><h3>{boardEditing === "new" ? "Νέα θητεία" : "Επεξεργασία θητείας"}</h3>
             <div className="sepsyg-admin-years"><label>Από έτος<input type="number" min="2020" max="2050" value={boardForm.from_year} onChange={(e) => setBoardForm((v) => ({ ...v, from_year: Number(e.target.value) }))} /></label><label>Έως έτος<input type="number" min="2020" max="2050" value={boardForm.to_year} onChange={(e) => setBoardForm((v) => ({ ...v, to_year: Number(e.target.value) }))} /></label></div>
             <label>Πρόεδρος<input value={boardForm.president} onChange={(e) => setBoardForm((v) => ({ ...v, president: e.target.value }))} /></label>
@@ -3562,19 +4982,24 @@ function AdministrationManager() {
             <label>Γραμματέας<input value={boardForm.secretary} onChange={(e) => setBoardForm((v) => ({ ...v, secretary: e.target.value }))} /></label>
             <label>Ταμίας<input value={boardForm.treasurer} onChange={(e) => setBoardForm((v) => ({ ...v, treasurer: e.target.value }))} /></label>
             <label>Μέλος<input value={boardForm.member} onChange={(e) => setBoardForm((v) => ({ ...v, member: e.target.value }))} /></label>
-            <button type="submit" className="sepsyg-admin-save" disabled={saving}>{saving ? "Αποθήκευση…" : "Αποθήκευση"}</button>
+            <div className="sepsyg-admin-modal-actions">
+              <button type="button" className="sepsyg-admin-exit" onClick={closeBoardEditorSafely} disabled={saving}>Έξοδος</button>
+              <button type="submit" className="sepsyg-admin-save" disabled={saving}>{saving ? "Αποθήκευση…" : "Αποθήκευση"}</button>
+            </div>
           </form>
         </div>
       )}
 
       {personEditing && (
-        <div className="sepsyg-admin-modal" onMouseDown={(event) => event.target === event.currentTarget && !saving && setPersonEditing(null)}>
+        <div className="sepsyg-admin-modal">
           <form className="sepsyg-admin-modal-card small" onSubmit={savePerson}>
-            <button type="button" className="sepsyg-admin-modal-close" onClick={() => setPersonEditing(null)}>×</button>
             <span>Κοινότητα Συλλόγου</span><h3>{personEditing === "new" ? "Νέα καταχώριση" : "Επεξεργασία"}</h3>
             <label>Ονοματεπώνυμο<input value={personName} onChange={(e) => setPersonName(e.target.value)} autoFocus required /></label>
             <label>Κατηγορία<select value={personType} onChange={(e) => setPersonType(e.target.value as CommunityKind)}><option value="member">Μέλος Συλλόγου</option><option value="friend">Φίλος Συλλόγου</option></select></label>
-            <button type="submit" className="sepsyg-admin-save" disabled={saving}>{saving ? "Αποθήκευση…" : "Αποθήκευση"}</button>
+            <div className="sepsyg-admin-modal-actions">
+              <button type="button" className="sepsyg-admin-exit" onClick={closePersonEditorSafely} disabled={saving}>Έξοδος</button>
+              <button type="submit" className="sepsyg-admin-save" disabled={saving}>{saving ? "Αποθήκευση…" : "Αποθήκευση"}</button>
+            </div>
           </form>
         </div>
       )}
@@ -3588,6 +5013,157 @@ function formatSiteContentTime(value: string | null) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "—";
   return date.toLocaleString("el-GR", { dateStyle: "short", timeStyle: "short" });
+}
+
+
+function normalizeEditorColor(value: string, fallback = "#174B49") {
+  const trimmed = String(value || "").trim();
+  return /^#[0-9a-fA-F]{6}$/.test(trimmed) ? trimmed : fallback;
+}
+
+
+function GenericWebsitePreview({ definition, fields }: { definition: WebsiteSectionDefinition; fields: Record<string, string> }) {
+  const contentFields = definition.fields.filter((field) => (field.group || "content") === "content");
+  const textFields = contentFields.filter((field) => ["text", "textarea"].includes(field.kind) && fields[field.key]);
+  const imageFields = contentFields.filter((field) => field.kind === "image" && fields[field.key]).slice(0, 3);
+  const linkFields = contentFields.filter((field) => field.kind === "url" && fields[field.key]).slice(0, 3);
+
+  const headingColor = fields.style_heading_color || "#174B49";
+  const bodyColor = fields.style_body_color || "#627472";
+  const accentColor = fields.style_accent_color || "#008D8B";
+  const borderColor = fields.style_border_color || "#DDE4E2";
+  const sectionBackground = fields.style_section_background || "#FFF9F3";
+  const cardBackground = fields.style_card_background || "#FFFFFF";
+  const headingFont = fields.style_heading_font || 'Georgia, "Times New Roman", serif';
+  const bodyFont = fields.style_body_font || "Arial, Helvetica, sans-serif";
+
+  const previewStyle: CSSProperties = {
+    background: sectionBackground,
+    color: bodyColor,
+    fontFamily: bodyFont,
+    padding: "clamp(18px, 3vw, 34px)",
+    border: `1px solid ${borderColor}`,
+    borderRadius: fields.style_card_radius || "12px",
+  };
+  const cardStyle: CSSProperties = {
+    background: cardBackground,
+    border: `1px solid ${borderColor}`,
+    borderRadius: fields.style_card_radius || "12px",
+    boxShadow: fields.style_card_shadow || "none",
+    padding: "clamp(16px, 2.5vw, 28px)",
+  };
+  const headingStyle: CSSProperties = {
+    color: headingColor,
+    fontFamily: headingFont,
+    fontSize: fields.style_title_size || "clamp(1.45rem, 3vw, 2.25rem)",
+    lineHeight: 1.12,
+    fontWeight: 500,
+    margin: 0,
+  };
+  const bodyStyle: CSSProperties = {
+    color: bodyColor,
+    fontFamily: bodyFont,
+    fontSize: fields.style_body_size || "0.95rem",
+    lineHeight: fields.style_line_height || "1.7",
+    margin: "10px 0 0",
+  };
+
+  const eyebrow = textFields[0];
+  const title = textFields[1] || textFields[0];
+  const bodies = textFields.filter((field) => field !== eyebrow && field !== title).slice(0, 5);
+
+  return (
+    <div className="sepsyg-site-live-preview" style={previewStyle}>
+      <div style={cardStyle}>
+        {eyebrow && eyebrow !== title && <div style={{ color: accentColor, fontSize: 11, fontWeight: 800, letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 8 }}>{fields[eyebrow.key]}</div>}
+        {title && <h4 style={headingStyle}>{fields[title.key]}</h4>}
+        {bodies.map((field) => <p key={field.key} style={bodyStyle}>{fields[field.key]}</p>)}
+
+        {imageFields.length > 0 && (
+          <div className="sepsyg-site-live-preview-images">
+            {imageFields.map((field) => <img key={field.key} src={fields[field.key]} alt="" style={{ objectPosition: fields.style_image_position || "center" }} />)}
+          </div>
+        )}
+
+        {linkFields.length > 0 && (
+          <div className="sepsyg-site-live-preview-links">
+            {linkFields.map((field) => <span key={field.key} style={{ borderColor: accentColor, color: accentColor }}>{fields[field.key]}</span>)}
+          </div>
+        )}
+      </div>
+      <div className="sepsyg-site-live-preview-meta">
+        <span><b>Τίτλοι:</b> {fields.style_heading_font || "Georgia / Times New Roman"}</span>
+        <span><b>Κείμενο:</b> {fields.style_body_font || "Arial / Helvetica"}</span>
+        <span><b>Φόντο:</b> {sectionBackground}</span>
+        <span><b>Accent:</b> {accentColor}</span>
+      </div>
+    </div>
+  );
+}
+
+function VisionWebsitePreview({ fields }: { fields: Record<string, string> }) {
+  const style = {
+    "--vision-section-bg": fields.section_background || "#FFF9F3",
+    "--vision-card-bg": fields.card_background || "#FFFFFF",
+    "--vision-heading": fields.heading_color || "#174B49",
+    "--vision-body": fields.body_color || "#627472",
+    "--vision-accent": fields.accent_color || "#008D8B",
+    "--vision-border": fields.border_color || "#DDE4E2",
+    "--vision-heading-font": fields.heading_font || 'Georgia, "Times New Roman", serif',
+    "--vision-body-font": fields.body_font || "Arial, Helvetica, sans-serif",
+    "--vision-hero-title-size": fields.hero_title_size || "clamp(1.9rem, 3.8vw, 2.75rem)",
+    "--vision-card-title-size": fields.card_title_size || "1.55rem",
+    "--vision-body-size": fields.body_font_size || "0.98rem",
+    "--vision-line-height": fields.body_line_height || "1.75",
+    "--vision-eyebrow-size": fields.eyebrow_size || "0.72rem",
+    "--vision-closing-size": fields.closing_font_size || "1.2rem",
+    "--vision-section-pad": fields.section_padding_y || "98px",
+    "--vision-gap": fields.card_gap || "28px",
+    "--vision-radius": fields.card_radius || "24px",
+    "--vision-content-pad": fields.content_padding || "40px 36px",
+    "--vision-shadow": fields.card_shadow || "0 16px 38px rgba(0, 109, 105, 0.08)",
+    "--vision-img1-pos": fields.image1_position || "40% center",
+    "--vision-img2-pos": fields.image2_position || "60% center",
+  } as CSSProperties & Record<string, string>;
+
+  return (
+    <div className="sepsyg-site-vision-preview" style={style}>
+      <div className="sepsyg-site-vision-preview-head">
+        <span>{fields.eyebrow || "Το όραμά μας"}</span>
+        <h4>{fields.title || "Όραμα Συλλόγου"}</h4>
+      </div>
+
+      <div className="sepsyg-site-vision-preview-stack">
+        <article className="sepsyg-site-vision-preview-card">
+          <div className="sepsyg-site-vision-preview-image first">
+            {fields.card1_image ? <img src={fields.card1_image} alt={fields.card1_image_alt || ""} /> : <div className="empty">Χωρίς εικόνα</div>}
+            <span>{fields.card1_label || "Σωματική συνείδηση"}</span>
+          </div>
+          <div className="sepsyg-site-vision-preview-copy">
+            <h5>{fields.card1_title || "Το σώμα ως ζωντανή πηγή εμπειρίας"}</h5>
+            <p>{fields.card1_text1 || ""}</p>
+            <p>{fields.card1_text2 || ""}</p>
+          </div>
+        </article>
+
+        <article className="sepsyg-site-vision-preview-card reverse">
+          <div className="sepsyg-site-vision-preview-image second">
+            {fields.card2_image ? <img src={fields.card2_image} alt={fields.card2_image_alt || ""} /> : <div className="empty">Χωρίς εικόνα</div>}
+            <span>{fields.card2_label || "Ο σκοπός μας"}</span>
+          </div>
+          <div className="sepsyg-site-vision-preview-copy">
+            <h5>{fields.card2_title || "Μια κοινότητα ουσιαστικής θεραπείας και εξέλιξης"}</h5>
+            <p>{fields.card2_text1 || ""}</p>
+            <p>{fields.card2_text2 || ""}</p>
+          </div>
+        </article>
+      </div>
+
+      <div className="sepsyg-site-vision-preview-closing">
+        <p>{fields.closing_text || ""}</p>
+      </div>
+    </div>
+  );
 }
 
 function WebsiteContentManager({ adminName }: { adminName: string }) {
@@ -3634,12 +5210,27 @@ function WebsiteContentManager({ adminName }: { adminName: string }) {
   useEffect(() => {
     const nextDefinition = WEBSITE_SECTION_DEFINITIONS.find((item) => item.key === selectedKey) || WEBSITE_SECTION_DEFINITIONS[0];
     const nextRemote = sections.find((item) => item.section_key === selectedKey) || null;
-    setForm({ ...nextDefinition.defaults, ...(nextRemote?.draft || {}) });
+    const base = { ...nextDefinition.defaults, ...(nextRemote?.draft || {}) };
+    const localDraft = readLocalDraftValue<Record<string, string>>(`sepsyg-draft-site-content-v1:${selectedKey}`);
+    setForm(localDraft ? { ...base, ...localDraft } : base);
     setPreviewOpen(false);
+    if (localDraft && JSON.stringify({ ...base, ...localDraft }) !== JSON.stringify(base)) {
+      setNotice("✓ Επαναφέρθηκαν προσωρινές αλλαγές αυτής της ενότητας από αυτόν τον browser.");
+    }
   }, [selectedKey, sections]);
 
   function setField(key: string, value: string) {
-    setForm((current) => ({ ...current, [key]: value }));
+    setForm((current) => {
+      const next = { ...current, [key]: value };
+      writeLocalDraft(`sepsyg-draft-site-content-v1:${selectedKey}`, next);
+      return next;
+    });
+  }
+
+  function selectWebsiteSection(nextKey: string) {
+    if (nextKey === selectedKey) return;
+    if (dirty && !window.confirm("Υπάρχουν μη αποθηκευμένες αλλαγές σε αυτή την ενότητα. Έχουν κρατηθεί προσωρινά σε αυτόν τον browser. Θέλεις να αλλάξεις ενότητα;")) return;
+    setSelectedKey(nextKey);
   }
 
   async function uploadImage(field: WebsiteFieldDefinition, file: File | null) {
@@ -3674,6 +5265,7 @@ function WebsiteContentManager({ adminName }: { adminName: string }) {
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload.code || "SITE_CONTENT_SAVE_FAILED");
+      clearLocalDraft(`sepsyg-draft-site-content-v1:${definition.key}`);
       setNotice(action === "publish" ? "Η ενότητα δημοσιεύτηκε." : "Το πρόχειρο αποθηκεύτηκε.");
       window.setTimeout(() => setNotice(null), 5000);
       await loadContent(false);
@@ -3719,6 +5311,59 @@ function WebsiteContentManager({ adminName }: { adminName: string }) {
     }
   }
 
+  const contentFields = definition.fields.filter((field) => (field.group || "content") === "content");
+  const appearanceFields = definition.fields.filter((field) => field.group === "appearance");
+
+  function renderEditorField(field: WebsiteFieldDefinition) {
+    const value = form[field.key] || "";
+    const wide = field.kind === "textarea" || field.kind === "image";
+
+    return (
+      <label key={field.key} className={`sepsyg-site-editor-field ${wide ? "wide" : ""}`}>
+        <span>{field.label}</span>
+
+        {field.kind === "textarea" ? (
+          <textarea value={value} onChange={(event) => setField(field.key, event.target.value)} placeholder={field.placeholder} rows={5} />
+        ) : field.kind === "select" ? (
+          <select value={value} onChange={(event) => setField(field.key, event.target.value)}>
+            {(field.options || []).map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+          </select>
+        ) : field.kind === "color" ? (
+          <div className="sepsyg-site-editor-color-control">
+            <input
+              aria-label={`${field.label} color picker`}
+              type="color"
+              value={normalizeEditorColor(value)}
+              onChange={(event) => setField(field.key, event.target.value.toUpperCase())}
+            />
+            <input
+              value={value}
+              onChange={(event) => setField(field.key, event.target.value)}
+              placeholder="#174B49"
+              type="text"
+            />
+          </div>
+        ) : (
+          <input
+            value={value}
+            onChange={(event) => setField(field.key, event.target.value)}
+            placeholder={field.placeholder || (field.kind === "url" ? "https://…" : "")}
+            type={field.kind === "url" ? "url" : "text"}
+          />
+        )}
+
+        {field.kind === "image" && (
+          <div className="sepsyg-site-editor-image-tools">
+            <input type="file" accept="image/*" onChange={(event) => void uploadImage(field, event.target.files?.[0] || null)} />
+            {value && <div className="sepsyg-site-editor-image-preview"><img src={value} alt="" /><button type="button" onClick={() => setField(field.key, "")}>Αφαίρεση</button></div>}
+          </div>
+        )}
+
+        {field.help && <small>{field.help}</small>}
+      </label>
+    );
+  }
+
   return (
     <div className="sepsyg-site-editor">
       <div className="sepsyg-site-editor-head">
@@ -3746,7 +5391,7 @@ function WebsiteContentManager({ adminName }: { adminName: string }) {
                 type="button"
                 key={item.key}
                 className={selectedKey === item.key ? "active" : ""}
-                onClick={() => setSelectedKey(item.key)}
+                onClick={() => selectWebsiteSection(item.key)}
               >
                 <span>{item.label}</span>
                 <small className={item.connected ? "connected" : itemRemote?.published_at ? "stored" : "waiting"}>
@@ -3774,33 +5419,29 @@ function WebsiteContentManager({ adminName }: { adminName: string }) {
             <div className="sepsyg-site-editor-loading">Φόρτωση περιεχομένου…</div>
           ) : (
             <>
-              <div className="sepsyg-site-editor-fields">
-                {definition.fields.map((field) => {
-                  const value = form[field.key] || "";
-                  return (
-                    <label key={field.key} className={`sepsyg-site-editor-field ${field.kind === "textarea" ? "wide" : ""}`}>
-                      <span>{field.label}</span>
-                      {field.kind === "textarea" ? (
-                        <textarea value={value} onChange={(event) => setField(field.key, event.target.value)} placeholder={field.placeholder} rows={5} />
-                      ) : (
-                        <input
-                          value={value}
-                          onChange={(event) => setField(field.key, event.target.value)}
-                          placeholder={field.placeholder || (field.kind === "url" ? "https://…" : "")}
-                          type={field.kind === "url" ? "url" : "text"}
-                        />
-                      )}
-                      {field.kind === "image" && (
-                        <div className="sepsyg-site-editor-image-tools">
-                          <input type="file" accept="image/*" onChange={(event) => void uploadImage(field, event.target.files?.[0] || null)} />
-                          {value && <div className="sepsyg-site-editor-image-preview"><img src={value} alt="" /><button type="button" onClick={() => setField(field.key, "")}>Αφαίρεση</button></div>}
-                        </div>
-                      )}
-                      {field.help && <small>{field.help}</small>}
-                    </label>
-                  );
-                })}
-              </div>
+              <section className="sepsyg-site-editor-group">
+                <div className="sepsyg-site-editor-group-head">
+                  <div><span>Περιεχόμενο</span><strong>Κείμενα, εικόνες και στοιχεία</strong></div>
+                  <small>Αυτά είναι τα στοιχεία που εμφανίζονται δημόσια στην ενότητα.</small>
+                </div>
+                <div className="sepsyg-site-editor-fields">
+                  {contentFields.map(renderEditorField)}
+                </div>
+              </section>
+
+              {appearanceFields.length > 0 && (
+                <details className="sepsyg-site-editor-appearance">
+                  <summary>
+                    <div><span>Εμφάνιση</span><strong>Χρώματα, γραμματοσειρές και διαστάσεις</strong></div>
+                    <small>Οι τρέχουσες τιμές έχουν μεταφερθεί από το υπάρχον Carrd design.</small>
+                  </summary>
+                  <div className="sepsyg-site-editor-appearance-body">
+                    <div className="sepsyg-site-editor-fields">
+                      {appearanceFields.map(renderEditorField)}
+                    </div>
+                  </div>
+                </details>
+              )}
 
               <div className="sepsyg-site-editor-actions">
                 <button type="button" className="ghost" onClick={() => setPreviewOpen((value) => !value)}>{previewOpen ? "Κλείσιμο προεπισκόπησης" : "Προεπισκόπηση"}</button>
@@ -3810,19 +5451,8 @@ function WebsiteContentManager({ adminName }: { adminName: string }) {
 
               {previewOpen && (
                 <section className="sepsyg-site-editor-preview">
-                  <div className="sepsyg-site-editor-preview-head"><span>Προεπισκόπηση περιεχομένου</span><strong>{definition.label}</strong></div>
-                  <div className="sepsyg-site-editor-preview-grid">
-                    {definition.fields.map((field) => {
-                      const value = form[field.key] || "";
-                      if (!value) return null;
-                      return (
-                        <div key={field.key} className={field.kind === "textarea" ? "wide" : ""}>
-                          <small>{field.label}</small>
-                          {field.kind === "image" ? <img src={value} alt="" /> : <p>{value}</p>}
-                        </div>
-                      );
-                    })}
-                  </div>
+                  <div className="sepsyg-site-editor-preview-head"><span>Ζωντανή προεπισκόπηση</span><strong>{definition.label}</strong></div>
+                  <GenericWebsitePreview definition={definition} fields={form} />
                   {!definition.connected && <p className="sepsyg-site-editor-preview-note">Αυτή είναι προεπισκόπηση του περιεχομένου. Όταν μου στείλεις το συγκεκριμένο Carrd block, θα συνδέσουμε αυτά τα πεδία πάνω στο υπάρχον design του.</p>}
                 </section>
               )}
@@ -3888,9 +5518,10 @@ function PortalHelpModal({ tab, onClose }: { tab: "map" | "calendar" | "articles
     intro: "Από εδώ η Διοίκηση διαχειρίζεται το περιεχόμενο της δημόσιας ιστοσελίδας χωρίς να χρειάζεται να αλλάζει κώδικα.",
     steps: [
       "Διάλεξε αριστερά την ενότητα που θέλεις να αλλάξεις, όπως Αρχική, Άρθρα, Επικοινωνία ή Γενικά & Logo.",
-      "Άλλαξε τα κείμενα, τα URLs ή τις εικόνες. Για εικόνα μπορείς να χρησιμοποιήσεις URL ή να ανεβάσεις αρχείο.",
+      "Άλλαξε τα κείμενα, τα URLs ή τις εικόνες στην περιοχή «Περιεχόμενο». Για εικόνα μπορείς να χρησιμοποιήσεις URL ή να ανεβάσεις αρχείο.",
+      "Όπου έχει ήδη συνδεθεί Carrd block, άνοιξε το «Εμφάνιση» για να αλλάξεις τα βασικά χρώματα, γραμματοσειρές, μεγέθη και αποστάσεις. Οι τρέχουσες τιμές του υπάρχοντος design είναι ήδη συμπληρωμένες.",
       "Πάτησε «Αποθήκευση πρόχειρου» για να κρατήσεις τις αλλαγές χωρίς να γίνουν δημόσιες.",
-      "Πάτησε «Προεπισκόπηση» για να ελέγξεις το περιεχόμενο και μετά «Δημοσίευση» όταν είναι έτοιμο.",
+      "Πάτησε «Προεπισκόπηση» για να ελέγξεις το αποτέλεσμα και μετά «Δημοσίευση» όταν είναι έτοιμο.",
       "Κάθε δημοσίευση κρατάει προηγούμενη έκδοση. Από το ιστορικό μπορείς να κάνεις «Επαναφορά» αν κάτι πάει λάθος.",
       "Οι ενότητες θα συνδέονται μία-μία με τα Carrd blocks που μου στέλνεις, ώστε να διατηρηθεί ακριβώς το υπάρχον design.",
     ],
@@ -3900,6 +5531,8 @@ function PortalHelpModal({ tab, onClose }: { tab: "map" | "calendar" | "articles
     steps: [
       "Στο «Διοικητικό Συμβούλιο» μπορείς να προσθέσεις νέα θητεία, να αλλάξεις ονόματα/ρόλους ή να αφαιρέσεις μια θητεία.",
       "Στα «Μέλη & Φίλοι» μπορείς να προσθέσεις νέο πρόσωπο, να αλλάξεις το ονοματεπώνυμο ή την κατηγορία του και να το αφαιρέσεις.",
+      "Στο «Όλες οι δράσεις συγκεντρωτικά» βλέπεις όλες τις δηλώσεις συμμετοχής μαζί, μπορείς να κάνεις αναζήτηση και εξαγωγή CSV.",
+      "Στο «Εγγραφές ενημέρωσης» βλέπεις τα email που γράφτηκαν στο newsletter της αρχικής και μπορείς να τα εξάγεις σε CSV.",
       "Οι αλλαγές αποθηκεύονται στη βάση του Συλλόγου και εμφανίζονται αυτόματα στα αντίστοιχα δημόσια embeds του Carrd.",
       "Τα δημόσια embeds δεν έχουν πλέον κουμπί + ή κωδικό διαχείρισης. Η επεξεργασία γίνεται μόνο από εδώ.",
     ],
@@ -4206,6 +5839,7 @@ function BookingForm({
   const [description, setDescription] = useState(existing?.description ?? "");
   const [eventType, setEventType] = useState(existing?.event_type ?? "Σεμινάριο");
   const [mode, setMode] = useState(existing?.mode ?? "Διαδικτυακά");
+  const [location, setLocation] = useState(existing?.location ?? "");
   const [imageUrl, setImageUrl] = useState(existing?.image_url ?? "");
   const [coverImageFile, setCoverImageFile] = useState<File | null>(null);
   const [detailImageFile, setDetailImageFile] = useState<File | null>(null);
@@ -4243,6 +5877,115 @@ function BookingForm({
   const previewThirdPhoto = usePreviewFileUrl(thirdCoordinatorPhotoFile, existing?.third_coordinator_photo_url);
   const previewFourthPhoto = usePreviewFileUrl(fourthCoordinatorPhotoFile, existing?.fourth_coordinator_photo_url);
 
+  const bookingDraftKey = useMemo(
+    () => `sepsyg-draft-booking-v1:${date}:${existing?.id ? "edit" : "new"}`,
+    [date, existing?.id],
+  );
+  const bookingDraftReadyRef = useRef(false);
+  const bookingBaselineRef = useRef("");
+  const [bookingDraftRestored, setBookingDraftRestored] = useState(false);
+
+  const bookingDraftPayload = {
+    name,
+    coordinatorRole,
+    additionalCoordinator,
+    additionalCoordinatorRole,
+    hasAdditionalCoordinator,
+    thirdCoordinator,
+    thirdCoordinatorRole,
+    hasThirdCoordinator,
+    fourthCoordinator,
+    fourthCoordinatorRole,
+    hasFourthCoordinator,
+    time,
+    topic,
+    description,
+    eventType,
+    mode,
+    location,
+    imageUrl,
+    longDescription,
+    audience,
+    programDetails,
+    activityCategory,
+    generalPrice,
+    offersMemberDiscount,
+    memberPrice,
+    laterTime,
+    laterTopic,
+    laterDescription,
+    isPublic,
+  };
+  const bookingDraftFingerprint = JSON.stringify(bookingDraftPayload);
+
+  useEffect(() => {
+    bookingDraftReadyRef.current = false;
+    bookingBaselineRef.current = bookingDraftFingerprint;
+
+    const draft = readLocalDraftValue<Record<string, unknown>>(bookingDraftKey);
+    if (draft) {
+      if (typeof draft.name === "string") setName(draft.name);
+      if (typeof draft.coordinatorRole === "string") setCoordinatorRole(draft.coordinatorRole);
+      if (typeof draft.additionalCoordinator === "string") setAdditionalCoordinator(draft.additionalCoordinator);
+      if (typeof draft.additionalCoordinatorRole === "string") setAdditionalCoordinatorRole(draft.additionalCoordinatorRole);
+      if (typeof draft.hasAdditionalCoordinator === "boolean") setHasAdditionalCoordinator(draft.hasAdditionalCoordinator);
+      if (typeof draft.thirdCoordinator === "string") setThirdCoordinator(draft.thirdCoordinator);
+      if (typeof draft.thirdCoordinatorRole === "string") setThirdCoordinatorRole(draft.thirdCoordinatorRole);
+      if (typeof draft.hasThirdCoordinator === "boolean") setHasThirdCoordinator(draft.hasThirdCoordinator);
+      if (typeof draft.fourthCoordinator === "string") setFourthCoordinator(draft.fourthCoordinator);
+      if (typeof draft.fourthCoordinatorRole === "string") setFourthCoordinatorRole(draft.fourthCoordinatorRole);
+      if (typeof draft.hasFourthCoordinator === "boolean") setHasFourthCoordinator(draft.hasFourthCoordinator);
+      if (typeof draft.time === "string") setTime(draft.time);
+      if (typeof draft.topic === "string") setTopic(draft.topic);
+      if (typeof draft.description === "string") setDescription(draft.description);
+      if (typeof draft.eventType === "string") setEventType(draft.eventType);
+      if (typeof draft.mode === "string") setMode(draft.mode);
+      if (typeof draft.location === "string") setLocation(draft.location);
+      if (typeof draft.imageUrl === "string") setImageUrl(draft.imageUrl);
+      if (typeof draft.longDescription === "string") setLongDescription(draft.longDescription);
+      if (typeof draft.audience === "string") setAudience(draft.audience);
+      if (typeof draft.programDetails === "string") setProgramDetails(draft.programDetails);
+      if (draft.activityCategory === "association" || draft.activityCategory === "association_free" || draft.activityCategory === "therapist_action") {
+        setActivityCategory(draft.activityCategory);
+      }
+      if (typeof draft.generalPrice === "string") setGeneralPrice(draft.generalPrice);
+      if (typeof draft.offersMemberDiscount === "boolean") setOffersMemberDiscount(draft.offersMemberDiscount);
+      if (typeof draft.memberPrice === "string") setMemberPrice(draft.memberPrice);
+      if (typeof draft.laterTime === "boolean") setLaterTime(draft.laterTime);
+      if (typeof draft.laterTopic === "boolean") setLaterTopic(draft.laterTopic);
+      if (typeof draft.laterDescription === "boolean") setLaterDescription(draft.laterDescription);
+      if (typeof draft.isPublic === "boolean") setIsPublic(draft.isPublic);
+      setBookingDraftRestored(true);
+    } else {
+      setBookingDraftRestored(false);
+    }
+
+    const timer = window.setTimeout(() => { bookingDraftReadyRef.current = true; }, 0);
+    return () => {
+      window.clearTimeout(timer);
+      bookingDraftReadyRef.current = false;
+    };
+    // The initial fingerprint is deliberately captured before any restored draft is applied.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bookingDraftKey]);
+
+  useEffect(() => {
+    if (!bookingDraftReadyRef.current) return;
+    writeLocalDraft(bookingDraftKey, bookingDraftPayload);
+  }, [bookingDraftKey, bookingDraftFingerprint]);
+
+  function closeBookingEditorSafely() {
+    if (saving) return;
+    const changed = bookingDraftFingerprint !== bookingBaselineRef.current;
+    if (changed) {
+      const confirmed = window.confirm(
+        "Υπάρχουν αλλαγές που δεν έχουν αποθηκευτεί οριστικά. Έχουν κρατηθεί προσωρινά σε αυτόν τον browser. Θέλεις να βγεις από την επεξεργασία;",
+      );
+      if (!confirmed) return;
+    }
+    onClose();
+  }
+
   const previewBooking: Booking = {
     id: date,
     booking_date: date,
@@ -4264,13 +6007,14 @@ function BookingForm({
     description: laterDescription ? null : sanitizeRichHtml(description) || null,
     event_type: eventType.trim() || null,
     mode: mode.trim() || null,
+    location: location.trim() || null,
     image_url: previewCoverUrl || null,
     detail_image_url: previewDetailUrl || null,
     long_description: sanitizeRichHtml(longDescription) || null,
     audience: sanitizeRichHtml(audience) || null,
     program_details: sanitizeRichHtml(programDetails) || null,
     activity_category: activityCategory,
-    general_price: activityCategory === "association_free" ? "0" : generalPrice.trim() || null,
+    general_price: generalPrice.trim() || null,
     offers_member_discount: activityCategory === "association_free" ? false : offersMemberDiscount,
     member_price: activityCategory === "association_free" || !offersMemberDiscount ? null : memberPrice.trim() || null,
     requested_public: isPublic,
@@ -4305,16 +6049,6 @@ function BookingForm({
 
     if (isPublic && (laterTime || !time.trim() || laterTopic || !topic.trim())) {
       setError("Για να εμφανιστεί η δράση στο δημόσιο πρόγραμμα, συμπληρώστε τουλάχιστον την ώρα και το θέμα.");
-      return;
-    }
-
-    if (isPublic && activityCategory !== "association_free" && !generalPrice.trim()) {
-      setError("Για δημοσίευση πληρωμένης δράσης, συμπλήρωσε τη γενική τιμή.");
-      return;
-    }
-
-    if (isPublic && offersMemberDiscount && !memberPrice.trim()) {
-      setError("Συμπλήρωσε την ειδική τιμή για Μέλη και Φίλους του Συλλόγου.");
       return;
     }
 
@@ -4375,13 +6109,14 @@ function BookingForm({
         description: laterDescription ? null : sanitizeRichHtml(description) || null,
         event_type: eventType.trim() || null,
         mode: mode.trim() || null,
+        location: location.trim() || null,
         image_url: uploadedCover || imageUrl.trim() || existing?.image_url || null,
         detail_image_url: uploadedDetail || existing?.detail_image_url || null,
         long_description: sanitizeRichHtml(longDescription) || null,
         audience: sanitizeRichHtml(audience) || null,
         program_details: sanitizeRichHtml(programDetails) || null,
         activity_category: activityCategory,
-        general_price: activityCategory === "association_free" ? "0" : generalPrice.trim() || null,
+        general_price: generalPrice.trim() || null,
         offers_member_discount: activityCategory === "association_free" ? false : (isPublic && offersMemberDiscount),
         member_price: activityCategory === "association_free" || !isPublic || !offersMemberDiscount ? null : memberPrice.trim() || null,
         requested_public: isPublic,
@@ -4398,6 +6133,7 @@ function BookingForm({
         });
 
         const savedBooking = { ...existing, ...values };
+        clearLocalDraft(bookingDraftKey);
         onSaved(savedBooking);
         void notifyAdmin("update", savedBooking).then(onEmailStatus);
       } else {
@@ -4420,6 +6156,7 @@ function BookingForm({
           ...values,
           owner_uid: user.uid,
         };
+        clearLocalDraft(bookingDraftKey);
         onSaved(savedBooking);
         void notifyAdmin("create", savedBooking).then(onEmailStatus);
       }
@@ -4437,9 +6174,15 @@ function BookingForm({
   }
 
   return (
-    <Modal onClose={saving ? undefined : onClose}>
+    <Modal>
       <h3 className="text-lg font-semibold">{existing ? "Επεξεργασία δέσμευσης" : "Νέα δέσμευση"}</h3>
       <p className="mb-5 mt-1 text-sm capitalize text-slate-600">{formatDateGreek(date)}</p>
+
+      {bookingDraftRestored && (
+        <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-xs font-semibold leading-5 text-emerald-900">
+          ✓ Επαναφέρθηκε το προσωρινό πρόχειρο που είχε μείνει σε αυτόν τον browser.
+        </div>
+      )}
 
       {connectionError && (
         <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs leading-5 text-amber-900">
@@ -4678,7 +6421,6 @@ function BookingForm({
               const next = event.target.value as ActivityCategory;
               setActivityCategory(next);
               if (next === "association_free") {
-                setGeneralPrice("");
                 setOffersMemberDiscount(false);
                 setMemberPrice("");
               }
@@ -4703,23 +6445,20 @@ function BookingForm({
           )}
         </div>
 
-        {activityCategory !== "association_free" && (
-          <div>
-            <label className="mb-1.5 block text-sm font-medium" htmlFor="general-price">
-              Γενική τιμή (€)
-            </label>
-            <input
-              id="general-price"
-              type="number"
-              min="0"
-              step="0.01"
-              value={generalPrice}
-              onChange={(event) => setGeneralPrice(event.target.value)}
-              placeholder="π.χ. 30"
-              className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:border-emerald-500 focus:outline-none"
-            />
-          </div>
-        )}
+        <div>
+          <label className="mb-1.5 block text-sm font-medium" htmlFor="general-price">
+            Τιμή / κόστος <span className="font-normal text-slate-400">(προαιρετικό)</span>
+          </label>
+          <input
+            id="general-price"
+            type="text"
+            value={generalPrice}
+            onChange={(event) => setGeneralPrice(event.target.value)}
+            placeholder="π.χ. Δωρεάν · Από 135€ · 30€ · Επικοινωνήστε μαζί μας"
+            className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:border-emerald-500 focus:outline-none"
+          />
+          <p className="mt-1.5 text-xs leading-5 text-slate-500">Γράψε ακριβώς αυτό που θέλεις να εμφανίζεται δημόσια. Αν το αφήσεις κενό, δεν θα εμφανιστεί πλαίσιο κόστους (εκτός από κατηγορία «Δωρεάν Δράση», όπου εμφανίζεται αυτόματα «Δωρεάν»).</p>
+        </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
@@ -4741,6 +6480,21 @@ function BookingForm({
               <option>Διαδικτυακά & δια ζώσης</option>
             </select>
           </div>
+        </div>
+
+        <div>
+          <label className="mb-1.5 block text-sm font-medium" htmlFor="event-location">
+            📍 Τοποθεσία / σημείο συμμετοχής <span className="font-normal text-slate-400">(προαιρετικό)</span>
+          </label>
+          <input
+            id="event-location"
+            type="text"
+            value={location}
+            onChange={(event) => setLocation(event.target.value)}
+            placeholder="π.χ. Ηράκλειο · Αθήνα · Διαδικτυακά · Zoom"
+            className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:border-emerald-500 focus:outline-none"
+          />
+          <p className="mt-1.5 text-xs leading-5 text-slate-500">Ό,τι γράψεις εδώ θα εμφανίζεται πάνω στη δράση, σε ξεχωριστό πλαίσιο με 📍. Αν η δράση είναι online μπορείς απλώς να γράψεις «Διαδικτυακά».</p>
         </div>
 
         <div className="rounded-xl border border-emerald-100 bg-emerald-50/40 p-4">
@@ -4850,12 +6604,10 @@ function BookingForm({
                   </label>
                   <input
                     id="member-price"
-                    type="number"
-                    min="0"
-                    step="0.01"
+                    type="text"
                     value={memberPrice}
                     onChange={(event) => setMemberPrice(event.target.value)}
-                    placeholder="π.χ. 20"
+                    placeholder="π.χ. 20€ · Από 15€ · Δωρεάν"
                     className="w-full rounded-lg border border-emerald-200 bg-white px-3 py-2.5 text-sm focus:border-emerald-500 focus:outline-none"
                   />
                 </div>
@@ -4877,11 +6629,11 @@ function BookingForm({
           </button>
           <button
             type="button"
-            onClick={onClose}
+            onClick={closeBookingEditorSafely}
             disabled={saving}
             className="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium hover:bg-slate-50 disabled:opacity-60"
           >
-            Ακύρωση
+            Έξοδος
           </button>
           <button
             type="submit"
@@ -5178,12 +6930,13 @@ function BookingDetails({
           <DetailRow label="Ιδιότητα 4ου συντονιστή" value={booking.fourth_coordinator_role || "—"} />
         )}
         <DetailRow label="Ώρα" value={booking.action_time} />
+        <DetailRow label="Τοποθεσία" value={booking.location || null} />
         <DetailRow label="Θέμα" value={booking.topic} />
         <DetailRow label="Περιγραφή" value={richTextToPlainText(booking.description)} />
         <DetailRow label="Κατηγορία" value={activityCategoryLabel(booking)} />
         <DetailRow label="Γενική τιμή" value={activityPriceLabel(booking)} />
         {booking.offers_member_discount && (
-          <DetailRow label="Τιμή Μελών / Φίλων" value={booking.member_price ? `${booking.member_price} €` : null} />
+          <DetailRow label="Τιμή Μελών / Φίλων" value={booking.member_price || null} />
         )}
         {!isCompleted && (
           <DetailRow
@@ -5507,7 +7260,6 @@ function Modal({ children, onClose, wide = false, landing = false }: { children:
   return (
     <div
       className="fixed inset-0 z-50 flex items-start justify-center overflow-hidden bg-slate-950/50 p-2 sm:items-center sm:p-4"
-      onClick={() => onClose?.()}
       role="presentation"
     >
       <div

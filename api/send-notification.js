@@ -65,6 +65,7 @@ export default async function handler(request, response) {
   const additionalCoordinatorName = clean(body.additional_coordinator_name, 200);
   const coordinators = [therapistName, additionalCoordinatorName].filter(Boolean).join(" & ");
   const actionTime = clean(body.action_time, 100) || "Δεν έχει συμπληρωθεί";
+  const location = clean(body.location, 220) || "Δεν έχει συμπληρωθεί";
   const topic = clean(body.topic, 500) || "Δεν έχει συμπληρωθεί";
   const description = clean(body.description, 3000) || "Δεν έχει συμπληρωθεί";
   const activityCategory = clean(body.activity_category, 80);
@@ -114,11 +115,12 @@ export default async function handler(request, response) {
     `Ημερομηνία δράσης: ${formattedDate}`,
     `Συντονιστές: ${coordinators}`,
     `Ώρα: ${actionTime}`,
+    `Τοποθεσία: ${location}`,
     `Θέμα: ${topic}`,
     `Περιγραφή: ${description}`,
     `Κατηγορία: ${categoryLabel}`,
-    `Γενική τιμή: ${activityCategory === "association_free" ? "Δωρεάν" : (generalPrice ? `${generalPrice} €` : "Δεν ορίστηκε")}`,
-    `Ειδική τιμή Μελών/Φίλων: ${offersMemberDiscount && memberPrice ? `${memberPrice} €` : "Όχι"}`,
+    `Γενική τιμή: ${generalPrice || (activityCategory === "association_free" ? "Δωρεάν" : "Δεν ορίστηκε")}`,
+    `Ειδική τιμή Μελών/Φίλων: ${offersMemberDiscount && memberPrice ? memberPrice : "Όχι"}`,
     `Αίτημα δημόσιας εμφάνισης: ${requestedPublic ? "Ναι" : "Όχι"}`,
     `Κατάσταση έγκρισης: ${approvalStatus || "draft"}`,
     `Εμφάνιση στο δημόσιο πρόγραμμα: ${publicStatus}`,
@@ -132,11 +134,12 @@ export default async function handler(request, response) {
         <tr><td style="padding:8px 0;font-weight:700;width:190px">Ημερομηνία δράσης</td><td>${escapeHtml(formattedDate)}</td></tr>
         <tr><td style="padding:8px 0;font-weight:700">Συντονιστές</td><td>${escapeHtml(coordinators)}</td></tr>
         <tr><td style="padding:8px 0;font-weight:700">Ώρα</td><td>${escapeHtml(actionTime)}</td></tr>
+        <tr><td style="padding:8px 0;font-weight:700">Τοποθεσία</td><td>${escapeHtml(location)}</td></tr>
         <tr><td style="padding:8px 0;font-weight:700">Θέμα</td><td>${escapeHtml(topic)}</td></tr>
         <tr><td style="padding:8px 0;font-weight:700;vertical-align:top">Περιγραφή</td><td>${escapeHtml(description).replaceAll("\n", "<br>")}</td></tr>
         <tr><td style="padding:8px 0;font-weight:700">Κατηγορία</td><td>${escapeHtml(categoryLabel)}</td></tr>
-        <tr><td style="padding:8px 0;font-weight:700">Γενική τιμή</td><td>${escapeHtml(activityCategory === "association_free" ? "Δωρεάν" : (generalPrice ? `${generalPrice} €` : "Δεν ορίστηκε"))}</td></tr>
-        <tr><td style="padding:8px 0;font-weight:700">Τιμή Μελών / Φίλων</td><td>${escapeHtml(offersMemberDiscount && memberPrice ? `${memberPrice} €` : "Δεν προσφέρεται")}</td></tr>
+        <tr><td style="padding:8px 0;font-weight:700">Γενική τιμή</td><td>${escapeHtml(generalPrice || (activityCategory === "association_free" ? "Δωρεάν" : "Δεν ορίστηκε"))}</td></tr>
+        <tr><td style="padding:8px 0;font-weight:700">Τιμή Μελών / Φίλων</td><td>${escapeHtml(offersMemberDiscount && memberPrice ? memberPrice : "Δεν προσφέρεται")}</td></tr>
         <tr><td style="padding:8px 0;font-weight:700">Αίτημα δημοσίευσης</td><td>${requestedPublic ? "Ναι" : "Όχι"}</td></tr>
         <tr><td style="padding:8px 0;font-weight:700">Κατάσταση έγκρισης</td><td>${escapeHtml(approvalStatus || "draft")}</td></tr>
         <tr><td style="padding:8px 0;font-weight:700">Δημόσιο πρόγραμμα</td><td>${escapeHtml(publicStatus)}</td></tr>

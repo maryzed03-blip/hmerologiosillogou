@@ -69,7 +69,7 @@ npm run dev
 - On phones, the calendar fits the screen without horizontal scrolling.
 - Month selection uses a dropdown on small screens.
 - The app opens directly on the current month when it is within July 2026–August 2027.
-- Association website link: https://eusyllogossepshyg.carrd.co/
+- Association website link: https://euassociationsepsyg.carrd.co/#
 
 ## Κρατήσεις θέσεων ανά event
 
