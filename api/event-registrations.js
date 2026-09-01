@@ -1,5 +1,3 @@
-import registerEvent from "../server-handlers/register-event.js";
-import declarePayment from "../server-handlers/declare-payment.js";
 import { deleteDocument, getAccessRole, queryCollection } from "../lib/firestore-rest.js";
 
 function clean(value, maxLength = 1000) {
@@ -20,18 +18,11 @@ function serializeRegistration(document) {
     profession: clean(data.profession, 160),
     membership_status: clean(data.membership_status, 60),
     comment: clean(data.comment, 1000),
-    consent_updates: data.consent_updates === true,
-    consent_at: clean(data.consent_at, 80) || null,
     created_at: clean(data.created_at, 80) || document.createTime || null,
   };
 }
 
 export default async function handler(request, response) {
-  const resource = Array.isArray(request.query?.resource) ? String(request.query.resource[0] || "") : String(request.query?.resource || "");
-
-  if (resource === "register-event") return registerEvent(request, response);
-  if (resource === "declare-payment") return declarePayment(request, response);
-
   const code = request.method === "GET" ? request.query?.code : request.body?.code;
   const role = getAccessRole(code);
   if (!role) {
@@ -40,20 +31,6 @@ export default async function handler(request, response) {
 
   try {
     if (request.method === "GET") {
-      // Vercel Hobby allows up to 12 Serverless Functions.
-      // /api/payment-declarations is rewritten here so we keep the same
-      // public endpoint without consuming a separate function slot.
-      if (request.query?.resource === "payment-declarations") {
-        if (role !== "admin") {
-          return response.status(403).json({ error: "Administrator access required", code: "ADMIN_REQUIRED" });
-        }
-        const items = await queryCollection("paymentDeclarations");
-        const declarations = items
-          .map((item) => ({ id: item.id, ...(item.data || {}) }))
-          .sort((a, b) => String(b.declared_at || "").localeCompare(String(a.declared_at || "")));
-        return response.status(200).json({ declarations });
-      }
-
       const summary = request.query?.summary === "1";
       const eventId = clean(request.query?.eventId, 20);
 

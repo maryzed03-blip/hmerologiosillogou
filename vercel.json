@@ -5,42 +5,6 @@
   "installCommand": "npm install --no-audit --no-fund --registry=https://registry.npmjs.org/",
   "rewrites": [
     {
-      "source": "/api/register-event",
-      "destination": "/api/event-registrations?resource=register-event"
-    },
-    {
-      "source": "/api/declare-payment",
-      "destination": "/api/event-registrations?resource=declare-payment"
-    },
-    {
-      "source": "/api/send-notification",
-      "destination": "/api/communications?resource=send-notification"
-    },
-    {
-      "source": "/api/public-events",
-      "destination": "/api/site-content?resource=public-events"
-    },
-    {
-      "source": "/api/payment-declarations",
-      "destination": "/api/event-registrations?resource=payment-declarations"
-    },
-    {
-      "source": "/api/newsletter-signup",
-      "destination": "/api/communications?resource=newsletter-signup"
-    },
-    {
-      "source": "/api/send-friend-request",
-      "destination": "/api/communications?resource=send-friend-request"
-    },
-    {
-      "source": "/api/verify-manage-code",
-      "destination": "/api/admin-actions?resource=verify-manage-code"
-    },
-    {
-      "source": "/api/approve-event",
-      "destination": "/api/admin-actions?resource=approve-event"
-    },
-    {
       "source": "/manage/:path*",
       "destination": "/index.html"
     },
@@ -67,17 +31,6 @@
     {
       "source": "/articles-embed",
       "destination": "/index.html"
-    }
-  ],
-  "headers": [
-    {
-      "source": "/site-cms.js",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-store, max-age=0, must-revalidate"
-        }
-      ]
     }
   ]
 }

@@ -1,4 +1,3 @@
-import publicEvents from "../server-handlers/public-events.js";
 import crypto from "node:crypto";
 import {
   createDocument,
@@ -116,9 +115,6 @@ async function createVersion(sectionKey, label, fields, createdBy, action = "pub
 }
 
 export default async function handler(request, response) {
-  const resource = Array.isArray(request.query?.resource) ? String(request.query.resource[0] || "") : String(request.query?.resource || "");
-  if (resource === "public-events") return publicEvents(request, response);
-
   response.setHeader("Cache-Control", "no-store, max-age=0");
   response.setHeader("Access-Control-Allow-Origin", "*");
   response.setHeader("Access-Control-Allow-Headers", "Content-Type");

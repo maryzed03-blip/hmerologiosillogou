@@ -87,29 +87,35 @@ export default async function handler(request, response) {
     return response.status(405).json({ error: "Method not allowed", code: "METHOD_NOT_ALLOWED" });
   }
 
-  const body = request.body ?? {};
+  let body = request.body ?? {};
+  if (typeof body === "string") {
+    try { body = JSON.parse(body); } catch { body = {}; }
+  }
+
   const website = clean(body.website, 300);
   if (website) return response.status(200).json({ ok: true });
 
-  const eventId = clean(body.eventId, 20);
-  const fullName = clean(body.fullName, 160);
+  const rawEventId = clean(body.eventId ?? body.event_id ?? body.booking_date, 40);
+  const eventId = /^\d{4}-\d{2}-\d{2}/.test(rawEventId) ? rawEventId.slice(0, 10) : rawEventId;
+  const fullName = clean(body.fullName ?? body.full_name ?? body.name, 160);
   const email = clean(body.email, 220).toLowerCase();
-  const phone = clean(body.phone, 60);
-  const profession = clean(body.profession, 160);
-  const membershipStatus = clean(body.membershipStatus, 60);
-  const comment = clean(body.comment, 1000);
-  const consent = body.consent === true;
+  const phone = clean(body.phone ?? body.telephone, 60);
+  const profession = clean(body.profession ?? body.role ?? body.occupation, 160);
+  const membershipStatus = clean(body.membershipStatus ?? body.membership_status ?? body.memberStatus, 60) || "none";
+  const comment = clean(body.comment ?? body.notes, 1000);
+  const consent = body.consent === true || body.consent === "true" || body.consent === 1 || body.consent === "1";
 
-  if (
-    !/^\d{4}-\d{2}-\d{2}$/.test(eventId) ||
-    fullName.length < 2 ||
-    !/^\S+@\S+\.\S+$/.test(email) ||
-    phone.length < 6 ||
-    profession.length < 2 ||
-    !["none", "friend", "member", "want_member"].includes(membershipStatus) ||
-    !consent
-  ) {
-    return response.status(400).json({ error: "Invalid form data", code: "INVALID_PAYLOAD" });
+  const invalidFields = [];
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(eventId)) invalidFields.push("eventId");
+  if (fullName.length < 2) invalidFields.push("fullName");
+  if (!/^\S+@\S+\.\S+$/.test(email)) invalidFields.push("email");
+  if (phone.length < 6) invalidFields.push("phone");
+  if (profession.length < 2) invalidFields.push("profession");
+  if (!["none", "friend", "member", "want_member"].includes(membershipStatus)) invalidFields.push("membershipStatus");
+  if (!consent) invalidFields.push("consent");
+
+  if (invalidFields.length) {
+    return response.status(400).json({ error: "Invalid form data", code: "INVALID_PAYLOAD", fields: invalidFields });
   }
 
   try {

@@ -16,7 +16,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties, type FormEven
 import { associationDb, db, ensureAnonymousUser, ensureAssociationAnonymousUser } from "./firebase";
 
 type BookingStatus = "booked" | "completed";
-type ActivityCategory = "association" | "association_free" | "therapist_action" | "unity_institute";
+type ActivityCategory = "association" | "association_free" | "therapist_action";
 type ApprovalStatus = "draft" | "pending" | "approved";
 
 type Booking = {
@@ -78,8 +78,6 @@ type EventRegistration = {
   profession: string;
   membership_status: string;
   comment: string;
-  consent_updates: boolean;
-  consent_at: string | null;
   created_at: string | null;
 };
 
@@ -123,13 +121,6 @@ function isSafeFontSize(value: string) {
   if (!/^(\d+(?:\.\d+)?)(px|rem|em|%)$/.test(normalized)) return false;
   const amount = Number.parseFloat(normalized);
   return Number.isFinite(amount) && amount > 0 && amount <= (normalized.endsWith("px") ? 72 : normalized.endsWith("%") ? 300 : 4);
-}
-
-function isSafeFontWeight(value: string) {
-  const normalized = value.trim().toLowerCase();
-  if (normalized === "bold" || normalized === "bolder") return true;
-  const amount = Number.parseInt(normalized, 10);
-  return Number.isFinite(amount) && amount >= 500 && amount <= 900;
 }
 
 const RICH_FONT_SIZE_MAP: Record<string, string> = {
@@ -176,11 +167,9 @@ function sanitizeRichHtml(value: string) {
     if (tag === "SPAN") {
       const color = element.style.color;
       const fontSize = element.style.fontSize;
-      const fontWeight = element.style.fontWeight;
       const styles: string[] = [];
       if (color && isSafeTextColor(color)) styles.push(`color:${escapeRichText(color)}`);
       if (fontSize && isSafeFontSize(fontSize)) styles.push(`font-size:${escapeRichText(fontSize)}`);
-      if (fontWeight && isSafeFontWeight(fontWeight)) styles.push(`font-weight:${escapeRichText(fontWeight)}`);
       return styles.length ? `<span style="${styles.join(";")}">${children}</span>` : `<span>${children}</span>`;
     }
 
@@ -261,7 +250,7 @@ function RichTextEditor({
     restoreSelection();
     const editor = editorRef.current;
     if (!editor) return;
-    document.execCommand("styleWithCSS", false, command === "bold" ? "true" : "false");
+    document.execCommand("styleWithCSS", false, "false");
     document.execCommand(command, false, argument);
     emitValue();
     rememberSelection();
@@ -613,13 +602,7 @@ function bookingFromSnapshot(snapshot: QueryDocumentSnapshot<DocumentData>): Boo
     audience: typeof data.audience === "string" ? data.audience : null,
     program_details: typeof data.program_details === "string" ? data.program_details : null,
     activity_category:
-      data.activity_category === "association_free"
-        ? "association_free"
-        : data.activity_category === "unity_institute"
-          ? "unity_institute"
-          : (data.activity_category === "therapist_action" || data.activity_category === "therapist_independent")
-            ? "therapist_action"
-            : "association",
+      data.activity_category === "association_free" ? "association_free" : (data.activity_category === "therapist_action" || data.activity_category === "therapist_independent") ? "therapist_action" : "association",
     general_price: typeof data.general_price === "string" ? data.general_price : null,
     offers_member_discount: data.offers_member_discount === true,
     member_price: typeof data.member_price === "string" ? data.member_price : null,
@@ -793,21 +776,18 @@ function coordinatorsLabel(booking: Booking) {
 function activityCategoryLabel(booking: Booking) {
   if (booking.activity_category === "association_free") return "Δωρεάν Δράση Συλλόγου";
   if (booking.activity_category === "therapist_action") return "Δράση Θεραπευτή Συλλόγου";
-  if (booking.activity_category === "unity_institute") return "Δράση Unity Energetics Institute";
   return "Δράση Συλλόγου";
 }
 
 function activityCategoryClass(booking: Booking) {
   if (booking.activity_category === "association_free") return "category-free";
   if (booking.activity_category === "therapist_action") return "category-independent";
-  if (booking.activity_category === "unity_institute") return "category-institute";
   return "category-association";
 }
 
 function activityCategoryUnderline(booking: Booking) {
   if (booking.activity_category === "association_free") return "inset 0 -5px 0 #63A97E";
   if (booking.activity_category === "therapist_action") return "inset 0 -5px 0 #79B9D3";
-  if (booking.activity_category === "unity_institute") return "inset 0 -5px 0 #9B87C8";
   return "inset 0 -5px 0 #E39A55";
 }
 
@@ -3025,41 +3005,6 @@ function PublicEventsApp() {
     setActiveMonth(MONTHS[activeMonthIndex + 1].key);
   }
 
-  function requestDetailsScrollTop() {
-    if (typeof window === "undefined") return;
-
-    // Reset any local iframe/document scroll immediately. Carrd embeds normally
-    // use the parent page scroll, but this also covers standalone /events.
-    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
-    document.documentElement.scrollTop = 0;
-    if (document.body) document.body.scrollTop = 0;
-
-    // When embedded in Carrd, ask the parent page to move to the top of the
-    // iframe. The request is deliberately instant: smooth scrolling can lose
-    // its target while React swaps the list for a shorter/taller details view.
-    if (window.parent !== window) {
-      window.parent.postMessage(
-        { type: "SEPSYG_SCROLL_TO_EMBED_TOP", source: "calendar", behavior: "auto" },
-        "*",
-      );
-    }
-  }
-
-  function openPublicBooking(booking: Booking) {
-    // Do this before the DOM height changes, then repeat after React has rendered
-    // the details page. This prevents the visitor from remaining at the old
-    // card's scroll position and seeing only the beige/empty lower area.
-    requestDetailsScrollTop();
-    setViewBooking(booking);
-
-    if (typeof window === "undefined") return;
-    window.requestAnimationFrame(requestDetailsScrollTop);
-    window.setTimeout(requestDetailsScrollTop, 60);
-    window.setTimeout(requestDetailsScrollTop, 180);
-    window.setTimeout(requestDetailsScrollTop, 420);
-    window.setTimeout(requestDetailsScrollTop, 800);
-  }
-
   async function handlePublicAccess(event: FormEvent) {
     event.preventDefault();
     setAccessChecking(true);
@@ -3156,7 +3101,7 @@ function PublicEventsApp() {
                     key={booking.id}
                     booking={booking}
                     therapistDirectory={therapistDirectory}
-                    onOpen={() => openPublicBooking(booking)}
+                    onOpen={() => setViewBooking(booking)}
                   />
                 ))}
               </div>
@@ -3209,7 +3154,7 @@ function PublicEventsApp() {
                     type="button"
                     className={`sepsyg-mini-day ${booking ? "has-event" : ""} ${booking ? activityCategoryClass(booking) : ""}`}
                     disabled={!booking}
-                    onClick={() => booking && openPublicBooking(booking)}
+                    onClick={() => booking && setViewBooking(booking)}
                     aria-label={booking ? `${day} ${month.label}: ${booking.topic || "Δράση Συλλόγου"}` : `${day} ${month.label}`}
                   >
                     <span>{day}</span>
@@ -3292,7 +3237,7 @@ function PublicEventsApp() {
                     onClick={() => {
                       if (!booking) return;
                       setCalendarExpanded(false);
-                      openPublicBooking(booking);
+                      setViewBooking(booking);
                     }}
                   >
                     <span>{day}</span>
@@ -3533,9 +3478,9 @@ function PublicBookingDetails({
   const thirdCoordinatorRole = booking.third_coordinator_role || thirdTherapist?.profession || "";
   const fourthCoordinatorRole = booking.fourth_coordinator_role || fourthTherapist?.profession || "";
   const [showForm, setShowForm] = useState(false);
-  const [values, setValues] = useState<EventRegistrationFormValues>({ fullName: "", email: "", phone: "", profession: "", membershipStatus: "", comment: "" });
+  const [values, setValues] = useState<EventRegistrationFormValues>({ fullName: "", email: "", phone: "", profession: "", membershipStatus: "none", comment: "" });
   const [website, setWebsite] = useState("");
-  const [updatesConsent, setUpdatesConsent] = useState(false);
+  const [consent, setConsent] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
   const registrationRef = useRef<HTMLFormElement | null>(null);
@@ -3571,29 +3516,20 @@ function PublicBookingDetails({
     if (!inlineMode || typeof window === "undefined") return;
 
     const requestParentScroll = () => {
-      window.scrollTo({ top: 0, left: 0, behavior: "auto" });
-      document.documentElement.scrollTop = 0;
-      if (document.body) document.body.scrollTop = 0;
-
       if (window.parent !== window) {
-        window.parent.postMessage(
-          { type: "SEPSYG_SCROLL_TO_EMBED_TOP", source: "calendar", behavior: "auto" },
-          "*",
-        );
+        window.parent.postMessage({ type: "SEPSYG_SCROLL_TO_EMBED_TOP", source: "calendar" }, "*");
+      } else {
+        window.scrollTo({ top: 0, behavior: "smooth" });
       }
     };
 
     requestParentScroll();
-    const first = window.setTimeout(requestParentScroll, 50);
-    const second = window.setTimeout(requestParentScroll, 160);
-    const third = window.setTimeout(requestParentScroll, 420);
-    const fourth = window.setTimeout(requestParentScroll, 800);
+    const first = window.setTimeout(requestParentScroll, 120);
+    const second = window.setTimeout(requestParentScroll, 420);
 
     return () => {
       window.clearTimeout(first);
       window.clearTimeout(second);
-      window.clearTimeout(third);
-      window.clearTimeout(fourth);
     };
   }, [booking.booking_date, inlineMode]);
 
@@ -3605,23 +3541,49 @@ function PublicBookingDetails({
   async function handleRegistration(event: FormEvent) {
     event.preventDefault();
     setNotice(null);
+    if (values.fullName.trim().length < 2) {
+      setNotice({ ok: false, text: "Συμπλήρωσε το ονοματεπώνυμό σου." });
+      return;
+    }
+    if (!/^\S+@\S+\.\S+$/.test(values.email.trim())) {
+      setNotice({ ok: false, text: "Συμπλήρωσε ένα έγκυρο email." });
+      return;
+    }
+    if (values.phone.trim().length < 6) {
+      setNotice({ ok: false, text: "Συμπλήρωσε έναν έγκυρο αριθμό τηλεφώνου." });
+      return;
+    }
+    if (values.profession.trim().length < 2) {
+      setNotice({ ok: false, text: "Συμπλήρωσε το επάγγελμά σου." });
+      return;
+    }
+    if (!consent) {
+      setNotice({ ok: false, text: "Χρειάζεται να αποδεχτείς τη χρήση των στοιχείων για τη συγκεκριμένη συμμετοχή." });
+      return;
+    }
     setSubmitting(true);
     try {
       const response = await fetch("/api/register-event", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ eventId: booking.booking_date, ...values, updatesConsent, website }),
+        body: JSON.stringify({ eventId: booking.booking_date, ...values, consent, website }),
       });
       const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw Object.assign(new Error(payload.code || "REQUEST_FAILED"), { code: payload.code || `HTTP_${response.status}` });
-      setValues({ fullName: "", email: "", phone: "", profession: "", membershipStatus: "", comment: "" });
-      setUpdatesConsent(false);
+      if (!response.ok) throw Object.assign(new Error(payload.code || "REQUEST_FAILED"), { code: payload.code || `HTTP_${response.status}`, fields: payload.fields || [] });
+      setValues({ fullName: "", email: "", phone: "", profession: "", membershipStatus: "none", comment: "" });
+      setConsent(false);
       setWebsite("");
       setNotice({ ok: true, text: payload.emailWarning ? "Η συμμετοχή σου καταχωρίστηκε. Δεν στάλθηκε μόνο το email επιβεβαίωσης." : "Η συμμετοχή σου καταχωρίστηκε και στάλθηκε επιβεβαίωση στο email σου." });
     } catch (error) {
       const code = (error as { code?: string } | null)?.code;
       if (code === "ALREADY_REGISTERED") setNotice({ ok: false, text: "Υπάρχει ήδη συμμετοχή με αυτό το email για τη συγκεκριμένη δράση." });
       else if (code === "EVENT_NOT_OPEN") setNotice({ ok: false, text: "Η συγκεκριμένη δράση δεν δέχεται πλέον συμμετοχές." });
+      else if (code === "INVALID_PAYLOAD") {
+        const invalidFields = Array.isArray((error as any)?.fields) ? (error as any).fields : [];
+        const fieldLabels: Record<string, string> = { eventId: "η ημερομηνία της δράσης", fullName: "το ονοματεπώνυμο", email: "το email", phone: "το τηλέφωνο", profession: "το επάγγελμα", membershipStatus: "η σχέση με τον Σύλλογο", consent: "η συγκατάθεση" };
+        const readable = invalidFields.map((field: string) => fieldLabels[field] || field).join(", ");
+        setNotice({ ok: false, text: readable ? `Έλεγξε τα παρακάτω πεδία: ${readable}.` : "Κάποιο πεδίο της φόρμας δεν είναι έγκυρο. Έλεγξε τα στοιχεία και δοκίμασε ξανά." });
+      }
       else setNotice({ ok: false, text: `Δεν ήταν δυνατή η καταχώριση${code ? ` (${code})` : ""}. Δοκίμασε ξανά.` });
     } finally { setSubmitting(false); }
   }
@@ -3788,9 +3750,9 @@ function PublicBookingDetails({
             <div className="mt-5 grid gap-4 xl:grid-cols-2">
               {booking.long_description && (
                 <section className="rounded-2xl border border-[#174B49]/10 bg-white p-5 xl:col-span-2">
-                  <p className="text-[9px] font-extrabold uppercase tracking-[.13em] text-[#008D8B]">Η δράση</p>
-                  <h2 className="mt-1.5 font-serif text-lg font-medium leading-tight text-[#174B49] sm:text-xl">Περισσότερες πληροφορίες</h2>
-                  <RichTextDisplay value={booking.long_description} className="mt-2.5 text-[12px] leading-5 text-[#566966] sm:text-[13px] sm:leading-6" />
+                  <p className="text-[10px] font-extrabold uppercase tracking-[.14em] text-[#008D8B]">Η δράση</p>
+                  <h2 className="mt-1.5 font-serif text-2xl font-medium text-[#174B49]">Περισσότερες πληροφορίες</h2>
+                  <RichTextDisplay value={booking.long_description} className="mt-3 text-[14px] leading-7 text-[#566966] sm:text-[15px]" />
                 </section>
               )}
 
@@ -3813,7 +3775,7 @@ function PublicBookingDetails({
               <form ref={registrationRef} onSubmit={handleRegistration} className="sepsyg-registration-form sepsyg-popup-registration-form mt-5">
                 <div className="form-intro">
                   <h4>Δήλωση συμμετοχής</h4>
-                  <p>Συμπλήρωσε τα στοιχεία σου.</p>
+                  <p>Συμπλήρωσε τα στοιχεία σου. Η φόρμα συνδέεται αυτόματα με αυτή τη δράση.</p>
                 </div>
 
                 <div className="sepsyg-form-grid">
@@ -3827,13 +3789,13 @@ function PublicBookingDetails({
                   Σχέση με τον Σύλλογο
                   <select value={values.membershipStatus} onChange={(event) => updateValue("membershipStatus", event.target.value)} required>
                     <option value="" disabled>Επίλεξε</option>
-                    <option value="none">Δεν είμαι Μέλος / Φίλος</option>
-                    <option value="friend">Φίλος του Συλλόγου</option>
-                    <option value="member">Μέλος του Συλλόγου</option>
-                    <option value="want_member">Θέλω να γίνω Μέλος</option>
+                    <option value="none">Δεν είμαι Μέλος ή Φίλος του Συλλόγου</option>
+                    <option value="friend">Είμαι Φίλος του Συλλόγου</option>
+                    <option value="member">Είμαι Μέλος του Συλλόγου</option>
+                    <option value="want_member">Θέλω να γίνω Μέλος του Συλλόγου</option>
                   </select>
                   <small className="sepsyg-discount-note">
-                    * Μέλη και Φίλοι έχουν έκπτωση όπου προβλέπεται από τη συγκεκριμένη δράση.
+                    * Οι Φίλοι και τα Μέλη έχουν έκπτωση σε όλες τις δράσεις του Συλλόγου. Η έκπτωση διαμορφώνεται σε συνεννόηση με τον θεραπευτή που διοργανώνει το Σεμινάριο / Εργαστήριο.
                   </small>
                 </label>
 
@@ -3847,10 +3809,9 @@ function PublicBookingDetails({
                 </div>
 
                 <label className="sepsyg-consent">
-                  <input type="checkbox" checked={updatesConsent} onChange={(event) => setUpdatesConsent(event.target.checked)} />
-                  <span>Συναινώ να λαμβάνω ενημερώσεις για τη συγκεκριμένη και για μελλοντικές σχετικές δράσεις ή σεμινάρια από τον Σύλλογο και τον θεραπευτή / συντονιστή της δράσης.</span>
+                  <input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} />
+                  <span>Αποδέχομαι τη χρήση των στοιχείων μου αποκλειστικά για τη διαχείριση της συμμετοχής μου και την επικοινωνία από τον Σύλλογο.</span>
                 </label>
-                <p className="sepsyg-registration-privacy-note">Τα απαραίτητα στοιχεία της φόρμας χρησιμοποιούνται για τη διαχείριση της συμμετοχής και την επικοινωνία σχετικά με τη συγκεκριμένη δράση.</p>
 
                 {notice && <p className={`sepsyg-form-notice ${notice.ok ? "success" : "error"}`}>{notice.text}</p>}
 
@@ -4204,13 +4165,7 @@ function ArticlesManager({ role, memberName }: { role: ManageRole; memberName: s
       setCoverFile(null);
       setAuthorPhotoFile(null);
       clearLocalDraft(articleDraftKey);
-      setNotice(
-        role === "admin"
-          ? "Το άρθρο δημοσιεύτηκε."
-          : payload.emailSent === false
-            ? "Το άρθρο αποθηκεύτηκε σε αναμονή έγκρισης. Το email προς το Διοικητικό δεν στάλθηκε, αλλά μπορεί να εγκριθεί από την καρτέλα Άρθρα."
-            : "Το άρθρο αποθηκεύτηκε και στάλθηκε με email στο Διοικητικό για έγκριση."
-      );
+      setNotice(role === "admin" ? "Το άρθρο δημοσιεύτηκε." : "Το άρθρο αποθηκεύτηκε και στάλθηκε για έγκριση στο Διοικητικό.");
       window.setTimeout(() => setNotice(null), 6000);
       await loadArticles();
     } catch (caught) {
@@ -4593,7 +4548,7 @@ function AllEventRegistrationsManager() {
 
   function exportCsv() {
     downloadCsvFile("symmetoxes-olon-ton-draseon.csv", [
-      ["Ημερομηνία δράσης", "Δράση", "Ώρα", "Ονοματεπώνυμο", "Email", "Τηλέφωνο", "Επάγγελμα", "Σχέση με Σύλλογο", "Ενημερώσεις Συλλόγου & συντονιστή", "Σχόλιο", "Υποβολή"],
+      ["Ημερομηνία δράσης", "Δράση", "Ώρα", "Ονοματεπώνυμο", "Email", "Τηλέφωνο", "Επάγγελμα", "Σχέση με Σύλλογο", "Σχόλιο", "Υποβολή"],
       ...items.map((item) => [
         item.event_date || item.event_id,
         item.event_topic,
@@ -4603,7 +4558,6 @@ function AllEventRegistrationsManager() {
         item.phone,
         item.profession,
         item.membership_status,
-        item.consent_updates ? "Ναι" : "Όχι",
         item.comment,
         item.created_at ? new Date(item.created_at).toLocaleString("el-GR") : "",
       ]),
@@ -4637,7 +4591,7 @@ function AllEventRegistrationsManager() {
       {!loading && filtered.length > 0 && (
         <div className="sepsyg-admin-data-table-wrap">
           <table className="sepsyg-admin-data-table">
-            <thead><tr><th>Δράση</th><th>Συμμετέχων</th><th>Επικοινωνία</th><th>Επάγγελμα</th><th>Σχέση</th><th>Ενημερώσεις</th></tr></thead>
+            <thead><tr><th>Δράση</th><th>Συμμετέχων</th><th>Επικοινωνία</th><th>Επάγγελμα</th><th>Σχέση</th></tr></thead>
             <tbody>
               {filtered.map((item) => (
                 <tr key={item.id}>
@@ -4646,7 +4600,6 @@ function AllEventRegistrationsManager() {
                   <td><a href={`mailto:${item.email}`}>{item.email}</a><a href={`tel:${item.phone}`}>{item.phone}</a></td>
                   <td>{item.profession || "—"}</td>
                   <td>{item.membership_status || "—"}</td>
-                  <td>{item.consent_updates ? "Ναι" : "Όχι"}</td>
                 </tr>
               ))}
             </tbody>
@@ -5566,7 +5519,7 @@ function PortalHelpModal({ tab, onClose }: { tab: "map" | "calendar" | "articles
     steps: [
       "Επίλεξε την ημερομηνία που θέλεις από το ημερολόγιο. Αν είναι ελεύθερη, ανοίγει η φόρμα της δράσης.",
       "Συμπλήρωσε τίτλο, ώρα, περιγραφή, μορφή, φωτογραφίες και τα στοιχεία του συντονιστή. Όσα δεν γνωρίζεις ακόμη μπορείς να τα αφήσεις για να επιστρέψεις αργότερα.",
-      "Διάλεξε σωστή κατηγορία: «Δράση Συλλόγου», «Δωρεάν Δράση Συλλόγου», «Δράση Θεραπευτή Συλλόγου» ή «Δράση Unity Energetics Institute».",
+      "Διάλεξε σωστή κατηγορία: «Δράση Συλλόγου», «Δωρεάν Δράση Συλλόγου» ή «Δράση Θεραπευτή Συλλόγου». Η τελευταία αφορά μόνο περιεχόμενο σχετικό με την εκπαίδευση Σ.Ε.ΨΥ.G.",
       "Πάτησε «Προεπισκόπηση» πριν την αποθήκευση για να δεις ακριβώς πώς θα εμφανιστεί στο κοινό.",
       "Όταν ζητάς δημόσια δημοσίευση ως θεραπευτής, η δράση περνά για έγκριση από το Διοικητικό και εμφανίζεται δημόσια μετά την έγκριση. Αν το ονοματεπώνυμό σου αντιστοιχεί στο προφίλ σου στον Χάρτη και εκεί υπάρχει έγκυρο email, το σύστημα στέλνει ενημέρωση έγκρισης για τη συγκεκριμένη ημερομηνία.",
       "Μπορείς να επιστρέψεις αργότερα στη δράση για διορθώσεις. Για αλλαγή ημερομηνίας, άνοιξε τη δράση και χρησιμοποίησε «Προηγούμενη ημέρα», «Επόμενη ημέρα» ή επίλεξε απευθείας νέα ημερομηνία. Οι συνδεδεμένες συμμετοχές και δηλώσεις πληρωμής μεταφέρονται αυτόματα μαζί με τη δράση. Αν η νέα ημέρα είναι ήδη δεσμευμένη, η εφαρμογή δεν θα επιτρέψει τη μεταφορά.",
@@ -6499,14 +6452,12 @@ function BookingForm({
             <option value="association">Δράση Συλλόγου</option>
             <option value="association_free">Δωρεάν Δράση Συλλόγου</option>
             <option value="therapist_action">Δράση Θεραπευτή Συλλόγου</option>
-            <option value="unity_institute">Δράση Unity Energetics Institute</option>
           </select>
 
           <div className="mt-3 flex flex-wrap gap-3 text-[11px] font-semibold text-slate-600">
             <span className="border-b-4 border-[#63A97E] pb-1">Πράσινο · Δωρεάν</span>
-            <span className="border-b-4 border-[#E39A55] pb-1">Πορτοκαλί · Σύλλογος</span>
-            <span className="border-b-4 border-[#79B9D3] pb-1">Γαλάζιο · Θεραπευτής</span>
-            <span className="border-b-4 border-[#9B87C8] pb-1">Μωβ · Unity Energetics Institute</span>
+            <span className="border-b-4 border-[#E39A55] pb-1">Πορτοκαλί · Δράση Συλλόγου</span>
+            <span className="border-b-4 border-[#79B9D3] pb-1">Γαλάζιο · Δράση Θεραπευτή Συλλόγου</span>
           </div>
 
           {activityCategory === "therapist_action" && (
@@ -7206,14 +7157,13 @@ function RegistrationsModal({
   function exportCsv() {
     const quote = (value: string) => `"${value.replaceAll('"', '""')}"`;
     const rows = [
-      ["Ονοματεπώνυμο", "Email", "Τηλέφωνο", "Επάγγελμα", "Σχέση με Σύλλογο", "Ενημερώσεις Συλλόγου & συντονιστή", "Σχόλιο", "Ημερομηνία υποβολής"],
+      ["Ονοματεπώνυμο", "Email", "Τηλέφωνο", "Επάγγελμα", "Σχέση με Σύλλογο", "Σχόλιο", "Ημερομηνία υποβολής"],
       ...registrations.map((item) => [
         item.full_name,
         item.email,
         item.phone,
         item.profession,
         item.membership_status,
-        item.consent_updates ? "Ναι" : "Όχι",
         item.comment,
         item.created_at ? new Date(item.created_at).toLocaleString("el-GR") : "",
       ]),
@@ -7262,7 +7212,6 @@ function RegistrationsModal({
                     <p><strong>Τηλέφωνο:</strong> <a href={`tel:${registration.phone}`} className="text-sky-700 underline">{registration.phone}</a></p>
                     <p><strong>Επάγγελμα:</strong> {registration.profession}</p>
                     <p><strong>Σχέση με Σύλλογο:</strong> {registration.membership_status || "—"}</p>
-                    <p><strong>Ενημερώσεις:</strong> {registration.consent_updates ? "Ναι" : "Όχι"}</p>
                     <p><strong>Υποβολή:</strong> {registration.created_at ? new Date(registration.created_at).toLocaleString("el-GR") : "—"}</p>
                   </div>
                   {registration.comment && <p className="mt-3 rounded-lg bg-white px-3 py-2 text-sm leading-6 text-slate-600"><strong>Σχόλιο:</strong> {registration.comment}</p>}
