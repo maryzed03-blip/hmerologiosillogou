@@ -256,6 +256,42 @@ function RichTextEditor({
     rememberSelection();
   }
 
+  function applyBold() {
+    if (disabled) return;
+    restoreSelection();
+    const editor = editorRef.current;
+    const selection = window.getSelection();
+    if (!editor || !selection || selection.rangeCount === 0) return;
+    const range = selection.getRangeAt(0);
+    if (!editor.contains(range.commonAncestorContainer)) return;
+
+    // Robust bold: do not depend only on deprecated execCommand("bold"),
+    // which behaves inconsistently inside contentEditable on some browsers.
+    if (!selection.isCollapsed) {
+      try {
+        const wrapper = document.createElement("strong");
+        wrapper.setAttribute("data-sepsyg-bold", "1");
+        const fragment = range.extractContents();
+        wrapper.appendChild(fragment);
+        range.insertNode(wrapper);
+
+        const nextRange = document.createRange();
+        nextRange.selectNodeContents(wrapper);
+        selection.removeAllRanges();
+        selection.addRange(nextRange);
+        selectionRef.current = nextRange.cloneRange();
+        emitValue();
+        return;
+      } catch {
+        // Fallback below for complex selections that cannot be wrapped directly.
+      }
+    }
+
+    document.execCommand("bold", false);
+    emitValue();
+    rememberSelection();
+  }
+
   function uppercaseSelection() {
     if (disabled) return;
     restoreSelection();
@@ -273,7 +309,7 @@ function RichTextEditor({
     <div className={`sepsyg-rich-editor ${disabled ? "is-disabled" : ""}`}>
       <div className="sepsyg-rich-controls">
       <div className="sepsyg-rich-toolbar" aria-label="Εργαλεία μορφοποίησης">
-        <button type="button" title="Έντονα" disabled={disabled} onMouseDown={(event) => event.preventDefault()} onClick={() => runCommand("bold")}><strong>B</strong></button>
+        <button type="button" title="Έντονα" disabled={disabled} onMouseDown={(event) => event.preventDefault()} onClick={applyBold}><strong>B</strong></button>
         <button type="button" title="Υπογράμμιση" disabled={disabled} onMouseDown={(event) => event.preventDefault()} onClick={() => runCommand("underline")}><u>U</u></button>
         <button type="button" title="Μετατροπή του επιλεγμένου κειμένου σε κεφαλαία" disabled={disabled} onMouseDown={(event) => event.preventDefault()} onClick={uppercaseSelection}>ΑΑ</button>
         <span className="sepsyg-rich-toolbar-separator" />
@@ -1242,42 +1278,13 @@ const WEBSITE_SECTION_DEFINITIONS: WebsiteSectionDefinition[] = [
   {
     key: "activities_static",
     label: "Δράσεις · Κάρτες αρχικής",
-    description: "Οι τρεις κάρτες δράσεων και το κείμενο της ενότητας.",
+    description: "Οι 3 κάρτες ενημερώνονται αυτόματα από τις δημόσιες δράσεις. Εδώ αλλάζεις μόνο τον τίτλο, το εισαγωγικό κείμενο και την εμφάνιση.",
     connected: true,
     fields: [
       { key: "text_01", label: "Ετικέτα · Ημερολόγιο Συλλόγου", kind: "text" },
       { key: "text_02", label: "Τίτλος · Δράσεις", kind: "text" },
-      { key: "text_03", label: "Κείμενο · Σεμινάρια, βιωματικά εργαστήρια και συναντήσεις που καλλιεργούν …", kind: "textarea" },
-      { key: "text_04", label: "Ετικέτα · Ημερίδα", kind: "text" },
-      { key: "text_05", label: "Ετικέτα · Διαδικτυακά", kind: "text" },
-      { key: "text_06", label: "Τίτλος · Εξειδικευμένη Ημερίδα Διατροφικών Διαταραχών & Σ.Ε.ΨΥ.G.", kind: "text" },
-      { key: "text_07", label: "Κείμενο · Καλοκαιρινή Διατροφή και Εικόνα Σώματος", kind: "textarea" },
-      { key: "text_08", label: "Ετικέτα · Κυριακή, 19 Ιουλίου 2026", kind: "text" },
-      { key: "text_09", label: "Ετικέτα · 11:00 – 20:00", kind: "text" },
-      { key: "text_10", label: "Κουμπί / σύνδεσμος · Πληροφορίες", kind: "text" },
-      { key: "text_11", label: "Ετικέτα · Εργαστήριο", kind: "text" },
-      { key: "text_12", label: "Ετικέτα · Διαδικτυακά", kind: "text" },
-      { key: "text_13", label: "Τίτλος · Βιωματικό Εργαστήριο", kind: "text" },
-      { key: "text_14", label: "Κείμενο · «Από την Εσωτερική Ησυχία στην Αυθεντική Συνάντηση»", kind: "textarea" },
-      { key: "text_15", label: "Ετικέτα · 5 Ιουλίου 2026", kind: "text" },
-      { key: "text_16", label: "Κουμπί / σύνδεσμος · Πληροφορίες", kind: "text" },
-      { key: "text_17", label: "Ετικέτα · Ομαδική θεραπεία", kind: "text" },
-      { key: "text_18", label: "Ετικέτα · Διαδικτυακά & δια ζώσης", kind: "text" },
-      { key: "text_19", label: "Τίτλος · Γνωρίστε την Ομαδική Ψυχοθεραπεία", kind: "text" },
-      { key: "text_20", label: "Κείμενο · Με Σωματική Επικέντρωση σε πόλεις της Ελλάδας και της Κύπρου", kind: "textarea" },
-      { key: "text_21", label: "Ετικέτα · 28 Φεβρουαρίου 2026", kind: "text" },
-      { key: "text_22", label: "Κουμπί / σύνδεσμος · Πληροφορίες", kind: "text" },
-      { key: "text_23", label: "Κουμπί / σύνδεσμος · Δες όλες τις δράσεις", kind: "text" },
-      { key: "image_01", label: "Εικόνα 1", kind: "image" },
-      { key: "image_01_alt", label: "Εικόνα 1 · Alt / περιγραφή", kind: "text" },
-      { key: "image_02", label: "Εικόνα 2", kind: "image" },
-      { key: "image_02_alt", label: "Εικόνα 2 · Alt / περιγραφή", kind: "text" },
-      { key: "image_03", label: "Εικόνα 3", kind: "image" },
-      { key: "image_03_alt", label: "Εικόνα 3 · Alt / περιγραφή", kind: "text" },
-      { key: "link_01_url", label: "URL · Πληροφορίες", kind: "url" },
-      { key: "link_02_url", label: "URL · Πληροφορίες", kind: "url" },
-      { key: "link_03_url", label: "URL · Πληροφορίες", kind: "url" },
-      { key: "link_04_url", label: "URL · Δες όλες τις δράσεις", kind: "url" },
+      { key: "text_03", label: "Εισαγωγικό κείμενο", kind: "textarea" },
+      { key: "text_23", label: "Κουμπί · Δες όλες τις δράσεις", kind: "text" },
       { key: "style_section_background", label: "Φόντο ενότητας", kind: "color", group: "appearance" },
       { key: "style_card_background", label: "Φόντο καρτών", kind: "color", group: "appearance" },
       { key: "style_heading_color", label: "Χρώμα τίτλων", kind: "color", group: "appearance" },
@@ -3101,7 +3108,14 @@ function PublicEventsApp() {
                     key={booking.id}
                     booking={booking}
                     therapistDirectory={therapistDirectory}
-                    onOpen={() => setViewBooking(booking)}
+                    onOpen={() => {
+                      if (typeof window !== "undefined") {
+                        window.parent !== window
+                          ? window.parent.postMessage({ type: "SEPSYG_SCROLL_TO_EMBED_TOP", source: "calendar" }, "*")
+                          : window.scrollTo({ top: 0, behavior: "smooth" });
+                      }
+                      setViewBooking(booking);
+                    }}
                   />
                 ))}
               </div>
@@ -3478,7 +3492,7 @@ function PublicBookingDetails({
   const thirdCoordinatorRole = booking.third_coordinator_role || thirdTherapist?.profession || "";
   const fourthCoordinatorRole = booking.fourth_coordinator_role || fourthTherapist?.profession || "";
   const [showForm, setShowForm] = useState(false);
-  const [values, setValues] = useState<EventRegistrationFormValues>({ fullName: "", email: "", phone: "", profession: "", membershipStatus: "none", comment: "" });
+  const [values, setValues] = useState<EventRegistrationFormValues>({ fullName: "", email: "", phone: "", profession: "", membershipStatus: "", comment: "" });
   const [website, setWebsite] = useState("");
   const [consent, setConsent] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -3541,22 +3555,6 @@ function PublicBookingDetails({
   async function handleRegistration(event: FormEvent) {
     event.preventDefault();
     setNotice(null);
-    if (values.fullName.trim().length < 2) {
-      setNotice({ ok: false, text: "Συμπλήρωσε το ονοματεπώνυμό σου." });
-      return;
-    }
-    if (!/^\S+@\S+\.\S+$/.test(values.email.trim())) {
-      setNotice({ ok: false, text: "Συμπλήρωσε ένα έγκυρο email." });
-      return;
-    }
-    if (values.phone.trim().length < 6) {
-      setNotice({ ok: false, text: "Συμπλήρωσε έναν έγκυρο αριθμό τηλεφώνου." });
-      return;
-    }
-    if (values.profession.trim().length < 2) {
-      setNotice({ ok: false, text: "Συμπλήρωσε το επάγγελμά σου." });
-      return;
-    }
     if (!consent) {
       setNotice({ ok: false, text: "Χρειάζεται να αποδεχτείς τη χρήση των στοιχείων για τη συγκεκριμένη συμμετοχή." });
       return;
@@ -3569,8 +3567,8 @@ function PublicBookingDetails({
         body: JSON.stringify({ eventId: booking.booking_date, ...values, consent, website }),
       });
       const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw Object.assign(new Error(payload.code || "REQUEST_FAILED"), { code: payload.code || `HTTP_${response.status}`, fields: payload.fields || [] });
-      setValues({ fullName: "", email: "", phone: "", profession: "", membershipStatus: "none", comment: "" });
+      if (!response.ok) throw Object.assign(new Error(payload.code || "REQUEST_FAILED"), { code: payload.code || `HTTP_${response.status}` });
+      setValues({ fullName: "", email: "", phone: "", profession: "", membershipStatus: "", comment: "" });
       setConsent(false);
       setWebsite("");
       setNotice({ ok: true, text: payload.emailWarning ? "Η συμμετοχή σου καταχωρίστηκε. Δεν στάλθηκε μόνο το email επιβεβαίωσης." : "Η συμμετοχή σου καταχωρίστηκε και στάλθηκε επιβεβαίωση στο email σου." });
@@ -3578,19 +3576,15 @@ function PublicBookingDetails({
       const code = (error as { code?: string } | null)?.code;
       if (code === "ALREADY_REGISTERED") setNotice({ ok: false, text: "Υπάρχει ήδη συμμετοχή με αυτό το email για τη συγκεκριμένη δράση." });
       else if (code === "EVENT_NOT_OPEN") setNotice({ ok: false, text: "Η συγκεκριμένη δράση δεν δέχεται πλέον συμμετοχές." });
-      else if (code === "INVALID_PAYLOAD") {
-        const invalidFields = Array.isArray((error as any)?.fields) ? (error as any).fields : [];
-        const fieldLabels: Record<string, string> = { eventId: "η ημερομηνία της δράσης", fullName: "το ονοματεπώνυμο", email: "το email", phone: "το τηλέφωνο", profession: "το επάγγελμα", membershipStatus: "η σχέση με τον Σύλλογο", consent: "η συγκατάθεση" };
-        const readable = invalidFields.map((field: string) => fieldLabels[field] || field).join(", ");
-        setNotice({ ok: false, text: readable ? `Έλεγξε τα παρακάτω πεδία: ${readable}.` : "Κάποιο πεδίο της φόρμας δεν είναι έγκυρο. Έλεγξε τα στοιχεία και δοκίμασε ξανά." });
-      }
       else setNotice({ ok: false, text: `Δεν ήταν δυνατή η καταχώριση${code ? ` (${code})` : ""}. Δοκίμασε ξανά.` });
     } finally { setSubmitting(false); }
   }
 
 
   const detailsContent = (
-    <div className="w-full bg-[#F7EFE8] text-[#263B39]">
+    <div
+      className={`w-full bg-[#F7EFE8] text-[#263B39] ${inlineMode ? "sepsyg-inline-event-detail" : ""}`}
+    >
       <div className="mx-auto w-full max-w-[1480px] px-3 py-3 sm:px-5 sm:py-5 lg:px-7">
         <div className="mb-3 flex items-center justify-between gap-3 rounded-2xl border border-[#174B49]/10 bg-white/90 px-4 py-3 shadow-sm">
           <button
@@ -3751,7 +3745,7 @@ function PublicBookingDetails({
               {booking.long_description && (
                 <section className="rounded-2xl border border-[#174B49]/10 bg-white p-5 xl:col-span-2">
                   <p className="text-[10px] font-extrabold uppercase tracking-[.14em] text-[#008D8B]">Η δράση</p>
-                  <h2 className="mt-1.5 font-serif text-2xl font-medium text-[#174B49]">Περισσότερες πληροφορίες</h2>
+                  <h2 className="mt-1.5 font-serif text-[16px] font-semibold leading-5 text-[#174B49] sm:text-[18px]">Περισσότερες πληροφορίες</h2>
                   <RichTextDisplay value={booking.long_description} className="mt-3 text-[14px] leading-7 text-[#566966] sm:text-[15px]" />
                 </section>
               )}

@@ -3860,3 +3860,29 @@ html.sepsyg-embedded-frame.sepsyg-modal-open body{
   .sepsyg-rich-toolbar,.sepsyg-rich-emoji-row{gap:4px;padding-left:6px;padding-right:6px;}
   .sepsyg-rich-toolbar button,.sepsyg-rich-emoji-row button{min-width:29px;height:29px;}
 }
+
+
+/* =========================================================
+   SEPSYG V7.4 — URGENT PUBLIC ACTION FIXES
+   ========================================================= */
+/* If the Carrd parent has not yet been updated to react to the
+   scroll message, place the opened event at the currently visible
+   point of the iframe instead of showing a large blank beige area. */
+html.sepsyg-embedded-frame .sepsyg-inline-event-detail {
+  padding-top: var(--sepsyg-embed-visible-top, 0px);
+}
+
+/* Bold must be unmistakable in both editor and public output. */
+.sepsyg-rich-editor-area strong[data-sepsyg-bold="1"],
+.sepsyg-rich-editor-area strong,
+.sepsyg-rich-output strong,
+.sepsyg-rich-editor-area b,
+.sepsyg-rich-output b {
+  font-weight: 900 !important;
+}
+
+@media(max-width:720px){
+  html.sepsyg-embedded-frame .sepsyg-inline-event-detail {
+    padding-top: var(--sepsyg-embed-visible-top, 0px);
+  }
+}
