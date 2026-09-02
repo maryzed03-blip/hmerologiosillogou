@@ -66,19 +66,24 @@
       setLeadingText(node, value);
       return;
     }
+
     if (item.mode === "multiline") {
       setMultiline(node, value);
       return;
     }
+
     node.textContent = value;
   }
 
   function applyGeneral(root, general, mappings) {
     (mappings || []).forEach(function (item) {
       if (!Object.prototype.hasOwnProperty.call(general, item.key)) return;
+
       var node = getNode(root, item);
       if (!node) return;
+
       var value = cleanText(general[item.key]);
+
       if (item.attr) {
         node.setAttribute(item.attr, transformed(value, item.transform));
       } else if (item.mode === "leading") {
@@ -94,25 +99,87 @@
   function applyStyleVars(root, fields) {
     Object.keys(fields || {}).forEach(function (key) {
       if (key.indexOf("style_") !== 0) return;
+
       var cssName = "--cms-" + key.slice(6).replace(/_/g, "-");
       root.style.setProperty(cssName, fields[key]);
     });
   }
 
+  // Restore scroll bridge from working commit 7584858.
+  // When "Δες περισσότερα" opens an event inside the iframe,
+  // the iframe asks the Carrd parent page to scroll to its top.
+  function installCarrdScrollBridge() {
+    if (window.__SEPSYG_CARRD_SCROLL_BRIDGE_V75__) return;
+
+    window.__SEPSYG_CARRD_SCROLL_BRIDGE_V75__ = true;
+
+    window.addEventListener("message", function (event) {
+      var data = event && event.data;
+
+      if (!data || data.type !== "SEPSYG_SCROLL_TO_EMBED_TOP") return;
+
+      var frames = document.querySelectorAll("iframe");
+      var sourceFrame = null;
+
+      for (var i = 0; i < frames.length; i += 1) {
+        if (frames[i].contentWindow === event.source) {
+          sourceFrame = frames[i];
+          break;
+        }
+      }
+
+      if (!sourceFrame) return;
+
+      var menu = document.querySelector("#sepsyg-menu-v3");
+      var menuHeight = menu
+        ? Math.ceil(menu.getBoundingClientRect().height)
+        : 0;
+
+      var top =
+        window.pageYOffset +
+        sourceFrame.getBoundingClientRect().top -
+        menuHeight -
+        12;
+
+      var behavior =
+        data.behavior === "smooth"
+          ? "smooth"
+          : "auto";
+
+      window.scrollTo({
+        top: Math.max(0, top),
+        behavior: behavior
+      });
+    });
+  }
+
+  installCarrdScrollBridge();
+
   function applySpecial(config, root, fields, general) {
     if (config.section === "hero") {
       var bg = fields.background_image;
       var main = root.querySelector(".syg16-main");
-      if (main && bg) main.style.setProperty("--cms-hero-image", 'url("' + String(bg).replace(/"/g, '\\"') + '")');
 
-      /* V7.3 — Newsletter popup instead of inline hero box. */
+      if (main && bg) {
+        main.style.setProperty(
+          "--cms-hero-image",
+          'url("' + String(bg).replace(/"/g, '\\"') + '")'
+        );
+      }
+
       var oldInline = root.querySelector(".sepsyg-newsletter-cms");
-      if (oldInline && oldInline.parentNode) oldInline.parentNode.removeChild(oldInline);
+
+      if (oldInline && oldInline.parentNode) {
+        oldInline.parentNode.removeChild(oldInline);
+      }
 
       var styleId = "sepsyg-newsletter-popup-style-v73";
+
       if (!document.getElementById(styleId)) {
         var style = document.createElement("style");
+
         style.id = styleId;
+
         style.textContent = [
           '#sepsyg-newsletter-popup-v73,#sepsyg-newsletter-popup-v73 *{box-sizing:border-box}',
           '#sepsyg-newsletter-popup-v73{position:fixed;inset:0;z-index:2147483000;display:flex;align-items:center;justify-content:center;padding:22px;background:rgba(9,42,41,.58);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);opacity:0;visibility:hidden;transition:opacity .22s ease,visibility .22s ease;font-family:Arial,Helvetica,sans-serif}',
@@ -140,17 +207,26 @@
           '#sepsyg-newsletter-popup-v73.is-success form,#sepsyg-newsletter-popup-v73.is-success .snp-text{display:none}',
           '#sepsyg-newsletter-popup-v73.is-success .snp-success{display:block}',
           '@media(max-width:560px){#sepsyg-newsletter-popup-v73{padding:16px}#sepsyg-newsletter-popup-v73 .snp-inner{padding:30px 22px 24px}#sepsyg-newsletter-popup-v73 .snp-row{grid-template-columns:1fr}#sepsyg-newsletter-popup-v73 .snp-submit{width:100%}}'
-        ].join('');
+        ].join("");
+
         document.head.appendChild(style);
       }
 
-      var popup = document.getElementById("sepsyg-newsletter-popup-v73");
+      var popup = document.getElementById(
+        "sepsyg-newsletter-popup-v73"
+      );
+
       if (!popup) {
         popup = document.createElement("div");
+
         popup.id = "sepsyg-newsletter-popup-v73";
         popup.setAttribute("role", "dialog");
         popup.setAttribute("aria-modal", "true");
-        popup.setAttribute("aria-labelledby", "sepsyg-newsletter-popup-title-v73");
+        popup.setAttribute(
+          "aria-labelledby",
+          "sepsyg-newsletter-popup-title-v73"
+        );
+
         popup.innerHTML =
           '<div class="snp-card">' +
             '<div class="snp-accent" aria-hidden="true"></div>' +
@@ -160,112 +236,272 @@
               '<h2 id="sepsyg-newsletter-popup-title-v73"></h2>' +
               '<p class="snp-text"></p>' +
               '<form novalidate>' +
-                '<div class="snp-row"><input type="email" autocomplete="email" required><button class="snp-submit" type="submit"></button></div>' +
-                '<label class="snp-consent"><input type="checkbox" required><span></span></label>' +
+                '<div class="snp-row">' +
+                  '<input type="email" autocomplete="email" required>' +
+                  '<button class="snp-submit" type="submit"></button>' +
+                '</div>' +
+                '<label class="snp-consent">' +
+                  '<input type="checkbox" required>' +
+                  '<span></span>' +
+                '</label>' +
                 '<div class="snp-status" role="status" aria-live="polite"></div>' +
                 '<button type="button" class="snp-later">Όχι τώρα</button>' +
               '</form>' +
               '<div class="snp-success">✓ Η εγγραφή ολοκληρώθηκε. Ευχαριστούμε!</div>' +
             '</div>' +
           '</div>';
+
         document.body.appendChild(popup);
 
         var closePopup = function () {
           popup.classList.remove("is-open");
-          try { sessionStorage.setItem("sepsyg_newsletter_popup_dismissed", "1"); } catch (error) {}
-          setTimeout(function () { popup.setAttribute("aria-hidden", "true"); }, 240);
-        };
-        popup.querySelector(".snp-close").addEventListener("click", closePopup);
-        popup.querySelector(".snp-later").addEventListener("click", closePopup);
 
-        /* Clicking the dark backdrop intentionally does NOT close the popup. */
+          try {
+            sessionStorage.setItem(
+              "sepsyg_newsletter_popup_dismissed",
+              "1"
+            );
+          } catch (error) {}
+
+          setTimeout(function () {
+            popup.setAttribute("aria-hidden", "true");
+          }, 240);
+        };
+
+        popup
+          .querySelector(".snp-close")
+          .addEventListener("click", closePopup);
+
+        popup
+          .querySelector(".snp-later")
+          .addEventListener("click", closePopup);
+
         popup.addEventListener("mousedown", function (event) {
-          if (event.target === popup) event.preventDefault();
+          if (event.target === popup) {
+            event.preventDefault();
+          }
         });
 
         var form = popup.querySelector("form");
+
         form.addEventListener("submit", function (event) {
           event.preventDefault();
-          var emailInput = popup.querySelector('input[type="email"]');
-          var consentInput = popup.querySelector('input[type="checkbox"]');
-          var submit = popup.querySelector(".snp-submit");
-          var status = popup.querySelector(".snp-status");
-          var email = String(emailInput.value || "").trim();
-          var consent = !!consentInput.checked;
+
+          var emailInput =
+            popup.querySelector('input[type="email"]');
+
+          var consentInput =
+            popup.querySelector('input[type="checkbox"]');
+
+          var submit =
+            popup.querySelector(".snp-submit");
+
+          var status =
+            popup.querySelector(".snp-status");
+
+          var email =
+            String(emailInput.value || "").trim();
+
+          var consent =
+            !!consentInput.checked;
 
           if (!email) {
             status.textContent = "Γράψε το email σου.";
             emailInput.focus();
             return;
           }
+
           if (!consent) {
-            status.textContent = "Χρειάζεται να επιλέξεις τη συγκατάθεση για την ενημέρωση.";
+            status.textContent =
+              "Χρειάζεται να επιλέξεις τη συγκατάθεση για την ενημέρωση.";
             consentInput.focus();
             return;
           }
 
           submit.disabled = true;
           status.textContent = "Γίνεται η εγγραφή…";
-          fetch("https://hmerologiosillogou.vercel.app/api/newsletter-signup", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email: email, consent: true, source: "carrd-popup" })
-          }).then(function (response) {
-            return response.json().catch(function () { return {}; }).then(function (payload) {
-              if (!response.ok) throw new Error(payload.code || "NEWSLETTER_FAILED");
-              return payload;
+
+          fetch(
+            "https://hmerologiosillogou.vercel.app/api/newsletter-signup",
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json"
+              },
+              body: JSON.stringify({
+                email: email,
+                consent: true,
+                source: "carrd-popup"
+              })
+            }
+          )
+            .then(function (response) {
+              return response
+                .json()
+                .catch(function () {
+                  return {};
+                })
+                .then(function (payload) {
+                  if (!response.ok) {
+                    throw new Error(
+                      payload.code || "NEWSLETTER_FAILED"
+                    );
+                  }
+
+                  return payload;
+                });
+            })
+            .then(function (payload) {
+              try {
+                localStorage.setItem(
+                  "sepsyg_newsletter_subscribed",
+                  "1"
+                );
+
+                sessionStorage.removeItem(
+                  "sepsyg_newsletter_popup_dismissed"
+                );
+              } catch (error) {}
+
+              popup.classList.add("is-success");
+
+              var success =
+                popup.querySelector(".snp-success");
+
+              success.textContent =
+                payload.alreadySubscribed
+                  ? "✓ Είσαι ήδη στη λίστα ενημέρωσης."
+                  : "✓ Η εγγραφή ολοκληρώθηκε. Ευχαριστούμε!";
+
+              setTimeout(function () {
+                popup.classList.remove("is-open");
+                popup.setAttribute(
+                  "aria-hidden",
+                  "true"
+                );
+              }, 1500);
+            })
+            .catch(function () {
+              status.textContent =
+                "Δεν ολοκληρώθηκε η εγγραφή. Δοκίμασε ξανά.";
+
+              submit.disabled = false;
             });
-          }).then(function (payload) {
-            try {
-              localStorage.setItem("sepsyg_newsletter_subscribed", "1");
-              sessionStorage.removeItem("sepsyg_newsletter_popup_dismissed");
-            } catch (error) {}
-            popup.classList.add("is-success");
-            var success = popup.querySelector(".snp-success");
-            success.textContent = payload.alreadySubscribed
-              ? "✓ Είσαι ήδη στη λίστα ενημέρωσης."
-              : "✓ Η εγγραφή ολοκληρώθηκε. Ευχαριστούμε!";
-            setTimeout(function () {
-              popup.classList.remove("is-open");
-              popup.setAttribute("aria-hidden", "true");
-            }, 1500);
-          }).catch(function () {
-            status.textContent = "Δεν ολοκληρώθηκε η εγγραφή. Δοκίμασε ξανά.";
-            submit.disabled = false;
-          });
         });
       }
 
       if (popup) {
-        popup.style.setProperty("--snp-teal", fields.style_section_background || "#008D8B");
-        popup.style.setProperty("--snp-peach", fields.style_accent_color || "#E1AF85");
-        var set = function (selector, value, fallback) {
-          var node = popup.querySelector(selector);
-          if (node) node.textContent = value || fallback || "";
+        popup.style.setProperty(
+          "--snp-teal",
+          fields.style_section_background || "#008D8B"
+        );
+
+        popup.style.setProperty(
+          "--snp-peach",
+          fields.style_accent_color || "#E1AF85"
+        );
+
+        var set = function (
+          selector,
+          value,
+          fallback
+        ) {
+          var node =
+            popup.querySelector(selector);
+
+          if (node) {
+            node.textContent =
+              value || fallback || "";
+          }
         };
-        set(".snp-eyebrow", fields.newsletter_eyebrow, "Newsletter");
-        set("h2", fields.newsletter_title, "Μείνε κοντά στις δράσεις μας");
-        set(".snp-text", fields.newsletter_text, "Εγγράψου στο newsletter μας για να ενημερώνεσαι για νέες δράσεις, σεμινάρια και ανακοινώσεις του Συλλόγου.");
-        set(".snp-consent span", fields.newsletter_consent, "Συμφωνώ να λαμβάνω ενημερώσεις μέσω email από τον Σύλλογο.");
-        var input = popup.querySelector('input[type="email"]');
-        if (input) input.placeholder = fields.newsletter_placeholder || "Το email σου";
-        var button = popup.querySelector(".snp-submit");
-        if (button) button.textContent = fields.newsletter_button || "Εγγραφή";
+
+        set(
+          ".snp-eyebrow",
+          fields.newsletter_eyebrow,
+          "Newsletter"
+        );
+
+        set(
+          "h2",
+          fields.newsletter_title,
+          "Μείνε κοντά στις δράσεις μας"
+        );
+
+        set(
+          ".snp-text",
+          fields.newsletter_text,
+          "Εγγράψου στο newsletter μας για να ενημερώνεσαι για νέες δράσεις, σεμινάρια και ανακοινώσεις του Συλλόγου."
+        );
+
+        set(
+          ".snp-consent span",
+          fields.newsletter_consent,
+          "Συμφωνώ να λαμβάνω ενημερώσεις μέσω email από τον Σύλλογο."
+        );
+
+        var input =
+          popup.querySelector(
+            'input[type="email"]'
+          );
+
+        if (input) {
+          input.placeholder =
+            fields.newsletter_placeholder ||
+            "Το email σου";
+        }
+
+        var button =
+          popup.querySelector(
+            ".snp-submit"
+          );
+
+        if (button) {
+          button.textContent =
+            fields.newsletter_button ||
+            "Εγγραφή";
+        }
 
         var subscribed = false;
         var dismissed = false;
+
         try {
-          subscribed = localStorage.getItem("sepsyg_newsletter_subscribed") === "1";
-          dismissed = sessionStorage.getItem("sepsyg_newsletter_popup_dismissed") === "1";
+          subscribed =
+            localStorage.getItem(
+              "sepsyg_newsletter_subscribed"
+            ) === "1";
+
+          dismissed =
+            sessionStorage.getItem(
+              "sepsyg_newsletter_popup_dismissed"
+            ) === "1";
         } catch (error) {}
 
-        if (!subscribed && !dismissed && !popup.dataset.scheduled) {
+        if (
+          !subscribed &&
+          !dismissed &&
+          !popup.dataset.scheduled
+        ) {
           popup.dataset.scheduled = "1";
+
           setTimeout(function () {
-            popup.removeAttribute("aria-hidden");
-            popup.classList.add("is-open");
-            var emailField = popup.querySelector('input[type="email"]');
-            setTimeout(function () { if (emailField) emailField.focus(); }, 260);
+            popup.removeAttribute(
+              "aria-hidden"
+            );
+
+            popup.classList.add(
+              "is-open"
+            );
+
+            var emailField =
+              popup.querySelector(
+                'input[type="email"]'
+              );
+
+            setTimeout(function () {
+              if (emailField) {
+                emailField.focus();
+              }
+            }, 260);
           }, 650);
         }
       }
@@ -273,29 +509,93 @@
   }
 
   function fetchSection(section) {
-    return fetch(API + "?section=" + encodeURIComponent(section) + "&_=" + Date.now(), { cache: "no-store" })
-      .then(function (response) { return response.ok ? response.json() : null; })
-      .then(function (payload) { return payload && payload.section && payload.section.fields ? payload.section.fields : {}; })
-      .catch(function () { return {}; });
+    return fetch(
+      API +
+        "?section=" +
+        encodeURIComponent(section) +
+        "&_=" +
+        Date.now(),
+      {
+        cache: "no-store"
+      }
+    )
+      .then(function (response) {
+        return response.ok
+          ? response.json()
+          : null;
+      })
+      .then(function (payload) {
+        return payload &&
+          payload.section &&
+          payload.section.fields
+          ? payload.section.fields
+          : {};
+      })
+      .catch(function () {
+        return {};
+      });
   }
 
   function bind(config) {
-    var root = document.querySelector(config.root);
+    var root =
+      document.querySelector(config.root);
+
     if (!root) return;
 
-    Promise.all([fetchSection(config.section), fetchSection("general")]).then(function (results) {
-      var fields = results[0] || {};
-      var general = results[1] || {};
-      (config.mappings || []).forEach(function (item) { applyMapping(root, fields, item); });
-      applyGeneral(root, general, config.generalMappings || []);
-      applyStyleVars(root, fields);
-      applySpecial(config, root, fields, general);
+    Promise.all([
+      fetchSection(config.section),
+      fetchSection("general")
+    ]).then(function (results) {
+      var fields =
+        results[0] || {};
 
-      window.dispatchEvent(new CustomEvent("SEPSYG_CMS_APPLIED", {
-        detail: { section: config.section, fields: fields, general: general }
-      }));
+      var general =
+        results[1] || {};
+
+      (config.mappings || []).forEach(
+        function (item) {
+          applyMapping(
+            root,
+            fields,
+            item
+          );
+        }
+      );
+
+      applyGeneral(
+        root,
+        general,
+        config.generalMappings || []
+      );
+
+      applyStyleVars(
+        root,
+        fields
+      );
+
+      applySpecial(
+        config,
+        root,
+        fields,
+        general
+      );
+
+      window.dispatchEvent(
+        new CustomEvent(
+          "SEPSYG_CMS_APPLIED",
+          {
+            detail: {
+              section: config.section,
+              fields: fields,
+              general: general
+            }
+          }
+        )
+      );
     });
   }
 
-  window.SEPSYGCMS = { bind: bind };
+  window.SEPSYGCMS = {
+    bind: bind
+  };
 })();
