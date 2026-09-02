@@ -1,0 +1,23 @@
+V7.7 — SELF-CLEANING VERCEL FIX
+================================
+
+Problem confirmed:
+GitHub browser uploads can overwrite files but do not automatically delete old files.
+The repository therefore retained old /api/*.js files and Vercel continued counting them
+as Serverless Functions even though the replacement ZIP contained fewer functions.
+
+This build now runs scripts/vercel-prebuild.mjs BEFORE vite build on Vercel.
+It removes every stale root API function except these 8 production endpoints:
+- actions.js
+- articles.js
+- declare-payment.js
+- event-registrations.js
+- payment-declarations.js
+- public-events.js
+- register-event.js
+- site-content.js
+
+It then verifies that exactly 8 API functions remain. If not, the build stops early with
+a precise error instead of reaching Deploying outputs with an unclear Hobby-plan failure.
+
+The public API URLs remain preserved by vercel.json rewrites.
