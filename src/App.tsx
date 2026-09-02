@@ -3012,34 +3012,6 @@ function PublicEventsApp() {
     setActiveMonth(MONTHS[activeMonthIndex + 1].key);
   }
 
-  function requestDetailsScrollTop() {
-    if (typeof window === "undefined") return;
-
-    // Restore the scroll behaviour from the last known working version (commit 7584858).
-    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
-    document.documentElement.scrollTop = 0;
-    if (document.body) document.body.scrollTop = 0;
-
-    if (window.parent !== window) {
-      window.parent.postMessage(
-        { type: "SEPSYG_SCROLL_TO_EMBED_TOP", source: "calendar", behavior: "auto" },
-        "*",
-      );
-    }
-  }
-
-  function openPublicBooking(booking: Booking) {
-    requestDetailsScrollTop();
-    setViewBooking(booking);
-
-    if (typeof window === "undefined") return;
-    window.requestAnimationFrame(requestDetailsScrollTop);
-    window.setTimeout(requestDetailsScrollTop, 60);
-    window.setTimeout(requestDetailsScrollTop, 180);
-    window.setTimeout(requestDetailsScrollTop, 420);
-    window.setTimeout(requestDetailsScrollTop, 800);
-  }
-
   async function handlePublicAccess(event: FormEvent) {
     event.preventDefault();
     setAccessChecking(true);
@@ -3136,7 +3108,14 @@ function PublicEventsApp() {
                     key={booking.id}
                     booking={booking}
                     therapistDirectory={therapistDirectory}
-                    onOpen={() => openPublicBooking(booking)}
+                    onOpen={() => {
+                      if (typeof window !== "undefined") {
+                        window.parent !== window
+                          ? window.parent.postMessage({ type: "SEPSYG_SCROLL_TO_EMBED_TOP", source: "calendar" }, "*")
+                          : window.scrollTo({ top: 0, behavior: "smooth" });
+                      }
+                      setViewBooking(booking);
+                    }}
                   />
                 ))}
               </div>
@@ -3189,7 +3168,7 @@ function PublicEventsApp() {
                     type="button"
                     className={`sepsyg-mini-day ${booking ? "has-event" : ""} ${booking ? activityCategoryClass(booking) : ""}`}
                     disabled={!booking}
-                    onClick={() => booking && openPublicBooking(booking)}
+                    onClick={() => booking && setViewBooking(booking)}
                     aria-label={booking ? `${day} ${month.label}: ${booking.topic || "Δράση Συλλόγου"}` : `${day} ${month.label}`}
                   >
                     <span>{day}</span>
@@ -3272,7 +3251,7 @@ function PublicEventsApp() {
                     onClick={() => {
                       if (!booking) return;
                       setCalendarExpanded(false);
-                      openPublicBooking(booking);
+                      setViewBooking(booking);
                     }}
                   >
                     <span>{day}</span>
@@ -3551,29 +3530,20 @@ function PublicBookingDetails({
     if (!inlineMode || typeof window === "undefined") return;
 
     const requestParentScroll = () => {
-      window.scrollTo({ top: 0, left: 0, behavior: "auto" });
-      document.documentElement.scrollTop = 0;
-      if (document.body) document.body.scrollTop = 0;
-
       if (window.parent !== window) {
-        window.parent.postMessage(
-          { type: "SEPSYG_SCROLL_TO_EMBED_TOP", source: "calendar", behavior: "auto" },
-          "*",
-        );
+        window.parent.postMessage({ type: "SEPSYG_SCROLL_TO_EMBED_TOP", source: "calendar" }, "*");
+      } else {
+        window.scrollTo({ top: 0, behavior: "smooth" });
       }
     };
 
     requestParentScroll();
-    const first = window.setTimeout(requestParentScroll, 50);
-    const second = window.setTimeout(requestParentScroll, 160);
-    const third = window.setTimeout(requestParentScroll, 420);
-    const fourth = window.setTimeout(requestParentScroll, 800);
+    const first = window.setTimeout(requestParentScroll, 120);
+    const second = window.setTimeout(requestParentScroll, 420);
 
     return () => {
       window.clearTimeout(first);
       window.clearTimeout(second);
-      window.clearTimeout(third);
-      window.clearTimeout(fourth);
     };
   }, [booking.booking_date, inlineMode]);
 
@@ -3612,7 +3582,9 @@ function PublicBookingDetails({
 
 
   const detailsContent = (
-    <div className="w-full bg-[#F7EFE8] text-[#263B39]">
+    <div
+      className={`w-full bg-[#F7EFE8] text-[#263B39] ${inlineMode ? "sepsyg-inline-event-detail" : ""}`}
+    >
       <div className="mx-auto w-full max-w-[1480px] px-3 py-3 sm:px-5 sm:py-5 lg:px-7">
         <div className="mb-3 flex items-center justify-between gap-3 rounded-2xl border border-[#174B49]/10 bg-white/90 px-4 py-3 shadow-sm">
           <button
@@ -3801,10 +3773,10 @@ function PublicBookingDetails({
                 </div>
 
                 <div className="sepsyg-form-grid">
-                  <label>Ονοματεπώνυμο<input value={values.fullName} onChange={(event) => updateValue("fullName", event.target.value)} required maxLength={160} /></label>
-                  <label>Email<input type="email" value={values.email} onChange={(event) => updateValue("email", event.target.value)} required maxLength={220} /></label>
-                  <label>Τηλέφωνο<input type="tel" value={values.phone} onChange={(event) => updateValue("phone", event.target.value)} required maxLength={60} /></label>
-                  <label>Επάγγελμα<input value={values.profession} onChange={(event) => updateValue("profession", event.target.value)} required maxLength={160} /></label>
+                  <label>Ονοματεπώνυμο *<input value={values.fullName} onChange={(event) => updateValue("fullName", event.target.value)} required maxLength={160} /></label>
+                  <label>Email *<input type="email" value={values.email} onChange={(event) => updateValue("email", event.target.value)} required maxLength={220} /></label>
+                  <label>Τηλέφωνο<input type="tel" value={values.phone} onChange={(event) => updateValue("phone", event.target.value)} maxLength={60} /></label>
+                  <label>Επάγγελμα<input value={values.profession} onChange={(event) => updateValue("profession", event.target.value)} maxLength={160} /></label>
                 </div>
 
                 <label className="sepsyg-full-field">
