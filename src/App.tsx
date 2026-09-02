@@ -53,6 +53,7 @@ type Booking = {
   requested_public: boolean;
   approval_status: ApprovalStatus;
   owner_uid: string;
+  owner_name?: string | null;
   status: BookingStatus;
   is_public: boolean;
 };
@@ -648,6 +649,7 @@ function bookingFromSnapshot(snapshot: QueryDocumentSnapshot<DocumentData>): Boo
         ? data.approval_status
         : data.is_public === true ? "approved" : "draft",
     owner_uid: String(data.owner_uid ?? ""),
+    owner_name: typeof data.owner_name === "string" && data.owner_name.trim() ? data.owner_name.trim() : null,
     status: data.status === "completed" ? "completed" : "booked",
     is_public: data.is_public === true,
   };
@@ -739,6 +741,19 @@ function normalizeTherapistName(value: string | null | undefined) {
     .replace(/[.,;:()"'’`´\-_/\\]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function bookingOwnedByMember(booking: Booking, memberName: string) {
+  const target = normalizeTherapistName(memberName);
+  if (!target) return false;
+  const explicitOwner = normalizeTherapistName(booking.owner_name);
+  if (explicitOwner) return explicitOwner === target;
+  return [
+    booking.therapist_name,
+    booking.additional_coordinator_name,
+    booking.third_coordinator_name,
+    booking.fourth_coordinator_name,
+  ].some((person) => normalizeTherapistName(person) === target);
 }
 
 function findTherapistByName(
@@ -2707,6 +2722,7 @@ function ManageApp({ role, embedded = false, memberName = "" }: { role: ManageRo
         <BookingForm
           date={selectedDate}
           manageRole={role}
+          ownerName={memberName}
           connectionError={connectionError}
           onEmailStatus={reportEmailStatus}
           onClose={() => setSelectedDate(null)}
@@ -2720,7 +2736,7 @@ function ManageApp({ role, embedded = false, memberName = "" }: { role: ManageRo
       {viewBooking && (
         <BookingDetails
           booking={viewBooking}
-          canManage={viewBooking.status === "booked"}
+          canManage={viewBooking.status === "booked" && (role === "admin" || bookingOwnedByMember(viewBooking, memberName))}
           registrationCount={registrationCounts[viewBooking.booking_date] || 0}
           canViewRegistrationDetails={role === "admin"}
           canShareUrl={
@@ -2779,6 +2795,7 @@ function ManageApp({ role, embedded = false, memberName = "" }: { role: ManageRo
           date={editBooking.booking_date}
           existing={editBooking}
           manageRole={role}
+          ownerName={memberName}
           connectionError={connectionError}
           onEmailStatus={reportEmailStatus}
           onClose={() => setEditBooking(null)}
@@ -2965,7 +2982,7 @@ function PublicEventsApp() {
   }, [bookings, deepLinkHandled, loading]);
 
   const publicBookings = useMemo(
-    () => bookings.filter((booking) => booking.is_public).sort((a, b) => a.booking_date.localeCompare(b.booking_date)),
+    () => bookings.filter((booking) => booking.is_public),
     [bookings],
   );
 
@@ -2976,13 +2993,19 @@ function PublicEventsApp() {
   }, [publicBookings]);
 
   const upcomingBookings = useMemo(
-    () => publicBookings.filter((booking) => !isBookingCompleted(booking)),
+    () => publicBookings
+      .filter((booking) => !isBookingCompleted(booking))
+      .sort((a, b) => b.booking_date.localeCompare(a.booking_date)),
     [publicBookings, today],
   );
 
   const allCards = useMemo(() => {
-    const upcoming = publicBookings.filter((booking) => !isBookingCompleted(booking));
-    const past = publicBookings.filter((booking) => isBookingCompleted(booking)).reverse();
+    const upcoming = publicBookings
+      .filter((booking) => !isBookingCompleted(booking))
+      .sort((a, b) => b.booking_date.localeCompare(a.booking_date));
+    const past = publicBookings
+      .filter((booking) => isBookingCompleted(booking))
+      .sort((a, b) => b.booking_date.localeCompare(a.booking_date));
     return [...upcoming, ...past];
   }, [publicBookings, today]);
 
@@ -3939,6 +3962,7 @@ type ArticleItem = {
   author_name: string;
   author_role: string;
   author_photo_url: string;
+  owner_name?: string;
   approval_status: ArticleApprovalStatus;
   is_public: boolean;
   created_at: string | null;
@@ -4036,13 +4060,16 @@ function ArticlesManager({ role, memberName }: { role: ManageRole; memberName: s
   const [previewOpen, setPreviewOpen] = useState(false);
   const [readerArticle, setReaderArticle] = useState<ArticleItem | null>(null);
   const [copiedArticleId, setCopiedArticleId] = useState<string | null>(null);
+  const [editingArticle, setEditingArticle] = useState<ArticleItem | null>(null);
 
-  const coverPreview = usePreviewFileUrl(coverFile, "");
-  const manualAuthorPreview = usePreviewFileUrl(authorPhotoFile, "");
+  const coverPreview = usePreviewFileUrl(coverFile, editingArticle?.cover_image_url || "");
+  const manualAuthorPreview = usePreviewFileUrl(authorPhotoFile, editingArticle?.author_photo_url || "");
   const matchedTherapist = useMemo(() => findTherapistByName(authorName, therapists), [authorName, therapists]);
   const authorPhoto = matchedTherapist?.photo || manualAuthorPreview || "";
   const effectiveAuthorRole = authorRole.trim() || matchedTherapist?.profession || "";
   const code = getManageCode();
+  const canManageArticle = (article: ArticleItem) =>
+    role === "admin" || normalizeTherapistName(article.owner_name || article.author_name) === normalizeTherapistName(memberName);
   const articleDraftKey = useMemo(
     () => `sepsyg-draft-article-v1:${normalizeCommunityName(memberName || "portal") || "portal"}`,
     [memberName],
@@ -4117,6 +4144,7 @@ function ArticlesManager({ role, memberName }: { role: ManageRole; memberName: s
     author_name: authorName.trim(),
     author_role: effectiveAuthorRole,
     author_photo_url: authorPhoto,
+    owner_name: editingArticle?.owner_name || memberName || authorName.trim(),
     approval_status: role === "admin" ? "approved" : "pending",
     is_public: false,
     created_at: new Date().toISOString(),
@@ -4137,17 +4165,20 @@ function ArticlesManager({ role, memberName }: { role: ManageRole; memberName: s
       const cover = coverFile ? await compressImageFile(coverFile) : "";
       const manualPhoto = authorPhotoFile ? await compressImageFile(authorPhotoFile) : "";
       const response = await fetch("/api/articles", {
-        method: "POST",
+        method: editingArticle ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           code,
+          action: editingArticle ? "update" : "create",
+          id: editingArticle?.id,
+          member_name: memberName,
           title: title.trim(),
           excerpt: excerpt.trim(),
           content: sanitizeRichHtml(content),
-          cover_image_url: cover,
+          cover_image_url: cover || editingArticle?.cover_image_url || "",
           author_name: authorName.trim(),
           author_role: effectiveAuthorRole,
-          author_photo_url: matchedTherapist?.photo || manualPhoto || "",
+          author_photo_url: matchedTherapist?.photo || manualPhoto || editingArticle?.author_photo_url || "",
         }),
       });
       const payload = await response.json().catch(() => ({}));
@@ -4158,8 +4189,11 @@ function ArticlesManager({ role, memberName }: { role: ManageRole; memberName: s
       setContent("");
       setCoverFile(null);
       setAuthorPhotoFile(null);
+      setEditingArticle(null);
+      setAuthorName(memberName);
+      setAuthorRole("");
       clearLocalDraft(articleDraftKey);
-      setNotice(role === "admin" ? "Το άρθρο δημοσιεύτηκε." : "Το άρθρο αποθηκεύτηκε και στάλθηκε για έγκριση στο Διοικητικό.");
+      setNotice(editingArticle ? "Οι αλλαγές στο άρθρο αποθηκεύτηκαν." : role === "admin" ? "Το άρθρο δημοσιεύτηκε." : "Το άρθρο αποθηκεύτηκε και στάλθηκε για έγκριση στο Διοικητικό.");
       window.setTimeout(() => setNotice(null), 6000);
       await loadArticles();
     } catch (caught) {
@@ -4175,7 +4209,7 @@ function ArticlesManager({ role, memberName }: { role: ManageRole; memberName: s
       const response = await fetch("/api/articles", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code, id: article.id }),
+        body: JSON.stringify({ code, action: "approve", id: article.id, member_name: memberName }),
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload.code || "ARTICLE_APPROVE_FAILED");
@@ -4185,13 +4219,41 @@ function ArticlesManager({ role, memberName }: { role: ManageRole; memberName: s
     }
   }
 
+  function startEditingArticle(article: ArticleItem) {
+    if (!canManageArticle(article)) return;
+    setEditingArticle(article);
+    setTitle(article.title);
+    setExcerpt(article.excerpt || "");
+    setContent(article.content || "");
+    setAuthorName(article.author_name || memberName);
+    setAuthorRole(article.author_role || "");
+    setCoverFile(null);
+    setAuthorPhotoFile(null);
+    setError(null);
+    setNotice("Επεξεργάζεσαι υπάρχον άρθρο.");
+    window.setTimeout(() => document.querySelector(".sepsyg-article-form")?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
+  }
+
+  function cancelEditingArticle() {
+    setEditingArticle(null);
+    setTitle("");
+    setExcerpt("");
+    setContent("");
+    setAuthorName(memberName);
+    setAuthorRole("");
+    setCoverFile(null);
+    setAuthorPhotoFile(null);
+    setError(null);
+    setNotice(null);
+  }
+
   async function deleteArticle(article: ArticleItem) {
-    if (!code || role !== "admin" || !window.confirm("Να διαγραφεί οριστικά το άρθρο;")) return;
+    if (!code || !canManageArticle(article) || !window.confirm("Να διαγραφεί οριστικά το άρθρο;")) return;
     try {
       const response = await fetch("/api/articles", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code, id: article.id }),
+        body: JSON.stringify({ code, id: article.id, member_name: memberName }),
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload.code || "ARTICLE_DELETE_FAILED");
@@ -4216,7 +4278,7 @@ function ArticlesManager({ role, memberName }: { role: ManageRole; memberName: s
   return (
     <div className="sepsyg-articles-manager">
       <div className="sepsyg-portal-section-head">
-        <div><span>Άρθρα</span><h2>Νέο άρθρο θεραπευτή</h2></div>
+        <div><span>Άρθρα</span><h2>{editingArticle ? "Επεξεργασία άρθρου" : "Νέο άρθρο θεραπευτή"}</h2></div>
         <p>Γράψε το άρθρο, δες προεπισκόπηση και αποθήκευσέ το. Η φωτογραφία και η ιδιότητα συμπληρώνονται αυτόματα όταν το ονοματεπώνυμο υπάρχει στον Χάρτη Θεραπευτών.</p>
       </div>
 
@@ -4267,7 +4329,8 @@ function ArticlesManager({ role, memberName }: { role: ManageRole; memberName: s
 
         <div className="sepsyg-article-form-actions">
           <button type="button" className="secondary" onClick={() => setPreviewOpen(true)}>👁 Προεπισκόπηση</button>
-          <button type="submit" disabled={saving}>{saving ? "Αποθήκευση…" : role === "admin" ? "Δημοσίευση άρθρου" : "Υποβολή άρθρου"}</button>
+          {editingArticle && <button type="button" className="secondary" onClick={cancelEditingArticle} disabled={saving}>Ακύρωση επεξεργασίας</button>}
+          <button type="submit" disabled={saving}>{saving ? "Αποθήκευση…" : editingArticle ? "Αποθήκευση αλλαγών" : role === "admin" ? "Δημοσίευση άρθρου" : "Υποβολή άρθρου"}</button>
         </div>
       </form>
 
@@ -4280,19 +4343,20 @@ function ArticlesManager({ role, memberName }: { role: ManageRole; memberName: s
                 <div className="sepsyg-article-admin-copy">
                   <strong>{article.title}</strong>
                   <small>{article.author_name} · {article.approval_status === "approved" ? "Δημοσιευμένο" : "Αναμονή έγκρισης"}</small>
-                  {article.approval_status === "approved" && (role === "admin" || normalizeTherapistName(article.author_name) === normalizeTherapistName(memberName)) ? (
+                  {article.approval_status === "approved" && canManageArticle(article) ? (
                     <div className="sepsyg-article-public-url">
                       <code>{articlePublicUrl(article.id)}</code>
                       <button type="button" onClick={() => copyArticleUrl(article)}>{copiedArticleId === article.id ? "✓ Αντιγράφηκε" : "Αντιγραφή URL"}</button>
                     </div>
-                  ) : article.approval_status !== "approved" && (role === "admin" || normalizeTherapistName(article.author_name) === normalizeTherapistName(memberName)) ? (
+                  ) : article.approval_status !== "approved" && canManageArticle(article) ? (
                     <small className="sepsyg-url-pending">Το ξεχωριστό URL δημιουργείται μόλις εγκριθεί το άρθρο.</small>
                   ) : null}
                 </div>
                 <div>
                   <button type="button" onClick={() => setReaderArticle(article)}>Προβολή</button>
+                  {canManageArticle(article) && <button type="button" onClick={() => startEditingArticle(article)}>Επεξεργασία</button>}
                   {role === "admin" && article.approval_status !== "approved" && <button type="button" onClick={() => approveArticle(article)}>Έγκριση</button>}
-                  {role === "admin" && <button type="button" className="danger" onClick={() => deleteArticle(article)}>Διαγραφή</button>}
+                  {canManageArticle(article) && <button type="button" className="danger" onClick={() => deleteArticle(article)}>Διαγραφή</button>}
                 </div>
               </div>
             ))}
@@ -4304,7 +4368,7 @@ function ArticlesManager({ role, memberName }: { role: ManageRole; memberName: s
       {readerArticle && (
         <ArticleReaderModal
           article={readerArticle}
-          showShareTools={role === "admin" || normalizeTherapistName(readerArticle.author_name) === normalizeTherapistName(memberName)}
+          showShareTools={canManageArticle(readerArticle)}
           onClose={() => setReaderArticle(null)}
         />
       )}
@@ -5827,6 +5891,7 @@ function BookingForm({
   existing,
   connectionError,
   manageRole,
+  ownerName,
   onEmailStatus,
   onClose,
   onSaved,
@@ -5835,6 +5900,7 @@ function BookingForm({
   existing?: Booking;
   connectionError?: string | null;
   manageRole: ManageRole;
+  ownerName?: string;
   onEmailStatus: (result: { ok: boolean; code: string }) => void;
   onClose: () => void;
   onSaved: (booking: Booking) => void;
@@ -6036,6 +6102,7 @@ function BookingForm({
     requested_public: isPublic,
     approval_status: "draft",
     owner_uid: existing?.owner_uid || "preview",
+    owner_name: existing ? (existing.owner_name || existing.therapist_name) : (ownerName?.trim() || getPortalName() || name.trim() || null),
     status: existing?.status || "booked",
     is_public: true,
   };
@@ -6139,12 +6206,14 @@ function BookingForm({
         approval_status: isPublic ? (manageRole === "admin" ? "approved" : "pending") : "draft",
         status: "booked" as BookingStatus,
         is_public: isPublic && manageRole === "admin",
+        owner_name: existing ? (existing.owner_name || existing.therapist_name) : (ownerName?.trim() || getPortalName() || name.trim()),
       };
 
       if (existing) {
         await updateDoc(bookingRef, {
           ...values,
           owner_uid: existing.owner_uid,
+          owner_name: existing.owner_name || existing.therapist_name,
           updated_at: serverTimestamp(),
         });
 
@@ -6162,6 +6231,7 @@ function BookingForm({
           transaction.set(bookingRef, {
             ...values,
             owner_uid: user.uid,
+            owner_name: ownerName?.trim() || getPortalName() || name.trim(),
             created_at: serverTimestamp(),
             updated_at: serverTimestamp(),
           });
@@ -6171,6 +6241,7 @@ function BookingForm({
           id: date,
           ...values,
           owner_uid: user.uid,
+          owner_name: ownerName?.trim() || getPortalName() || name.trim(),
         };
         clearLocalDraft(bookingDraftKey);
         onSaved(savedBooking);
@@ -6809,6 +6880,10 @@ function BookingDetails({
   }
 
   async function handleMoveTo(targetDate: string, label?: string) {
+    if (!canManage) {
+      setError("Μόνο ο δημιουργός της δράσης ή η Διοίκηση μπορεί να τη μετακινήσει.");
+      return;
+    }
     if (!targetDate || targetDate === booking.booking_date) return;
     if (targetDate < "2026-07-01" || targetDate > "2027-08-31") {
       setError("Η νέα ημερομηνία είναι έξω από το διαθέσιμο ημερολόγιο.");
@@ -6823,7 +6898,7 @@ function BookingDetails({
       const response = await fetch("/api/move-event", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: getManageCode(), eventId: booking.booking_date, targetDate }),
+        body: JSON.stringify({ code: getManageCode(), actorName: getPortalName(), eventId: booking.booking_date, targetDate }),
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
@@ -6831,6 +6906,7 @@ function BookingDetails({
           TARGET_DATE_OCCUPIED: "Η ημερομηνία αυτή είναι ήδη δεσμευμένη.",
           DATE_OUT_OF_RANGE: "Η νέα ημερομηνία είναι έξω από το διαθέσιμο ημερολόγιο.",
           EVENT_NOT_FOUND: "Η δράση δεν βρέθηκε.",
+          EVENT_OWNER_REQUIRED: "Μόνο ο δημιουργός της δράσης ή η Διοίκηση μπορεί να τη μετακινήσει.",
         };
         throw Object.assign(new Error(labels[payload.code] || "Δεν ήταν δυνατή η μεταφορά της δράσης."), { code: payload.code });
       }
@@ -6900,6 +6976,10 @@ function BookingDetails({
   }
 
   async function handleDelete() {
+    if (!canManage) {
+      setError("Μόνο ο δημιουργός της δράσης ή η Διοίκηση μπορεί να τη διαγράψει.");
+      return;
+    }
     if (!window.confirm("Θέλετε σίγουρα να ακυρώσετε αυτή τη δέσμευση;")) return;
 
     setDeleting(true);
