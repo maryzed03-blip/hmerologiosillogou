@@ -3865,13 +3865,6 @@ html.sepsyg-embedded-frame.sepsyg-modal-open body{
 /* =========================================================
    SEPSYG V7.4 — URGENT PUBLIC ACTION FIXES
    ========================================================= */
-/* If the Carrd parent has not yet been updated to react to the
-   scroll message, place the opened event at the currently visible
-   point of the iframe instead of showing a large blank beige area. */
-html.sepsyg-embedded-frame .sepsyg-inline-event-detail {
-  padding-top: var(--sepsyg-embed-visible-top, 0px);
-}
-
 /* Bold must be unmistakable in both editor and public output. */
 .sepsyg-rich-editor-area strong[data-sepsyg-bold="1"],
 .sepsyg-rich-editor-area strong,
@@ -3881,8 +3874,3 @@ html.sepsyg-embedded-frame .sepsyg-inline-event-detail {
   font-weight: 900 !important;
 }
 
-@media(max-width:720px){
-  html.sepsyg-embedded-frame .sepsyg-inline-event-detail {
-    padding-top: var(--sepsyg-embed-visible-top, 0px);
-  }
-}
