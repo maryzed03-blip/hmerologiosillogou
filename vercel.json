@@ -9,10 +9,6 @@
       "destination": "/api/actions?route=approve-event"
     },
     {
-      "source": "/api/move-event",
-      "destination": "/api/actions?route=move-event"
-    },
-    {
       "source": "/api/verify-manage-code",
       "destination": "/api/actions?route=verify-manage-code"
     },
