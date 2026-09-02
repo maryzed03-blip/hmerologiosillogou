@@ -98,18 +98,35 @@ export default async function handler(request, response) {
   const profession = clean(body.profession, 160);
   const membershipStatus = clean(body.membershipStatus, 60);
   const comment = clean(body.comment, 1000);
-  const consent = body.consent === true;
 
-  if (
-    !/^\d{4}-\d{2}-\d{2}$/.test(eventId) ||
-    fullName.length < 2 ||
-    !/^\S+@\S+\.\S+$/.test(email) ||
-    phone.length < 6 ||
-    profession.length < 2 ||
-    !["none", "friend", "member", "want_member"].includes(membershipStatus) ||
-    !consent
-  ) {
-    return response.status(400).json({ error: "Invalid form data", code: "INVALID_PAYLOAD" });
+  // Compatibility across the two registration-form versions:
+  // - Older/current forms send `consent` for the processing needed to register.
+  // - Newer forms may additionally send `updatesConsent` for optional updates.
+  // Never infer optional marketing/update consent from the required participation consent.
+  const hasParticipationConsentField = Object.prototype.hasOwnProperty.call(body, "consent");
+  const participationConsent = body.consent === true;
+  const updatesConsent = body.updatesConsent === true;
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(eventId)) {
+    return response.status(400).json({ error: "Invalid event date", code: "INVALID_EVENT_ID" });
+  }
+  if (fullName.length < 2) {
+    return response.status(400).json({ error: "Invalid name", code: "INVALID_NAME" });
+  }
+  if (!/^\S+@\S+\.\S+$/.test(email)) {
+    return response.status(400).json({ error: "Invalid email", code: "INVALID_EMAIL" });
+  }
+  if (phone.length < 6) {
+    return response.status(400).json({ error: "Invalid phone", code: "INVALID_PHONE" });
+  }
+  if (profession.length < 2) {
+    return response.status(400).json({ error: "Invalid profession", code: "INVALID_PROFESSION" });
+  }
+  if (!["none", "friend", "member", "want_member"].includes(membershipStatus)) {
+    return response.status(400).json({ error: "Invalid membership status", code: "INVALID_MEMBERSHIP_STATUS" });
+  }
+  if (hasParticipationConsentField && !participationConsent) {
+    return response.status(400).json({ error: "Participation consent required", code: "CONSENT_REQUIRED" });
   }
 
   try {
@@ -146,7 +163,10 @@ export default async function handler(request, response) {
       profession,
       membership_status: membershipStatus,
       comment,
-      consent: true,
+      consent: hasParticipationConsentField ? participationConsent : null,
+      consent_updates: updatesConsent,
+      consent_at: updatesConsent ? new Date() : null,
+      consent_scope: updatesConsent ? "association_and_event_coordinator_related_updates_v1" : null,
       payment_amount: amount,
       payment_token: paymentToken || null,
       payment_reference: paymentReference || null,
@@ -188,6 +208,7 @@ export default async function handler(request, response) {
           <p><strong>Τηλέφωνο:</strong> ${escapeHtml(phone)}</p>
           <p><strong>Επάγγελμα:</strong> ${escapeHtml(profession)}</p>
           <p><strong>Σχέση με Σύλλογο:</strong> ${escapeHtml(membershipLabel(membershipStatus))}</p>
+          <p><strong>Ενημερώσεις Συλλόγου & συντονιστή:</strong> ${updatesConsent ? "Ναι" : "Όχι"}</p>
           <p><strong>Σχόλιο:</strong> ${comment ? escapeHtml(comment).replaceAll("\n", "<br>") : "—"}</p>
         </div>`;
 
