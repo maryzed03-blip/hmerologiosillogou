@@ -5,6 +5,10 @@
   "installCommand": "npm install --no-audit --no-fund --registry=https://registry.npmjs.org/",
   "rewrites": [
     {
+      "source": "/api/newsletter-signup",
+      "destination": "/api/site-content?resource=newsletter"
+    },
+    {
       "source": "/manage/:path*",
       "destination": "/index.html"
     },
