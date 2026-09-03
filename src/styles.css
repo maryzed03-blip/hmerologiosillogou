@@ -310,35 +310,6 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
 .sepsyg-public-links a { color: #7E8B88; font-size: .7rem; font-weight: 700; text-decoration: none; }
 .sepsyg-public-links a:hover { color: var(--sepsyg-teal); }
 
-/* Registration modal */
-.sepsyg-registration-modal { color: var(--sepsyg-ink); }
-.sepsyg-modal-kicker { display: block; margin-bottom: 7px; color: var(--sepsyg-teal); font-size: .65rem; font-weight: 900; letter-spacing: .15em; text-transform: uppercase; }
-.sepsyg-registration-modal > h3 { margin: 0; color: var(--sepsyg-teal-dark); font-family: Georgia,"Times New Roman",serif; font-size: 1.65rem; font-weight: 500; line-height: 1.2; }
-.sepsyg-modal-date { margin: 8px 0 0; color: var(--sepsyg-muted); font-size: .82rem; text-transform: capitalize; }
-.sepsyg-modal-details { display: grid; gap: 13px; margin-top: 22px; padding: 18px; border: 1px solid var(--sepsyg-line); border-radius: 16px; background: #FFFDFC; font-size: .84rem; }
-.sepsyg-register-callout { margin-top: 20px; padding: 17px; border: 1px solid rgba(0,141,139,.18); border-radius: 16px; background: rgba(0,141,139,.06); }
-.sepsyg-register-callout p { margin: 0; color: var(--sepsyg-teal-dark); font-size: .85rem; line-height: 1.5; }
-.sepsyg-register-callout button,
-.sepsyg-registration-form button[type="submit"] { width: 100%; margin-top: 12px; padding: 11px 16px; border: 0; border-radius: 999px; background: var(--sepsyg-teal); color: #fff; cursor: pointer; font-size: .8rem; font-weight: 800; }
-.sepsyg-registration-form { margin-top: 22px; padding-top: 20px; border-top: 1px solid var(--sepsyg-line); }
-.sepsyg-registration-form .form-intro h4 { margin: 0; color: var(--sepsyg-teal-dark); font-family: Georgia,"Times New Roman",serif; font-size: 1.25rem; font-weight: 500; }
-.sepsyg-registration-form .form-intro p { margin: 5px 0 16px; color: var(--sepsyg-muted); font-size: .73rem; line-height: 1.5; }
-.sepsyg-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.sepsyg-registration-form label { display: block; color: var(--sepsyg-teal-dark); font-size: .75rem; font-weight: 800; }
-.sepsyg-registration-form input,
-.sepsyg-registration-form textarea { width: 100%; margin-top: 6px; padding: 10px 11px; border: 1px solid var(--sepsyg-line); border-radius: 11px; background: #FFFDFC; color: var(--sepsyg-ink); outline: 0; font-size: .82rem; font-weight: 400; }
-.sepsyg-full-field { margin-top: 12px; }
-.sepsyg-full-field small { color: #899592; font-weight: 400; }
-.sepsyg-consent { display: flex !important; align-items: flex-start; gap: 8px; margin-top: 13px; color: var(--sepsyg-muted) !important; font-size: .68rem !important; line-height: 1.45; font-weight: 500 !important; }
-.sepsyg-consent input { flex: 0 0 auto; width: 15px !important; height: 15px; margin-top: 2px; accent-color: var(--sepsyg-teal); }
-.sepsyg-form-notice { margin: 12px 0 0; padding: 9px 11px; border-radius: 10px; font-size: .74rem; }
-.sepsyg-form-notice.success { background: rgba(0,141,139,.08); color: var(--sepsyg-teal-dark); }
-.sepsyg-form-notice.error { background: #FFF0F0; color: #9C4444; }
-.sepsyg-form-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 15px; }
-.sepsyg-form-actions button { width: auto !important; margin-top: 0 !important; padding: 9px 15px !important; }
-.sepsyg-form-actions .secondary { border: 1px solid var(--sepsyg-line); border-radius: 999px; background: #fff; color: var(--sepsyg-teal-dark); cursor: pointer; font-size: .75rem; font-weight: 700; }
-.sepsyg-modal-close { display: flex; justify-content: flex-end; margin-top: 16px; }
-.sepsyg-modal-close button { padding: 8px 14px; border: 0; border-radius: 999px; background: var(--sepsyg-teal-dark); color: #fff; cursor: pointer; font-size: .73rem; font-weight: 700; }
 
 @media (max-width: 980px) {
   .sepsyg-events-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
@@ -363,7 +334,6 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
   .sepsyg-events-grid { grid-template-columns: 1fr; }
   .sepsyg-event-image { height: 190px; }
   .sepsyg-month-events,.sepsyg-list-view { padding-top: 36px; }
-  .sepsyg-form-grid { grid-template-columns: 1fr; }
 }
 
 /* Light restyle of the private calendar so it belongs to the same site. */
@@ -421,29 +391,6 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
   color: #356D85;
 }
 
-.sepsyg-registration-form select {
-  width: 100%;
-  margin-top: 7px;
-  border: 1px solid var(--sepsyg-line);
-  border-radius: 12px;
-  background: #fff;
-  color: var(--sepsyg-ink);
-  padding: 11px 12px;
-  outline: none;
-  font: inherit;
-}
-.sepsyg-registration-form select:focus {
-  border-color: var(--sepsyg-teal);
-  box-shadow: 0 0 0 3px rgba(0,141,139,.09);
-}
-.sepsyg-discount-note {
-  display: block;
-  margin-top: 9px;
-  color: #7A8885;
-  font-size: .69rem;
-  line-height: 1.55;
-  font-weight: 500;
-}
 
 
 /* ==========================================================
@@ -1362,61 +1309,11 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
 .sepsyg-popup-info-card h4{margin-top:5px;}
 .sepsyg-popup-info-card p:last-child{margin-bottom:0;}
 
-.sepsyg-popup-bottom-register{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:18px;
-  margin-top:20px;
-  padding:18px 20px;
-  border:1px solid rgba(0,141,139,.18);
-  border-radius:20px;
-  background:linear-gradient(135deg,rgba(0,141,139,.07),rgba(225,175,133,.10));
-}
-.sepsyg-popup-bottom-register strong{
-  display:block;
-  color:#174B49;
-  font-family:Georgia,"Times New Roman",serif;
-  font-size:1.08rem;
-  font-weight:500;
-}
-.sepsyg-popup-bottom-register p{
-  margin:4px 0 0;
-  color:#627472;
-  font-size:.76rem;
-  line-height:1.45;
-}
-.sepsyg-popup-bottom-register button{
-  flex:0 0 auto;
-  min-height:43px;
-  padding:10px 19px;
-  border:1px solid #008D8B;
-  border-radius:999px;
-  background:#008D8B;
-  color:#fff;
-  font-size:.78rem;
-  font-weight:800;
-  cursor:pointer;
-}
-
-.sepsyg-popup-registration-form{
-  scroll-margin-top:20px;
-  margin-top:20px !important;
-  padding:20px !important;
-  border:1px solid rgba(23,75,73,.11) !important;
-  border-radius:20px;
-  background:#fff;
-}
 
 @media(max-width:640px){
   .sepsyg-popup-content{padding:16px;}
   .sepsyg-popup-heading-card{padding:19px;}
   .sepsyg-popup-meta-grid{grid-template-columns:1fr;}
-  .sepsyg-popup-bottom-register{
-    align-items:flex-start;
-    flex-direction:column;
-  }
-  .sepsyg-popup-bottom-register button{width:100%;}
 }
 
 

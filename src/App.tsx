@@ -67,20 +67,6 @@ type TherapistDirectoryItem = {
   email?: string | null;
 };
 
-type EventRegistration = {
-  id: string;
-  event_id: string;
-  event_date: string;
-  event_topic: string;
-  event_time: string;
-  full_name: string;
-  email: string;
-  phone: string;
-  profession: string;
-  membership_status: string;
-  comment: string;
-  created_at: string | null;
-};
 
 type MonthItem = {
   key: string;
@@ -90,6 +76,8 @@ type MonthItem = {
 };
 
 const PLACEHOLDER = "Θα συμπληρωθεί αργότερα";
+const GOOGLE_EVENT_FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLSd1E_RXqlTxeZKNpZq1CNwFJDYKQpeez42yD74memDjNdCOCQ/viewform";
+const GOOGLE_EVENT_FORM_EMBED_URL = `${GOOGLE_EVENT_FORM_URL}?embedded=true`;
 const WEEKDAYS = ["Δευ", "Τρί", "Τετ", "Πέμ", "Παρ", "Σάβ", "Κυρ"];
 
 
@@ -2438,36 +2426,12 @@ function ManageApp({ role, embedded = false, memberName = "" }: { role: ManageRo
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [viewBooking, setViewBooking] = useState<Booking | null>(null);
   const [editBooking, setEditBooking] = useState<Booking | null>(null);
-  const [registrationsBooking, setRegistrationsBooking] = useState<Booking | null>(null);
-  const [registrationCounts, setRegistrationCounts] = useState<Record<string, number>>({});
-  const [registrationError, setRegistrationError] = useState<string | null>(null);
   const [emailNotice, setEmailNotice] = useState<{ ok: boolean; text: string } | null>(null);
 
   useEffect(() => {
     setActiveMonth(getInitialMonthKey());
   }, []);
 
-  async function loadRegistrationCounts() {
-    const code = getManageCode();
-    if (!code) return;
-    try {
-      const response = await fetch(`/api/event-registrations?summary=1&code=${encodeURIComponent(code)}`);
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw Object.assign(new Error("SUMMARY_FAILED"), { code: payload.code || `HTTP_${response.status}` });
-      setRegistrationCounts(payload.counts || {});
-      setRegistrationError(null);
-    } catch (error) {
-      const code = (error as { code?: string } | null)?.code;
-      setRegistrationError(`Δεν φορτώθηκαν οι συμμετοχές${code ? ` (${code})` : ""}. Έλεγξε τις ρυθμίσεις Firebase Admin στο Vercel.`);
-    }
-  }
-
-  useEffect(() => {
-    void loadRegistrationCounts();
-    const handleFocus = () => void loadRegistrationCounts();
-    window.addEventListener("focus", handleFocus);
-    return () => window.removeEventListener("focus", handleFocus);
-  }, []);
 
   function reportEmailStatus(result: { ok: boolean; code: string }) {
     setEmailNotice(result.ok
@@ -2586,11 +2550,6 @@ function ManageApp({ role, embedded = false, memberName = "" }: { role: ManageRo
           </div>
         )}
 
-        {registrationError && (
-          <div className="mb-5 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-            <strong className="font-semibold">Λίστες συμμετοχών:</strong> {registrationError}
-          </div>
-        )}
 
         <div className="mb-6">
           <label htmlFor="manage-month" className="mb-2 block text-sm font-semibold text-slate-700 sm:hidden">
@@ -2685,11 +2644,6 @@ function ManageApp({ role, embedded = false, memberName = "" }: { role: ManageRo
                               Αναμονή έγκρισης
                             </span>
                           )}
-                          {booking.is_public && (registrationCounts[date] || 0) > 0 && (
-                            <span className="mt-1 rounded-full bg-sky-700 px-1.5 py-0.5 text-[9px] font-bold text-white sm:text-[10px]">
-                              {registrationCounts[date]} συμμετοχές
-                            </span>
-                          )}
                         </>
                       )}
                     </button>
@@ -2737,8 +2691,6 @@ function ManageApp({ role, embedded = false, memberName = "" }: { role: ManageRo
         <BookingDetails
           booking={viewBooking}
           canManage={viewBooking.status === "booked" && (role === "admin" || bookingOwnedByMember(viewBooking, memberName))}
-          registrationCount={registrationCounts[viewBooking.booking_date] || 0}
-          canViewRegistrationDetails={role === "admin"}
           canShareUrl={
             role === "admin" ||
             Boolean(memberName && [
@@ -2748,11 +2700,6 @@ function ManageApp({ role, embedded = false, memberName = "" }: { role: ManageRo
               viewBooking.fourth_coordinator_name,
             ].some((person) => normalizeTherapistName(person) === normalizeTherapistName(memberName)))
           }
-          onViewRegistrations={() => {
-            const booking = viewBooking;
-            setViewBooking(null);
-            setRegistrationsBooking(booking);
-          }}
           onClose={() => setViewBooking(null)}
           canApprove={role === "admin" && viewBooking.approval_status === "pending"}
           onApproved={(approvedBooking) => {
@@ -2769,17 +2716,11 @@ function ManageApp({ role, embedded = false, memberName = "" }: { role: ManageRo
             setEditBooking(booking);
           }}
           onEmailStatus={reportEmailStatus}
-          onMoved={(fromDate, movedBooking, movedRegistrationCount) => {
+          onMoved={(fromDate, movedBooking) => {
             setBookings((previous) => mergeBookings([
               ...previous.filter((item) => item.booking_date !== fromDate && item.id !== fromDate),
               movedBooking,
             ]));
-            setRegistrationCounts((previous) => {
-              const next = { ...previous };
-              delete next[fromDate];
-              next[movedBooking.booking_date] = movedRegistrationCount;
-              return next;
-            });
             setActiveMonth(movedBooking.booking_date.slice(0, 7));
             setViewBooking(movedBooking);
           }}
@@ -2806,16 +2747,6 @@ function ManageApp({ role, embedded = false, memberName = "" }: { role: ManageRo
         />
       )}
 
-      {role === "admin" && registrationsBooking && (
-        <RegistrationsModal
-          booking={registrationsBooking}
-          onClose={() => {
-            setRegistrationsBooking(null);
-            void loadRegistrationCounts();
-          }}
-          onCountChange={(count) => setRegistrationCounts((previous) => ({ ...previous, [registrationsBooking.booking_date]: count }))}
-        />
-      )}
     </div>
   );
 }
@@ -3477,14 +3408,6 @@ function FriendOfAssociationSection() {
   );
 }
 
-type EventRegistrationFormValues = {
-  fullName: string;
-  email: string;
-  phone: string;
-  profession: string;
-  membershipStatus: string;
-  comment: string;
-};
 
 function PublicBookingDetails({
   booking,
@@ -3515,12 +3438,7 @@ function PublicBookingDetails({
   const thirdCoordinatorRole = booking.third_coordinator_role || thirdTherapist?.profession || "";
   const fourthCoordinatorRole = booking.fourth_coordinator_role || fourthTherapist?.profession || "";
   const [showForm, setShowForm] = useState(false);
-  const [values, setValues] = useState<EventRegistrationFormValues>({ fullName: "", email: "", phone: "", profession: "", membershipStatus: "", comment: "" });
-  const [website, setWebsite] = useState("");
-  const [consent, setConsent] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
-  const registrationRef = useRef<HTMLFormElement | null>(null);
+  const registrationRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     if (previewMode || typeof window === "undefined") return;
 
@@ -3571,39 +3489,6 @@ function PublicBookingDetails({
   }, [booking.booking_date, inlineMode]);
 
 
-  function updateValue(field: keyof EventRegistrationFormValues, value: string) {
-    setValues((previous) => ({ ...previous, [field]: value }));
-  }
-
-  async function handleRegistration(event: FormEvent) {
-    event.preventDefault();
-    setNotice(null);
-    if (!consent) {
-      setNotice({ ok: false, text: "Χρειάζεται να αποδεχτείς τη χρήση των στοιχείων για τη συγκεκριμένη συμμετοχή." });
-      return;
-    }
-    setSubmitting(true);
-    try {
-      const response = await fetch("/api/register-event", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ eventId: booking.booking_date, ...values, consent, website }),
-      });
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw Object.assign(new Error(payload.code || "REQUEST_FAILED"), { code: payload.code || `HTTP_${response.status}` });
-      setValues({ fullName: "", email: "", phone: "", profession: "", membershipStatus: "", comment: "" });
-      setConsent(false);
-      setWebsite("");
-      setNotice({ ok: true, text: payload.emailWarning ? "Η συμμετοχή σου καταχωρίστηκε. Δεν στάλθηκε μόνο το email επιβεβαίωσης." : "Η συμμετοχή σου καταχωρίστηκε και στάλθηκε επιβεβαίωση στο email σου." });
-    } catch (error) {
-      const code = (error as { code?: string } | null)?.code;
-      if (code === "ALREADY_REGISTERED") setNotice({ ok: false, text: "Υπάρχει ήδη συμμετοχή με αυτό το email για τη συγκεκριμένη δράση." });
-      else if (code === "EVENT_NOT_OPEN") setNotice({ ok: false, text: "Η συγκεκριμένη δράση δεν δέχεται πλέον συμμετοχές." });
-      else setNotice({ ok: false, text: `Δεν ήταν δυνατή η καταχώριση${code ? ` (${code})` : ""}. Δοκίμασε ξανά.` });
-    } finally { setSubmitting(false); }
-  }
-
-
   const detailsContent = (
     <div
       className={`w-full bg-[#F7EFE8] text-[#263B39] ${inlineMode ? "sepsyg-inline-event-detail" : ""}`}
@@ -3613,7 +3498,6 @@ function PublicBookingDetails({
           <button
             type="button"
             onClick={onClose}
-            disabled={submitting}
             className="inline-flex items-center gap-2 rounded-full border border-[#174B49]/15 bg-white px-4 py-2 text-sm font-extrabold text-[#174B49] hover:border-[#008D8B]/35 hover:text-[#008D8B] disabled:opacity-60"
           >
             ← Επιστροφή στις δράσεις
@@ -3756,7 +3640,7 @@ function PublicBookingDetails({
               <div className="mt-5 flex flex-col gap-3 rounded-2xl border border-[#008D8B]/20 bg-[#F0FAF8] p-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <strong className="block font-serif text-xl font-medium text-[#174B49]">Θέλεις να συμμετέχεις;</strong>
-                  <p className="mt-1 text-xs leading-5 text-[#627472]">Η φόρμα ανοίγει εδώ, χωρίς να σε μεταφέρει σε άλλη σελίδα.</p>
+                  <p className="mt-1 text-xs leading-5 text-[#627472]">Η κοινή Google Form ανοίγει εδώ μέσα και χρησιμοποιείται για όλες τις δράσεις.</p>
                 </div>
                 <button type="button" onClick={() => setShowForm(true)} className="shrink-0 rounded-full bg-[#008D8B] px-5 py-3 text-sm font-extrabold text-white hover:bg-[#006B68]">
                   Δήλωσε συμμετοχή
@@ -3789,56 +3673,25 @@ function PublicBookingDetails({
             </div>
 
             {!previewMode && !isCompleted && showForm && (
-              <form ref={registrationRef} onSubmit={handleRegistration} className="sepsyg-registration-form sepsyg-popup-registration-form mt-5">
-                <div className="form-intro">
-                  <h4>Δήλωση συμμετοχής</h4>
-                  <p>Συμπλήρωσε τα στοιχεία σου. Η φόρμα συνδέεται αυτόματα με αυτή τη δράση.</p>
+              <div ref={registrationRef} className="mt-5 overflow-hidden rounded-[22px] border border-[#174B49]/10 bg-white shadow-sm">
+                <div className="border-b border-[#174B49]/10 bg-[#F0FAF8] px-4 py-4 sm:px-5">
+                  <p className="text-[10px] font-extrabold uppercase tracking-[.14em] text-[#008D8B]">Δήλωση συμμετοχής</p>
+                  <h3 className="mt-1 font-serif text-xl font-medium text-[#174B49]">{booking.topic || "Δράση Συλλόγου"}</h3>
+                  <p className="mt-1 text-xs leading-5 text-[#627472]">{formatDateGreek(booking.booking_date)} · Η εγγραφή γίνεται μέσω της κοινής Google Form του Συλλόγου.</p>
                 </div>
-
-                <div className="sepsyg-form-grid">
-                  <label>Ονοματεπώνυμο *<input value={values.fullName} onChange={(event) => updateValue("fullName", event.target.value)} required maxLength={160} /></label>
-                  <label>Email *<input type="email" value={values.email} onChange={(event) => updateValue("email", event.target.value)} required maxLength={220} /></label>
-                  <label>Τηλέφωνο<input type="tel" value={values.phone} onChange={(event) => updateValue("phone", event.target.value)} maxLength={60} /></label>
-                  <label>Επάγγελμα<input value={values.profession} onChange={(event) => updateValue("profession", event.target.value)} maxLength={160} /></label>
+                <iframe
+                  title={`Δήλωση συμμετοχής — ${booking.topic || "Δράση Συλλόγου"}`}
+                  src={GOOGLE_EVENT_FORM_EMBED_URL}
+                  className="block h-[980px] w-full border-0 bg-white sm:h-[900px]"
+                  loading="lazy"
+                >
+                  Φόρτωση φόρμας…
+                </iframe>
+                <div className="flex flex-col gap-2 border-t border-[#174B49]/10 bg-[#FFF9F3] px-4 py-3 text-xs text-[#627472] sm:flex-row sm:items-center sm:justify-between">
+                  <span>Αν η φόρμα δεν εμφανιστεί σωστά, άνοιξέ την σε νέα καρτέλα.</span>
+                  <a href={GOOGLE_EVENT_FORM_URL} target="_blank" rel="noreferrer" className="font-extrabold text-[#008D8B] underline underline-offset-2">Άνοιγμα Google Form</a>
                 </div>
-
-                <label className="sepsyg-full-field">
-                  Σχέση με τον Σύλλογο
-                  <select value={values.membershipStatus} onChange={(event) => updateValue("membershipStatus", event.target.value)} required>
-                    <option value="" disabled>Επίλεξε</option>
-                    <option value="none">Δεν είμαι Μέλος ή Φίλος του Συλλόγου</option>
-                    <option value="friend">Είμαι Φίλος του Συλλόγου</option>
-                    <option value="member">Είμαι Μέλος του Συλλόγου</option>
-                    <option value="want_member">Θέλω να γίνω Μέλος του Συλλόγου</option>
-                  </select>
-                  <small className="sepsyg-discount-note">
-                    * Οι Φίλοι και τα Μέλη έχουν έκπτωση σε όλες τις δράσεις του Συλλόγου. Η έκπτωση διαμορφώνεται σε συνεννόηση με τον θεραπευτή που διοργανώνει το Σεμινάριο / Εργαστήριο.
-                  </small>
-                </label>
-
-                <label className="sepsyg-full-field">
-                  Σχόλιο <small>(προαιρετικό)</small>
-                  <textarea rows={3} value={values.comment} onChange={(event) => updateValue("comment", event.target.value)} maxLength={1000} />
-                </label>
-
-                <div aria-hidden="true" className="absolute -left-[10000px] h-px w-px overflow-hidden">
-                  <input tabIndex={-1} autoComplete="off" value={website} onChange={(event) => setWebsite(event.target.value)} />
-                </div>
-
-                <label className="sepsyg-consent">
-                  <input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} />
-                  <span>Αποδέχομαι τη χρήση των στοιχείων μου αποκλειστικά για τη διαχείριση της συμμετοχής μου και την επικοινωνία από τον Σύλλογο.</span>
-                </label>
-
-                {notice && <p className={`sepsyg-form-notice ${notice.ok ? "success" : "error"}`}>{notice.text}</p>}
-
-                <div className="sepsyg-form-actions">
-                  <button type="button" className="secondary" disabled={submitting} onClick={() => setShowForm(false)}>Πίσω</button>
-                  <button type="submit" disabled={submitting || notice?.ok === true}>
-                    {submitting ? "Καταχώριση…" : notice?.ok ? "Η συμμετοχή καταχωρίστηκε" : "Ολοκλήρωση συμμετοχής"}
-                  </button>
-                </div>
-              </form>
+              </div>
             )}
           </main>
         </div>
@@ -3851,7 +3704,7 @@ function PublicBookingDetails({
   }
 
   return (
-    <Modal onClose={submitting ? undefined : onClose} wide landing>
+    <Modal onClose={onClose} wide landing>
       {detailsContent}
     </Modal>
   );
@@ -4570,104 +4423,6 @@ function downloadCsvFile(filename: string, rows: Array<Array<string | number | n
   URL.revokeObjectURL(url);
 }
 
-function AllEventRegistrationsManager() {
-  const [items, setItems] = useState<EventRegistration[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [query, setQuery] = useState("");
-
-  async function load() {
-    const code = getManageCode();
-    if (!code) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await fetch(`/api/event-registrations?all=1&code=${encodeURIComponent(code)}&_=${Date.now()}`, { cache: "no-store" });
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(payload.code || "REGISTRATIONS_LOAD_FAILED");
-      setItems(Array.isArray(payload.registrations) ? payload.registrations : []);
-    } catch (caught) {
-      setError(`Δεν φορτώθηκαν οι συγκεντρωτικές συμμετοχές (${(caught as Error).message}).`);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => { void load(); }, []);
-
-  const filtered = useMemo(() => {
-    const needle = query.trim().toLocaleLowerCase("el-GR");
-    if (!needle) return items;
-    return items.filter((item) => [item.full_name, item.email, item.phone, item.profession, item.event_topic, item.event_date]
-      .join(" ").toLocaleLowerCase("el-GR").includes(needle));
-  }, [items, query]);
-
-  const eventCount = useMemo(() => new Set(items.map((item) => item.event_id || item.event_date).filter(Boolean)).size, [items]);
-
-  function exportCsv() {
-    downloadCsvFile("symmetoxes-olon-ton-draseon.csv", [
-      ["Ημερομηνία δράσης", "Δράση", "Ώρα", "Ονοματεπώνυμο", "Email", "Τηλέφωνο", "Επάγγελμα", "Σχέση με Σύλλογο", "Σχόλιο", "Υποβολή"],
-      ...items.map((item) => [
-        item.event_date || item.event_id,
-        item.event_topic,
-        item.event_time,
-        item.full_name,
-        item.email,
-        item.phone,
-        item.profession,
-        item.membership_status,
-        item.comment,
-        item.created_at ? new Date(item.created_at).toLocaleString("el-GR") : "",
-      ]),
-    ]);
-  }
-
-  return (
-    <section className="sepsyg-admin-panel sepsyg-admin-registrations-panel">
-      <div className="sepsyg-admin-panel-head">
-        <div><span>Συμμετοχές</span><h3>Όλες οι δράσεις συγκεντρωτικά</h3></div>
-        <div className="sepsyg-admin-head-actions">
-          <button type="button" onClick={() => void load()} disabled={loading}>Ανανέωση</button>
-          <button type="button" onClick={exportCsv} disabled={!items.length}>Εξαγωγή CSV</button>
-        </div>
-      </div>
-
-      <div className="sepsyg-admin-summary-cards">
-        <div><strong>{items.length}</strong><span>συνολικές συμμετοχές</span></div>
-        <div><strong>{eventCount}</strong><span>δράσεις με συμμετοχές</span></div>
-      </div>
-
-      <label className="sepsyg-admin-search-field">
-        <span>Αναζήτηση</span>
-        <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Όνομα, email, δράση, επάγγελμα…" />
-      </label>
-
-      {loading && <p className="sepsyg-admin-inline-state">Φόρτωση συμμετοχών…</p>}
-      {error && <div className="sepsyg-admin-error">{error}</div>}
-      {!loading && !error && !filtered.length && <p className="sepsyg-admin-inline-state">Δεν υπάρχουν συμμετοχές που να ταιριάζουν.</p>}
-
-      {!loading && filtered.length > 0 && (
-        <div className="sepsyg-admin-data-table-wrap">
-          <table className="sepsyg-admin-data-table">
-            <thead><tr><th>Δράση</th><th>Συμμετέχων</th><th>Επικοινωνία</th><th>Επάγγελμα</th><th>Σχέση</th></tr></thead>
-            <tbody>
-              {filtered.map((item) => (
-                <tr key={item.id}>
-                  <td><strong>{item.event_topic || "Δράση Συλλόγου"}</strong><span>{item.event_date ? formatDateGreek(item.event_date) : item.event_id}</span></td>
-                  <td><strong>{item.full_name}</strong>{item.created_at && <span>{new Date(item.created_at).toLocaleString("el-GR")}</span>}</td>
-                  <td><a href={`mailto:${item.email}`}>{item.email}</a><a href={`tel:${item.phone}`}>{item.phone}</a></td>
-                  <td>{item.profession || "—"}</td>
-                  <td>{item.membership_status || "—"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </section>
-  );
-}
-
 function NewsletterSubscribersManager() {
   const [items, setItems] = useState<NewsletterSubscriber[]>([]);
   const [loading, setLoading] = useState(true);
@@ -5019,7 +4774,7 @@ function AdministrationManager() {
       <div className="sepsyg-admin-intro">
         <span>Μόνο Διοικητικό</span>
         <h2>Διοίκηση Συλλόγου</h2>
-        <p>Εδώ διαχειρίζεσαι το Διοικητικό Συμβούλιο, τα Μέλη & Φίλους, τις συγκεντρωτικές συμμετοχές από όλες τις δράσεις και τις εγγραφές newsletter. Για τα κείμενα, τις εικόνες και το logo της ιστοσελίδας χρησιμοποίησε την καρτέλα «Επεξεργασία ιστοσελίδας».</p>
+        <p>Εδώ διαχειρίζεσαι το Διοικητικό Συμβούλιο, τα Μέλη & Φίλους και τις εγγραφές newsletter. Οι δηλώσεις συμμετοχής στις δράσεις γίνονται πλέον αποκλειστικά μέσω της κοινής Google Form. Για τα κείμενα, τις εικόνες και το logo της ιστοσελίδας χρησιμοποίησε την καρτέλα «Επεξεργασία ιστοσελίδας».</p>
       </div>
       {error && <div className="sepsyg-admin-error">{error}</div>}
       {loading && <div className="sepsyg-admin-loading">Φόρτωση στοιχείων…</div>}
@@ -5049,7 +4804,6 @@ function AdministrationManager() {
         </div>
       </section>
 
-      <AllEventRegistrationsManager />
       <NewsletterSubscribersManager />
 
       {boardEditing && (
@@ -5580,7 +5334,7 @@ function PortalHelpModal({ tab, onClose }: { tab: "map" | "calendar" | "articles
       "Διάλεξε σωστή κατηγορία: «Δράση Συλλόγου», «Δωρεάν Δράση Συλλόγου» ή «Δράση Θεραπευτή Συλλόγου». Η τελευταία αφορά μόνο περιεχόμενο σχετικό με την εκπαίδευση Σ.Ε.ΨΥ.G.",
       "Πάτησε «Προεπισκόπηση» πριν την αποθήκευση για να δεις ακριβώς πώς θα εμφανιστεί στο κοινό.",
       "Όταν ζητάς δημόσια δημοσίευση ως θεραπευτής, η δράση περνά για έγκριση από το Διοικητικό και εμφανίζεται δημόσια μετά την έγκριση. Αν το ονοματεπώνυμό σου αντιστοιχεί στο προφίλ σου στον Χάρτη και εκεί υπάρχει έγκυρο email, το σύστημα στέλνει ενημέρωση έγκρισης για τη συγκεκριμένη ημερομηνία.",
-      "Μπορείς να επιστρέψεις αργότερα στη δράση για διορθώσεις. Για αλλαγή ημερομηνίας, άνοιξε τη δράση και χρησιμοποίησε «Προηγούμενη ημέρα», «Επόμενη ημέρα» ή επίλεξε απευθείας νέα ημερομηνία. Οι συνδεδεμένες συμμετοχές και δηλώσεις πληρωμής μεταφέρονται αυτόματα μαζί με τη δράση. Αν η νέα ημέρα είναι ήδη δεσμευμένη, η εφαρμογή δεν θα επιτρέψει τη μεταφορά.",
+      "Μπορείς να επιστρέψεις αργότερα στη δράση για διορθώσεις. Για αλλαγή ημερομηνίας, άνοιξε τη δράση και χρησιμοποίησε «Προηγούμενη ημέρα», «Επόμενη ημέρα» ή επίλεξε απευθείας νέα ημερομηνία. Αν η νέα ημέρα είναι ήδη δεσμευμένη, η εφαρμογή δεν θα επιτρέψει τη μεταφορά.",
     ],
   } : tab === "articles" ? {
     title: "Βοήθεια · Άρθρα",
@@ -5611,7 +5365,7 @@ function PortalHelpModal({ tab, onClose }: { tab: "map" | "calendar" | "articles
     steps: [
       "Στο «Διοικητικό Συμβούλιο» μπορείς να προσθέσεις νέα θητεία, να αλλάξεις ονόματα/ρόλους ή να αφαιρέσεις μια θητεία.",
       "Στα «Μέλη & Φίλοι» μπορείς να προσθέσεις νέο πρόσωπο, να αλλάξεις το ονοματεπώνυμο ή την κατηγορία του και να το αφαιρέσεις.",
-      "Στο «Όλες οι δράσεις συγκεντρωτικά» βλέπεις όλες τις δηλώσεις συμμετοχής μαζί, μπορείς να κάνεις αναζήτηση και εξαγωγή CSV.",
+      "Οι δηλώσεις συμμετοχής στις δράσεις καταχωρίζονται πλέον στην κοινή Google Form και δεν αποθηκεύονται μέσα στην εφαρμογή.",
       "Στο «Εγγραφές ενημέρωσης» βλέπεις τα email που γράφτηκαν στο newsletter της αρχικής και μπορείς να τα εξάγεις σε CSV.",
       "Οι αλλαγές αποθηκεύονται στη βάση του Συλλόγου και εμφανίζονται αυτόματα στα αντίστοιχα δημόσια embeds του Carrd.",
       "Τα δημόσια embeds δεν έχουν πλέον κουμπί + ή κωδικό διαχείρισης. Η επεξεργασία γίνεται μόνο από εδώ.",
@@ -6839,10 +6593,7 @@ function OptionalField({
 function BookingDetails({
   booking,
   canManage,
-  registrationCount,
-  canViewRegistrationDetails,
   canShareUrl,
-  onViewRegistrations,
   onClose,
   onEdit,
   canApprove,
@@ -6853,16 +6604,13 @@ function BookingDetails({
 }: {
   booking: Booking;
   canManage: boolean;
-  registrationCount: number;
-  canViewRegistrationDetails: boolean;
   canShareUrl: boolean;
-  onViewRegistrations: () => void;
   onClose: () => void;
   onEdit: () => void;
   canApprove: boolean;
   onApproved: (booking: Booking) => void;
   onEmailStatus: (result: { ok: boolean; code: string }) => void;
-  onMoved: (fromDate: string, booking: Booking, registrationCount: number) => void;
+  onMoved: (fromDate: string, booking: Booking) => void;
   onDeleted: (id: string) => void;
 }) {
   const [deleting, setDeleting] = useState(false);
@@ -6889,8 +6637,7 @@ function BookingDetails({
       setError("Η νέα ημερομηνία είναι έξω από το διαθέσιμο ημερολόγιο.");
       return;
     }
-    const extra = registrationCount > 0 ? ` Οι ${registrationCount} συμμετοχές θα μεταφερθούν αυτόματα μαζί με τη δράση.` : "";
-    if (!window.confirm(`Μεταφορά της δράσης${label ? ` ${label}` : ""} στις ${formatDateGreek(targetDate)};${extra}`)) return;
+    if (!window.confirm(`Μεταφορά της δράσης${label ? ` ${label}` : ""} στις ${formatDateGreek(targetDate)};`)) return;
 
     setMoving(true);
     setError(null);
@@ -6911,7 +6658,7 @@ function BookingDetails({
         throw Object.assign(new Error(labels[payload.code] || "Δεν ήταν δυνατή η μεταφορά της δράσης."), { code: payload.code });
       }
       const moved = payload.booking as Booking;
-      onMoved(booking.booking_date, moved, Number(payload.registrationCount || 0));
+      onMoved(booking.booking_date, moved);
       void notifyAdmin("update", moved).then(onEmailStatus);
     } catch (caughtError) {
       setError((caughtError as Error).message || "Δεν ήταν δυνατή η μεταφορά της δράσης.");
@@ -7062,23 +6809,6 @@ function BookingDetails({
         <p className={`mt-4 rounded-md px-3 py-2 text-sm ${!approvalNotice.includes("Δεν στάλθηκε") ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-800"}`}>{approvalNotice}</p>
       )}
 
-      {booking.is_public && canViewRegistrationDetails && (
-        <button
-          type="button"
-          onClick={onViewRegistrations}
-          className="mt-5 flex w-full items-center justify-between rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-left text-sm font-semibold text-sky-950 hover:bg-sky-100"
-        >
-          <span>Προβολή στοιχείων συμμετεχόντων</span>
-          <span className="rounded-full bg-sky-700 px-2.5 py-1 text-xs text-white">{registrationCount}</span>
-        </button>
-      )}
-
-      {booking.is_public && !canViewRegistrationDetails && (
-        <div className="mt-5 flex w-full items-center justify-between rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-950">
-          <span>Συνολικές συμμετοχές</span>
-          <span className="rounded-full bg-emerald-700 px-2.5 py-1 text-xs text-white">{registrationCount}</span>
-        </div>
-      )}
 
       {isCompleted && (
         <p className="mt-5 rounded-lg bg-violet-50 px-3 py-2 text-xs leading-5 text-violet-900">
@@ -7115,8 +6845,7 @@ function BookingDetails({
               Μεταφορά σε αυτή την ημερομηνία
             </button>
           </div>
-          <p className="mt-2 text-[11px] leading-4 text-slate-500">Οι συμμετοχές και οι συνδεδεμένες δηλώσεις μεταφέρονται αυτόματα μαζί με τη δράση.</p>
-          {moving && <p className="mt-2 text-xs text-slate-500">Μεταφορά δράσης και συνδεδεμένων συμμετοχών…</p>}
+          {moving && <p className="mt-2 text-xs text-slate-500">Μεταφορά δράσης…</p>}
         </div>
       )}
 
@@ -7163,149 +6892,6 @@ function BookingDetails({
         >
           Κλείσιμο
         </button>
-      </div>
-    </Modal>
-  );
-}
-
-function RegistrationsModal({
-  booking,
-  onClose,
-  onCountChange,
-}: {
-  booking: Booking;
-  onClose: () => void;
-  onCountChange: (count: number) => void;
-}) {
-  const [registrations, setRegistrations] = useState<EventRegistration[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
-
-  async function loadRegistrations() {
-    setLoading(true);
-    setError(null);
-    try {
-      const code = getManageCode();
-      const response = await fetch(`/api/event-registrations?eventId=${encodeURIComponent(booking.booking_date)}&code=${encodeURIComponent(code)}`);
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw Object.assign(new Error("LOAD_FAILED"), { code: payload.code || `HTTP_${response.status}` });
-      const items = Array.isArray(payload.registrations) ? payload.registrations : [];
-      setRegistrations(items);
-      onCountChange(items.length);
-    } catch (caughtError) {
-      const code = (caughtError as { code?: string } | null)?.code;
-      setError(`Δεν ήταν δυνατή η φόρτωση των συμμετοχών${code ? ` (${code})` : ""}.`);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    void loadRegistrations();
-  }, [booking.booking_date]);
-
-  async function deleteRegistration(registration: EventRegistration) {
-    if (!window.confirm(`Να διαγραφεί η συμμετοχή του/της ${registration.full_name};`)) return;
-    setDeletingId(registration.id);
-    setError(null);
-    try {
-      const response = await fetch("/api/event-registrations", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: getManageCode(), registrationId: registration.id }),
-      });
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw Object.assign(new Error("DELETE_FAILED"), { code: payload.code || `HTTP_${response.status}` });
-      const next = registrations.filter((item) => item.id !== registration.id);
-      setRegistrations(next);
-      onCountChange(next.length);
-    } catch (caughtError) {
-      const code = (caughtError as { code?: string } | null)?.code;
-      setError(`Δεν ήταν δυνατή η διαγραφή${code ? ` (${code})` : ""}.`);
-    } finally {
-      setDeletingId(null);
-    }
-  }
-
-  function exportCsv() {
-    const quote = (value: string) => `"${value.replaceAll('"', '""')}"`;
-    const rows = [
-      ["Ονοματεπώνυμο", "Email", "Τηλέφωνο", "Επάγγελμα", "Σχέση με Σύλλογο", "Σχόλιο", "Ημερομηνία υποβολής"],
-      ...registrations.map((item) => [
-        item.full_name,
-        item.email,
-        item.phone,
-        item.profession,
-        item.membership_status,
-        item.comment,
-        item.created_at ? new Date(item.created_at).toLocaleString("el-GR") : "",
-      ]),
-    ];
-    const csv = `\uFEFF${rows.map((row) => row.map((cell) => quote(String(cell ?? ""))).join(",")).join("\n")}`;
-    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `symmetoxes-${booking.booking_date}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
-  }
-
-  return (
-    <Modal onClose={deletingId ? undefined : onClose} wide>
-      <div className="flex flex-col gap-3 border-b border-slate-200 pb-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-sky-700">Συγκεντρωτική λίστα</p>
-          <h3 className="mt-1 text-xl font-semibold">{booking.topic || "Δράση Συλλόγου"}</h3>
-          <p className="mt-1 text-sm capitalize text-slate-600">{formatDateGreek(booking.booking_date)} · {registrations.length} συμμετοχές</p>
-        </div>
-        <button type="button" onClick={exportCsv} disabled={loading || registrations.length === 0} className="rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-800 hover:bg-emerald-100 disabled:opacity-50">
-          Εξαγωγή CSV
-        </button>
-      </div>
-
-      {loading && <p className="py-8 text-center text-sm text-slate-500">Φόρτωση συμμετοχών…</p>}
-      {error && <p className="mt-4 rounded-lg bg-red-50 px-3 py-2.5 text-sm text-red-700">{error}</p>}
-
-      {!loading && registrations.length === 0 && !error && (
-        <p className="py-8 text-center text-sm text-slate-500">Δεν υπάρχουν ακόμη δηλώσεις συμμετοχής για αυτή τη δράση.</p>
-      )}
-
-      {!loading && registrations.length > 0 && (
-        <div className="mt-4 space-y-3">
-          {registrations.map((registration, index) => (
-            <article key={registration.id} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                <div className="min-w-0">
-                  <p className="text-xs font-semibold text-slate-400">#{index + 1}</p>
-                  <h4 className="mt-1 font-semibold text-slate-900">{registration.full_name}</h4>
-                  <div className="mt-2 grid gap-1 text-sm text-slate-600 sm:grid-cols-2 sm:gap-x-6">
-                    <p><strong>Email:</strong> <a href={`mailto:${registration.email}`} className="break-all text-sky-700 underline">{registration.email}</a></p>
-                    <p><strong>Τηλέφωνο:</strong> <a href={`tel:${registration.phone}`} className="text-sky-700 underline">{registration.phone}</a></p>
-                    <p><strong>Επάγγελμα:</strong> {registration.profession}</p>
-                    <p><strong>Σχέση με Σύλλογο:</strong> {registration.membership_status || "—"}</p>
-                    <p><strong>Υποβολή:</strong> {registration.created_at ? new Date(registration.created_at).toLocaleString("el-GR") : "—"}</p>
-                  </div>
-                  {registration.comment && <p className="mt-3 rounded-lg bg-white px-3 py-2 text-sm leading-6 text-slate-600"><strong>Σχόλιο:</strong> {registration.comment}</p>}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => void deleteRegistration(registration)}
-                  disabled={deletingId === registration.id}
-                  className="shrink-0 rounded-lg border border-red-200 bg-white px-3 py-2 text-xs font-semibold text-red-700 hover:bg-red-50 disabled:opacity-60"
-                >
-                  {deletingId === registration.id ? "Διαγραφή…" : "Διαγραφή"}
-                </button>
-              </div>
-            </article>
-          ))}
-        </div>
-      )}
-
-      <div className="mt-6 flex justify-end">
-        <button type="button" onClick={onClose} disabled={Boolean(deletingId)} className="rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60">Κλείσιμο</button>
       </div>
     </Modal>
   );

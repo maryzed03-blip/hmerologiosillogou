@@ -32,7 +32,6 @@ export default async function handler(request, response) {
     const target = await getDocument("bookings", targetDate);
     if (target) return response.status(409).json({ ok: false, code: "TARGET_DATE_OCCUPIED" });
 
-    const registrations = await queryCollection("eventRegistrations", "event_id", eventId);
     const declarations = await queryCollection("paymentDeclarations", "event_id", eventId).catch(() => []);
     const movedBooking = {
       ...current.data,
@@ -42,12 +41,6 @@ export default async function handler(request, response) {
 
     const operations = [
       { type: "create", collectionId: "bookings", documentId: targetDate, data: movedBooking },
-      ...registrations.map((item) => ({
-        type: "update",
-        collectionId: "eventRegistrations",
-        documentId: item.id,
-        data: { event_id: targetDate, event_date: targetDate },
-      })),
       ...declarations.map((item) => ({
         type: "update",
         collectionId: "paymentDeclarations",
@@ -64,7 +57,6 @@ export default async function handler(request, response) {
       role,
       from: eventId,
       to: targetDate,
-      registrationCount: registrations.length,
       booking: { ...movedBooking, id: targetDate },
     });
   } catch (error) {

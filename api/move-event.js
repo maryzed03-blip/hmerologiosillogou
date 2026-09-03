@@ -102,12 +102,6 @@ export default async function handler(request, response) {
       });
     }
 
-    const registrations =
-      await queryCollection(
-        "eventRegistrations",
-        "event_id",
-        eventId
-      );
 
     const declarations =
       await queryCollection(
@@ -129,16 +123,6 @@ export default async function handler(request, response) {
         documentId: targetDate,
         data: movedBooking
       },
-
-      ...registrations.map((item) => ({
-        type: "update",
-        collectionId: "eventRegistrations",
-        documentId: item.id,
-        data: {
-          event_id: targetDate,
-          event_date: targetDate
-        }
-      })),
 
       ...declarations.map((item) => ({
         type: "update",
@@ -164,8 +148,6 @@ export default async function handler(request, response) {
       role,
       from: eventId,
       to: targetDate,
-      registrationCount:
-        registrations.length,
 
       booking: {
         ...movedBooking,

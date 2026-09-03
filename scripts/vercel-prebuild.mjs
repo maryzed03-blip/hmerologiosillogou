@@ -9,10 +9,9 @@ const allowedApiFiles = new Set([
   "actions.js",
   "articles.js",
   "declare-payment.js",
-  "event-registrations.js",
+  "move-event.js",
   "payment-declarations.js",
   "public-events.js",
-  "register-event.js",
   "site-content.js",
 ]);
 
