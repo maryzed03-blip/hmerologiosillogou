@@ -77,7 +77,59 @@ type MonthItem = {
 
 const PLACEHOLDER = "Θα συμπληρωθεί αργότερα";
 const GOOGLE_EVENT_FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLSd1E_RXqlTxeZKNpZq1CNwFJDYKQpeez42yD74memDjNdCOCQ/viewform";
-const GOOGLE_EVENT_FORM_EMBED_URL = `${GOOGLE_EVENT_FORM_URL}?embedded=true`;
+
+/*
+ * GOOGLE FORM AUTO-PREFILL
+ * ------------------------
+ * Google Forms cannot create a new question from a public URL. Create ONCE a
+ * short-answer question in the Google Form named e.g. «Δράση / Σεμινάριο».
+ * The verified pre-filled URL is now included directly in the app. An optional
+ * VITE_GOOGLE_EVENT_FORM_PREFILL_URL can still override it later if the form changes.
+ * The app automatically finds the entry.<id> parameter and replaces the marker
+ * with the exact event title + date for every event.
+ */
+const GOOGLE_EVENT_FORM_PREFILL_MARKER = "__SEPSYG_EVENT__";
+const GOOGLE_EVENT_FORM_DEFAULT_PREFILL_URL = "https://docs.google.com/forms/d/e/1FAIpQLSd1E_RXqlTxeZKNpZq1CNwFJDYKQpeez42yD74memDjNdCOCQ/viewform?usp=pp_url&entry.336578131=__SEPSYG_EVENT__";
+const GOOGLE_EVENT_FORM_PREFILL_TEMPLATE_URL = String(
+  import.meta.env.VITE_GOOGLE_EVENT_FORM_PREFILL_URL || GOOGLE_EVENT_FORM_DEFAULT_PREFILL_URL,
+).trim();
+
+function googleEventFormUrl(booking: Pick<Booking, "topic" | "booking_date">, embedded = false) {
+  let url: URL;
+
+  try {
+    url = new URL(GOOGLE_EVENT_FORM_PREFILL_TEMPLATE_URL || GOOGLE_EVENT_FORM_URL);
+  } catch {
+    url = new URL(GOOGLE_EVENT_FORM_URL);
+  }
+
+  const eventValue = `${booking.topic?.trim() || "Δράση Συλλόγου"} — ${formatDateGreek(booking.booking_date)}`;
+  const markerEntry = Array.from(url.searchParams.entries()).find(
+    ([key, value]) => key.startsWith("entry.") && value === GOOGLE_EVENT_FORM_PREFILL_MARKER,
+  );
+
+  if (markerEntry) {
+    url.searchParams.set(markerEntry[0], eventValue);
+  }
+
+  if (embedded) url.searchParams.set("embedded", "true");
+  else url.searchParams.delete("embedded");
+
+  return url.toString();
+}
+
+function googleEventFormAutoPrefillReady() {
+  if (!GOOGLE_EVENT_FORM_PREFILL_TEMPLATE_URL) return false;
+  try {
+    const url = new URL(GOOGLE_EVENT_FORM_PREFILL_TEMPLATE_URL);
+    return Array.from(url.searchParams.entries()).some(
+      ([key, value]) => key.startsWith("entry.") && value === GOOGLE_EVENT_FORM_PREFILL_MARKER,
+    );
+  } catch {
+    return false;
+  }
+}
+
 const WEEKDAYS = ["Δευ", "Τρί", "Τετ", "Πέμ", "Παρ", "Σάβ", "Κυρ"];
 
 
@@ -3679,9 +3731,14 @@ function PublicBookingDetails({
                   <h3 className="mt-1 font-serif text-xl font-medium text-[#174B49]">{booking.topic || "Δράση Συλλόγου"}</h3>
                   <p className="mt-1 text-xs leading-5 text-[#627472]">{formatDateGreek(booking.booking_date)} · Η εγγραφή γίνεται μέσω της κοινής Google Form του Συλλόγου.</p>
                 </div>
+                {googleEventFormAutoPrefillReady() && (
+                  <div className="border-b border-emerald-100 bg-emerald-50 px-4 py-2 text-xs font-semibold text-emerald-800 sm:px-5">
+                    ✓ Η δράση συμπληρώνεται αυτόματα στη φόρμα: {booking.topic || "Δράση Συλλόγου"}
+                  </div>
+                )}
                 <iframe
                   title={`Δήλωση συμμετοχής — ${booking.topic || "Δράση Συλλόγου"}`}
-                  src={GOOGLE_EVENT_FORM_EMBED_URL}
+                  src={googleEventFormUrl(booking, true)}
                   className="block h-[980px] w-full border-0 bg-white sm:h-[900px]"
                   loading="lazy"
                 >
@@ -3689,7 +3746,7 @@ function PublicBookingDetails({
                 </iframe>
                 <div className="flex flex-col gap-2 border-t border-[#174B49]/10 bg-[#FFF9F3] px-4 py-3 text-xs text-[#627472] sm:flex-row sm:items-center sm:justify-between">
                   <span>Αν η φόρμα δεν εμφανιστεί σωστά, άνοιξέ την σε νέα καρτέλα.</span>
-                  <a href={GOOGLE_EVENT_FORM_URL} target="_blank" rel="noreferrer" className="font-extrabold text-[#008D8B] underline underline-offset-2">Άνοιγμα Google Form</a>
+                  <a href={googleEventFormUrl(booking)} target="_blank" rel="noreferrer" className="font-extrabold text-[#008D8B] underline underline-offset-2">Άνοιγμα Google Form</a>
                 </div>
               </div>
             )}
@@ -6627,6 +6684,105 @@ function BookingDetails({
     return value.toISOString().slice(0, 10);
   }
 
+  async function moveBookingWithFirebaseFallback(targetDate: string): Promise<Booking> {
+    const user = await ensureAnonymousUser();
+    const sourceRef = doc(db, "bookings", booking.booking_date);
+    const targetRef = doc(db, "bookings", targetDate);
+
+    await runTransaction(db, async (transaction) => {
+      const sourceSnapshot = await transaction.get(sourceRef);
+      const targetSnapshot = await transaction.get(targetRef);
+
+      if (!sourceSnapshot.exists()) {
+        throw Object.assign(new Error("Η δράση δεν βρέθηκε στη βάση."), { code: "EVENT_NOT_FOUND" });
+      }
+      if (targetSnapshot.exists()) {
+        throw Object.assign(new Error("Η ημερομηνία αυτή είναι ήδη δεσμευμένη."), { code: "TARGET_DATE_OCCUPIED" });
+      }
+
+      const sourceData = sourceSnapshot.data();
+      transaction.set(targetRef, {
+        ...sourceData,
+        booking_date: targetDate,
+        // The Firestore create rule requires the newly-created document to be
+        // owned by the currently authenticated anonymous user. owner_name is
+        // preserved, so the human creator/admin permissions remain unchanged.
+        owner_uid: user.uid,
+        updated_at: serverTimestamp(),
+      });
+      transaction.delete(sourceRef);
+    });
+
+    return {
+      ...booking,
+      id: targetDate,
+      booking_date: targetDate,
+      owner_uid: user.uid,
+    };
+  }
+
+  async function requestServerMove(targetDate: string): Promise<Booking> {
+    const requestBody = JSON.stringify({
+      code: getManageCode(),
+      actorName: getPortalName(),
+      eventId: booking.booking_date,
+      targetDate,
+    });
+
+    const endpoints = ["/api/move-event", "/api/actions?route=move-event"];
+    let lastFailure: { status: number; code?: string; message?: string } | null = null;
+
+    for (const endpoint of endpoints) {
+      try {
+        const response = await fetch(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: requestBody,
+        });
+        const payload = await response.json().catch(() => ({}));
+
+        if (response.ok && payload?.booking) return payload.booking as Booking;
+
+        const code = typeof payload?.code === "string" ? payload.code : `HTTP_${response.status}`;
+        const message = typeof payload?.message === "string" ? payload.message : undefined;
+        lastFailure = { status: response.status, code, message };
+
+        // These are real validation/permission failures; trying another route or
+        // a client fallback must not bypass them.
+        if (
+          response.status === 400 ||
+          response.status === 401 ||
+          response.status === 403 ||
+          response.status === 409
+        ) {
+          throw Object.assign(new Error(message || code), { code, noFallback: true });
+        }
+      } catch (error) {
+        if ((error as { noFallback?: boolean } | null)?.noFallback) throw error;
+        lastFailure = {
+          status: 0,
+          code: (error as { code?: string } | null)?.code || lastFailure?.code || "NETWORK_ERROR",
+          message: (error as Error | null)?.message || lastFailure?.message,
+        };
+      }
+    }
+
+    // If Vercel routing/admin credentials fail (404/405/500/network), move the
+    // booking atomically through the already-authenticated Firebase client.
+    try {
+      return await moveBookingWithFirebaseFallback(targetDate);
+    } catch (fallbackError) {
+      const fallbackCode = (fallbackError as { code?: string } | null)?.code;
+      const error = new Error(
+        (fallbackError as Error | null)?.message ||
+        lastFailure?.message ||
+        "Δεν ήταν δυνατή η μεταφορά της δράσης.",
+      );
+      Object.assign(error, { code: fallbackCode || lastFailure?.code || "MOVE_EVENT_FAILED" });
+      throw error;
+    }
+  }
+
   async function handleMoveTo(targetDate: string, label?: string) {
     if (!canManage) {
       setError("Μόνο ο δημιουργός της δράσης ή η Διοίκηση μπορεί να τη μετακινήσει.");
@@ -6642,26 +6798,19 @@ function BookingDetails({
     setMoving(true);
     setError(null);
     try {
-      const response = await fetch("/api/move-event", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: getManageCode(), actorName: getPortalName(), eventId: booking.booking_date, targetDate }),
-      });
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        const labels: Record<string, string> = {
-          TARGET_DATE_OCCUPIED: "Η ημερομηνία αυτή είναι ήδη δεσμευμένη.",
-          DATE_OUT_OF_RANGE: "Η νέα ημερομηνία είναι έξω από το διαθέσιμο ημερολόγιο.",
-          EVENT_NOT_FOUND: "Η δράση δεν βρέθηκε.",
-          EVENT_OWNER_REQUIRED: "Μόνο ο δημιουργός της δράσης ή η Διοίκηση μπορεί να τη μετακινήσει.",
-        };
-        throw Object.assign(new Error(labels[payload.code] || "Δεν ήταν δυνατή η μεταφορά της δράσης."), { code: payload.code });
-      }
-      const moved = payload.booking as Booking;
+      const moved = await requestServerMove(targetDate);
       onMoved(booking.booking_date, moved);
       void notifyAdmin("update", moved).then(onEmailStatus);
     } catch (caughtError) {
-      setError((caughtError as Error).message || "Δεν ήταν δυνατή η μεταφορά της δράσης.");
+      const code = (caughtError as { code?: string } | null)?.code;
+      const labels: Record<string, string> = {
+        TARGET_DATE_OCCUPIED: "Η ημερομηνία αυτή είναι ήδη δεσμευμένη.",
+        DATE_OUT_OF_RANGE: "Η νέα ημερομηνία είναι έξω από το διαθέσιμο ημερολόγιο.",
+        EVENT_NOT_FOUND: "Η δράση δεν βρέθηκε.",
+        EVENT_OWNER_REQUIRED: "Μόνο ο δημιουργός της δράσης ή η Διοίκηση μπορεί να τη μετακινήσει.",
+        INVALID_CODE: "Ο κωδικός διαχείρισης δεν αναγνωρίστηκε.",
+      };
+      setError(labels[code || ""] || (caughtError as Error).message || `Δεν ήταν δυνατή η μεταφορά της δράσης${code ? ` (${code})` : ""}.`);
     } finally {
       setMoving(false);
     }
