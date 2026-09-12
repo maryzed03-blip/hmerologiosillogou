@@ -1001,6 +1001,8 @@ function articlePublicUrl(articleId: string) {
   return `${window.location.origin}/article/${encodeURIComponent(articleId)}`;
 }
 
+const ASSOCIATION_PUBLIC_SITE_URL = "https://euassociationsepsyg.carrd.co/#";
+
 function eventPublicUrl(eventDate: string) {
   if (typeof window === "undefined" || !eventDate) return "";
   return `${window.location.origin}/events?event=${encodeURIComponent(eventDate)}`;
@@ -3053,7 +3055,20 @@ function PublicEventsApp() {
           booking={viewBooking}
           therapistDirectory={therapistDirectory}
           inlineMode
-          onClose={() => setViewBooking(null)}
+          onClose={() => {
+            if (typeof window !== "undefined") {
+              const openedFromSharedEventUrl =
+                window.parent === window &&
+                new URLSearchParams(window.location.search).has("event");
+
+              if (openedFromSharedEventUrl) {
+                window.location.href = ASSOCIATION_PUBLIC_SITE_URL;
+                return;
+              }
+            }
+
+            setViewBooking(null);
+          }}
         />
       </div>
     );
