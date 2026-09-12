@@ -3707,7 +3707,7 @@ function PublicBookingDetails({
               <div className="mt-5 flex flex-col gap-3 rounded-2xl border border-[#008D8B]/20 bg-[#F0FAF8] p-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <strong className="block font-serif text-xl font-medium text-[#174B49]">Θέλεις να συμμετέχεις;</strong>
-                  <p className="mt-1 text-xs leading-5 text-[#627472]">Η κοινή Google Form ανοίγει εδώ μέσα και χρησιμοποιείται για όλες τις δράσεις.</p>
+                  <p className="mt-1 text-xs leading-5 text-[#627472]">Συμπλήρωσε τη φόρμα συμμετοχής για τη συγκεκριμένη δράση.</p>
                 </div>
                 <button type="button" onClick={() => setShowForm(true)} className="shrink-0 rounded-full bg-[#008D8B] px-5 py-3 text-sm font-extrabold text-white hover:bg-[#006B68]">
                   Δήλωσε συμμετοχή
@@ -3744,13 +3744,8 @@ function PublicBookingDetails({
                 <div className="border-b border-[#174B49]/10 bg-[#F0FAF8] px-4 py-4 sm:px-5">
                   <p className="text-[10px] font-extrabold uppercase tracking-[.14em] text-[#008D8B]">Δήλωση συμμετοχής</p>
                   <h3 className="mt-1 font-serif text-xl font-medium text-[#174B49]">{booking.topic || "Δράση Συλλόγου"}</h3>
-                  <p className="mt-1 text-xs leading-5 text-[#627472]">{formatDateGreek(booking.booking_date)} · Η εγγραφή γίνεται μέσω της κοινής Google Form του Συλλόγου.</p>
+                  <p className="mt-1 text-xs leading-5 text-[#627472]">{formatDateGreek(booking.booking_date)}</p>
                 </div>
-                {googleEventFormAutoPrefillReady() && (
-                  <div className="border-b border-emerald-100 bg-emerald-50 px-4 py-2 text-xs font-semibold text-emerald-800 sm:px-5">
-                    ✓ Η δράση συμπληρώνεται αυτόματα στη φόρμα: {booking.topic || "Δράση Συλλόγου"}
-                  </div>
-                )}
                 <iframe
                   title={`Δήλωση συμμετοχής — ${booking.topic || "Δράση Συλλόγου"}`}
                   src={googleEventFormUrl(booking, true)}
@@ -3761,7 +3756,7 @@ function PublicBookingDetails({
                 </iframe>
                 <div className="flex flex-col gap-2 border-t border-[#174B49]/10 bg-[#FFF9F3] px-4 py-3 text-xs text-[#627472] sm:flex-row sm:items-center sm:justify-between">
                   <span>Αν η φόρμα δεν εμφανιστεί σωστά, άνοιξέ την σε νέα καρτέλα.</span>
-                  <a href={googleEventFormUrl(booking)} target="_blank" rel="noreferrer" className="font-extrabold text-[#008D8B] underline underline-offset-2">Άνοιγμα Google Form</a>
+                  <a href={googleEventFormUrl(booking)} target="_blank" rel="noreferrer" className="font-extrabold text-[#008D8B] underline underline-offset-2">Άνοιγμα φόρμας</a>
                 </div>
               </div>
             )}
