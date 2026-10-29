@@ -48,6 +48,8 @@ type Booking = {
   program_details: string | null;
   activity_category: ActivityCategory;
   general_price: string | null;
+  registration_form_mode?: "shared" | "custom";
+  registration_form_url?: string | null;
   offers_member_discount: boolean;
   member_price: string | null;
   requested_public: boolean;
@@ -94,7 +96,24 @@ const GOOGLE_EVENT_FORM_PREFILL_TEMPLATE_URL = String(
   import.meta.env.VITE_GOOGLE_EVENT_FORM_PREFILL_URL || GOOGLE_EVENT_FORM_DEFAULT_PREFILL_URL,
 ).trim();
 
-function googleEventFormUrl(booking: Pick<Booking, "topic" | "booking_date">, embedded = false) {
+function isValidRegistrationUrl(raw: string): boolean {
+  try {
+    const url = new URL(raw.trim());
+    return (url.protocol === "https:" || url.protocol === "http:") && Boolean(url.hostname);
+  } catch { return false; }
+}
+
+function isCustomRegistration(booking: Booking): boolean {
+  return booking.registration_form_mode === "custom" &&
+    Boolean(booking.registration_form_url && isValidRegistrationUrl(booking.registration_form_url));
+}
+
+function googleEventFormUrl(booking: Pick<Booking, "topic" | "booking_date"> & Partial<Pick<Booking, "registration_form_mode" | "registration_form_url">>, embedded = false) {
+  if (booking.registration_form_mode === "custom" && booking.registration_form_url && isValidRegistrationUrl(booking.registration_form_url)) {
+    const custom = new URL(booking.registration_form_url.trim());
+    if (embedded && (custom.hostname === "docs.google.com" || custom.hostname === "forms.google.com")) custom.searchParams.set("embedded", "true");
+    return custom.toString();
+  }
   let url: URL;
 
   try {
@@ -681,6 +700,8 @@ function bookingFromSnapshot(snapshot: QueryDocumentSnapshot<DocumentData>): Boo
     activity_category:
       data.activity_category === "association_free" ? "association_free" : (data.activity_category === "therapist_action" || data.activity_category === "therapist_independent") ? "therapist_action" : "association",
     general_price: typeof data.general_price === "string" ? data.general_price : null,
+    registration_form_mode: data.registration_form_mode === "custom" ? "custom" : "shared",
+    registration_form_url: typeof data.registration_form_url === "string" ? data.registration_form_url : null,
     offers_member_discount: data.offers_member_discount === true,
     member_price: typeof data.member_price === "string" ? data.member_price : null,
     requested_public: data.requested_public === true || data.is_public === true,
@@ -3746,6 +3767,12 @@ function PublicBookingDetails({
                   <h3 className="mt-1 font-serif text-xl font-medium text-[#174B49]">{booking.topic || "Δράση Συλλόγου"}</h3>
                   <p className="mt-1 text-xs leading-5 text-[#627472]">{formatDateGreek(booking.booking_date)}</p>
                 </div>
+                {isCustomRegistration(booking) && !/^(docs\.google\.com|forms\.google\.com)$/i.test(new URL(googleEventFormUrl(booking)).hostname) ? (
+                  <div className="p-6 text-center">
+                    <p className="mb-4 text-sm text-[#425754]">Η δήλωση συμμετοχής γίνεται στην ξεχωριστή φόρμα του διοργανωτή.</p>
+                    <a href={googleEventFormUrl(booking)} target="_blank" rel="noopener noreferrer" className="inline-block rounded-full bg-[#008D8B] px-5 py-3 text-sm font-extrabold text-white">Άνοιγμα φόρμας συμμετοχής</a>
+                  </div>
+                ) : (
                 <iframe
                   title={`Δήλωση συμμετοχής — ${booking.topic || "Δράση Συλλόγου"}`}
                   src={googleEventFormUrl(booking, true)}
@@ -3754,6 +3781,7 @@ function PublicBookingDetails({
                 >
                   Φόρτωση φόρμας…
                 </iframe>
+                )}
                 <div className="flex flex-col gap-2 border-t border-[#174B49]/10 bg-[#FFF9F3] px-4 py-3 text-xs text-[#627472] sm:flex-row sm:items-center sm:justify-between">
                   <span>Αν η φόρμα δεν εμφανιστεί σωστά, άνοιξέ την σε νέα καρτέλα.</span>
                   <a href={googleEventFormUrl(booking)} target="_blank" rel="noreferrer" className="font-extrabold text-[#008D8B] underline underline-offset-2">Άνοιγμα φόρμας</a>
@@ -5751,6 +5779,8 @@ function BookingForm({
   const [programDetails, setProgramDetails] = useState(existing?.program_details ?? "");
   const [activityCategory, setActivityCategory] = useState<ActivityCategory>(existing?.activity_category ?? "association");
   const [generalPrice, setGeneralPrice] = useState(existing?.general_price ?? "");
+  const [registrationFormMode, setRegistrationFormMode] = useState<"shared" | "custom">(existing?.registration_form_mode === "custom" ? "custom" : "shared");
+  const [registrationFormUrl, setRegistrationFormUrl] = useState(existing?.registration_form_url ?? "");
   const [offersMemberDiscount, setOffersMemberDiscount] = useState(existing?.offers_member_discount ?? false);
   const [memberPrice, setMemberPrice] = useState(existing?.member_price ?? "");
   const [coordinatorPhotoFile, setCoordinatorPhotoFile] = useState<File | null>(null);
@@ -5812,6 +5842,8 @@ function BookingForm({
     programDetails,
     activityCategory,
     generalPrice,
+    registrationFormMode,
+    registrationFormUrl,
     offersMemberDiscount,
     memberPrice,
     laterTime,
@@ -5852,6 +5884,8 @@ function BookingForm({
         setActivityCategory(draft.activityCategory);
       }
       if (typeof draft.generalPrice === "string") setGeneralPrice(draft.generalPrice);
+      if (draft.registrationFormMode === "shared" || draft.registrationFormMode === "custom") setRegistrationFormMode(draft.registrationFormMode);
+      if (typeof draft.registrationFormUrl === "string") setRegistrationFormUrl(draft.registrationFormUrl);
       if (typeof draft.offersMemberDiscount === "boolean") setOffersMemberDiscount(draft.offersMemberDiscount);
       if (typeof draft.memberPrice === "string") setMemberPrice(draft.memberPrice);
       if (typeof draft.laterTime === "boolean") setLaterTime(draft.laterTime);
@@ -5918,6 +5952,8 @@ function BookingForm({
     program_details: sanitizeRichHtml(programDetails) || null,
     activity_category: activityCategory,
     general_price: generalPrice.trim() || null,
+    registration_form_mode: registrationFormMode,
+    registration_form_url: registrationFormMode === "custom" ? registrationFormUrl.trim() : null,
     offers_member_discount: activityCategory === "association_free" ? false : offersMemberDiscount,
     member_price: activityCategory === "association_free" || !offersMemberDiscount ? null : memberPrice.trim() || null,
     requested_public: isPublic,
@@ -5948,6 +5984,11 @@ function BookingForm({
 
     if (hasFourthCoordinator && fourthCoordinator.trim().length < 2) {
       setError("Συμπληρώστε το ονοματεπώνυμο του 4ου συντονιστή.");
+      return;
+    }
+
+    if (registrationFormMode === "custom" && !isValidRegistrationUrl(registrationFormUrl)) {
+      setError("Συμπλήρωσε έναν έγκυρο σύνδεσμο φόρμας που ξεκινά με https:// ή http://.");
       return;
     }
 
@@ -6021,6 +6062,8 @@ function BookingForm({
         program_details: sanitizeRichHtml(programDetails) || null,
         activity_category: activityCategory,
         general_price: generalPrice.trim() || null,
+        registration_form_mode: registrationFormMode,
+        registration_form_url: registrationFormMode === "custom" ? registrationFormUrl.trim() : null,
         offers_member_discount: activityCategory === "association_free" ? false : (isPublic && offersMemberDiscount),
         member_price: activityCategory === "association_free" || !isPublic || !offersMemberDiscount ? null : memberPrice.trim() || null,
         requested_public: isPublic,
@@ -6350,6 +6393,29 @@ function BookingForm({
             <p className="mt-3 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2.5 text-xs leading-5 text-sky-900">
               Η επιλογή αυτή αφορά δράση θεραπευτή του Συλλόγου και χρησιμοποιείται μόνο όταν το περιεχόμενο της δράσης σχετίζεται με την εκπαίδευση Σ.Ε.ΨΥ.G.
             </p>
+          )}
+        </div>
+
+        <div className="rounded-xl border border-teal-200 bg-teal-50/40 p-4">
+          <p className="mb-3 text-sm font-semibold text-teal-950">Φόρμα δήλωσης συμμετοχής</p>
+          <div className="space-y-3">
+            <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-800">
+              <input type="radio" name="registration-form-mode" checked={registrationFormMode === "shared"} onChange={() => setRegistrationFormMode("shared")} className="accent-teal-700" />
+              Χρήση κοινής φόρμας Συλλόγου
+            </label>
+            <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-800">
+              <input type="radio" name="registration-form-mode" checked={registrationFormMode === "custom"} onChange={() => setRegistrationFormMode("custom")} className="accent-teal-700" />
+              Προσθήκη δικής μου φόρμας (URL)
+            </label>
+          </div>
+          {registrationFormMode === "custom" ? (
+            <div className="mt-3">
+              <label htmlFor="registration-form-url" className="mb-1 block text-xs font-semibold text-teal-950">Σύνδεσμος φόρμας *</label>
+              <input id="registration-form-url" type="url" required value={registrationFormUrl} onChange={(event) => setRegistrationFormUrl(event.target.value)} placeholder="https://forms.gle/..." className="w-full rounded-lg border border-teal-200 bg-white px-3 py-2.5 text-sm focus:border-teal-500 focus:outline-none" />
+              <p className="mt-2 text-xs leading-5 text-slate-600">Η φόρμα αυτή θα χρησιμοποιείται μόνο στη συγκεκριμένη δράση. Αν ο πάροχος δεν επιτρέπει ενσωμάτωση, θα ανοίγει σε νέα καρτέλα.</p>
+            </div>
+          ) : (
+            <p className="mt-3 text-xs leading-5 text-slate-600">Η υπάρχουσα κοινή φόρμα συμπληρώνει αυτόματα τον τίτλο και την ημερομηνία της δράσης.</p>
           )}
         </div>
 
